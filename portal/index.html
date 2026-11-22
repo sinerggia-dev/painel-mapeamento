@@ -422,8 +422,8 @@ async function carregarAdmin(){
       <td><div class="acoes">
         <button class="btn btn-sec mini" data-acao="papel" type="button" ${eu?'disabled title="Você não pode tirar seu próprio acesso de administrador"':''}>${u.papel==='admin'?'Tornar visualizador':'Tornar admin'}</button>
         <button class="btn btn-sec mini" data-acao="ativo" type="button" ${eu?'disabled':''}>${u.ativo?'Bloquear':'Reativar'}</button>
-        <button class="btn btn-sec mini" data-acao="senha" type="button">Enviar link de senha</button>
-        <button class="btn btn-zap mini" data-acao="zap" type="button" title="Enviar o link do portal e o e-mail de acesso pelo WhatsApp">📲 WhatsApp</button>
+        <button class="btn btn-sec mini" data-acao="senha" type="button" title="Gera uma senha nova (com confirmação) para enviar à pessoa">🔑 Nova senha</button>
+        <button class="btn btn-zap mini" data-acao="zap" type="button" title="Gera uma senha nova (com confirmação) e envia o acesso pelo WhatsApp">📲 WhatsApp</button>
       </div></td></tr>`; }).join('')}
   </tbody></table>
   <p class="sub" style="margin-top:10px">Marque ou desmarque as empresas: a mudança vale na hora.</p>`;
@@ -457,15 +457,10 @@ $('aba-usuarios').addEventListener('click', async ev => {
     const { error } = await sb.from('perfis').update({ ativo: !u.ativo }).eq('id', id);
     if (error) return toast('Erro: ' + traduzErro(error));
   }
-  if (b.dataset.acao === 'zap') {
+  if (b.dataset.acao === 'zap' || b.dataset.acao === 'senha') {
     const { data: acs } = await sb.from('acessos').select('empresa').eq('usuario', id);
     const nomesEmp = u.papel === 'admin' ? ['todas (administrador)'] : TODAS_EMPRESAS.filter(e => (acs||[]).some(a => a.empresa === e.slug)).map(e => e.nome);
-    return abrirEnvioZap('Enviar acesso pelo WhatsApp', u.nome, u.email, '', nomesEmp);
-  }
-  if (b.dataset.acao === 'senha') {
-    const { error } = await sb.auth.resetPasswordForEmail(u.email, { redirectTo: URL_PORTAL });
-    if (error) return toast('Erro: ' + traduzErro(error));
-    return toast(`Link para criar nova senha enviado para ${u.email}.`);
+    return abrirNovaSenha(u, nomesEmp, b.dataset.acao === 'zap');
   }
   carregarAdmin();
 });
@@ -483,7 +478,7 @@ function _zapMensagem(nome, email, senha, empresas){
     '',
     `🔗 Acesse: ${URL_PORTAL}`,
     `📧 E-mail: ${email}`,
-    senha ? `🔑 Senha inicial: ${senha}` : '🔑 Senha: a que você já recebeu. Se não lembrar, toque em *Esqueci minha senha* na tela de entrada.',
+    senha ? `🔑 Senha: ${senha}` : '🔑 Senha: a que você já recebeu. Se não lembrar, toque em *Esqueci minha senha* na tela de entrada.',
   ];
   if (empresas && empresas.length) linhas.push(`🏢 Painéis: ${empresas.join(', ')}`);
   if (senha) linhas.push('', 'Depois de entrar, troque a senha: toque no seu nome (canto superior direito) → *Trocar minha senha*.');
@@ -525,6 +520,34 @@ function gerarSenha(){
   let senha;
   do { senha = bloco() + '-' + bloco(); } while (!/[0-9]/.test(senha) || !/[a-z]/.test(senha));   // sempre letra e numero
   return senha;
+}
+// gera senha nova para um usuario ja cadastrado: so depois de confirmar
+function abrirNovaSenha(u, nomesEmp, viaZap){
+  const eu = u.id === PERFIL.id;
+  abrirModal(`<h2>${viaZap ? 'Enviar acesso pelo WhatsApp' : 'Gerar nova senha'}</h2>
+    <p class="sub">Uma senha nova será criada para <b style="color:var(--white)">${esc(u.nome)}</b> (${esc(u.email)}).
+      <b style="color:var(--orange)">A senha atual deixa de funcionar</b> assim que você confirmar.${eu ? ' <b>Atenção: este é o seu próprio usuário.</b>' : ''}</p>
+    <label>Nova senha</label>
+    <div class="senha-gerar"><input type="text" id="ns-senha" minlength="8" required autocomplete="off" spellcheck="false" value="${gerarSenha()}">
+      <button class="btn btn-sec mini" type="button" id="ns-gerar" title="Gerar outra senha">🎲 Gerar</button></div>
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn btn-sec" type="button" data-fechar>Cancelar</button>
+      <button class="btn btn-pri" style="margin:0" type="button" id="ns-confirmar">Confirmar nova senha</button>
+    </div>
+    <div id="ns-msg"></div>`);
+  $('ns-gerar').addEventListener('click', () => { $('ns-senha').value = gerarSenha(); });
+  $('ns-confirmar').addEventListener('click', async ev => {
+    const senha = $('ns-senha').value.trim();
+    if (senha.length < 8) return msg('ns-msg', 'A senha precisa ter pelo menos 8 caracteres.');
+    ev.target.disabled = true; ev.target.textContent = 'Gravando…';
+    const { error } = await sb.rpc('admin_definir_senha', { p_usuario: u.id, p_senha: senha });
+    if (error) {
+      ev.target.disabled = false; ev.target.textContent = 'Confirmar nova senha';
+      const falta = /admin_definir_senha|function|schema cache/i.test(error.message || '');
+      return msg('ns-msg', falta ? 'Falta criar a função de troca de senha no banco (comando SQL). Fale com o suporte.' : traduzErro(error));
+    }
+    abrirEnvioZap(`Nova senha de ${u.nome} ✔`, u.nome, u.email, senha, nomesEmp);
+  });
 }
 // novo usuario
 $('btn-novo').addEventListener('click', () => {
