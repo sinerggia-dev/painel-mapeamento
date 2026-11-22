@@ -757,7 +757,7 @@ HTML = """<!DOCTYPE html>
   .nav-btn{background:none;border:none;cursor:pointer;padding:14px 22px;font-family:'Inter',sans-serif;font-size:16px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .18s}
   .nav-btn:hover{color:var(--text)}
   .nav-btn.active{color:var(--white);border-bottom-color:var(--al)}
-  main{padding:32px 40px;max-width:1400px;margin:0 auto}
+  main{padding:32px 40px;max-width:none;margin:0}   /* ocupa a tela toda (antes parava em 1400px) */
   .tab-panel{display:none}
   .tab-panel.active{display:block}
   .section-title{font-size:24px;font-weight:700;color:var(--white);margin-bottom:6px}
