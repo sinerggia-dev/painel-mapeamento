@@ -102,6 +102,10 @@
   .prazo-ed select:disabled{opacity:.5}
   .btn-liga{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5);color:#34d399}
   .prazo-ed input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;color-scheme:dark}
+  .btn-zap{background:#25d366;border:1px solid #25d366;color:#06301a;font-weight:700}
+  .btn-zap:hover{filter:brightness(1.07)}
+  .zap-texto{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 12px;
+    font-family:inherit;font-size:14px;line-height:1.45;resize:vertical}
   .chip.marcado{border-color:var(--acc);background:rgba(124,58,237,.12);color:var(--white)}
   .acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
   .mini{padding:6px 10px;font-size:12px}
@@ -412,6 +416,7 @@ async function carregarAdmin(){
         <button class="btn btn-sec mini" data-acao="papel" type="button" ${eu?'disabled title="Você não pode tirar seu próprio acesso de administrador"':''}>${u.papel==='admin'?'Tornar visualizador':'Tornar admin'}</button>
         <button class="btn btn-sec mini" data-acao="ativo" type="button" ${eu?'disabled':''}>${u.ativo?'Bloquear':'Reativar'}</button>
         <button class="btn btn-sec mini" data-acao="senha" type="button">Enviar link de senha</button>
+        <button class="btn btn-zap mini" data-acao="zap" type="button" title="Enviar o link do portal e o e-mail de acesso pelo WhatsApp">📲 WhatsApp</button>
       </div></td></tr>`; }).join('')}
   </tbody></table>
   <p class="sub" style="margin-top:10px">Marque ou desmarque as empresas: a mudança vale na hora.</p>`;
@@ -445,6 +450,11 @@ $('aba-usuarios').addEventListener('click', async ev => {
     const { error } = await sb.from('perfis').update({ ativo: !u.ativo }).eq('id', id);
     if (error) return toast('Erro: ' + traduzErro(error));
   }
+  if (b.dataset.acao === 'zap') {
+    const { data: acs } = await sb.from('acessos').select('empresa').eq('usuario', id);
+    const nomesEmp = u.papel === 'admin' ? ['todas (administrador)'] : TODAS_EMPRESAS.filter(e => (acs||[]).some(a => a.empresa === e.slug)).map(e => e.nome);
+    return abrirEnvioZap('Enviar acesso pelo WhatsApp', u.nome, u.email, '', nomesEmp);
+  }
   if (b.dataset.acao === 'senha') {
     const { error } = await sb.auth.resetPasswordForEmail(u.email, { redirectTo: URL_PORTAL });
     if (error) return toast('Erro: ' + traduzErro(error));
@@ -452,6 +462,49 @@ $('aba-usuarios').addEventListener('click', async ev => {
   }
   carregarAdmin();
 });
+// ── enviar o acesso pelo WhatsApp ──
+function _zapNumero(t){
+  let d = String(t||'').replace(/\D/g,'');
+  if (d.length === 10 || d.length === 11) d = '55' + d;      // DDD + numero -> Brasil
+  return d;
+}
+function _zapMensagem(nome, email, senha, empresas){
+  const primeiro = (nome||'').trim().split(' ')[0] || '';
+  const linhas = [
+    `Olá${primeiro ? ', ' + primeiro : ''}! 👋`,
+    'Seu acesso ao *Painel de Mapeamento* da Sinergia está liberado.',
+    '',
+    `🔗 Acesse: ${URL_PORTAL}`,
+    `📧 E-mail: ${email}`,
+    senha ? `🔑 Senha inicial: ${senha}` : '🔑 Senha: a que você já recebeu. Se não lembrar, toque em *Esqueci minha senha* na tela de entrada.',
+  ];
+  if (empresas && empresas.length) linhas.push(`🏢 Painéis: ${empresas.join(', ')}`);
+  if (senha) linhas.push('', 'Depois de entrar, troque a senha: toque no seu nome (canto superior direito) → *Trocar minha senha*.');
+  return linhas.join('\n');
+}
+function abrirEnvioZap(titulo, nome, email, senha, empresas){
+  const texto = _zapMensagem(nome, email, senha, empresas);
+  abrirModal(`<h2>${esc(titulo)}</h2><p class="sub">Confira a mensagem e envie para ${esc(nome)}.</p>
+    <label>WhatsApp da pessoa (com DDD) — opcional</label>
+    <input type="text" id="zap-num" inputmode="tel" placeholder="Ex.: 81 99999-9999 · em branco = escolher o contato no WhatsApp" autocomplete="off">
+    <label>Mensagem</label>
+    <textarea id="zap-texto" rows="10" class="zap-texto">${esc(texto)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-sec" type="button" data-fechar>Fechar</button>
+      <button class="btn btn-sec" type="button" id="zap-copiar">📋 Copiar mensagem</button>
+      <button class="btn btn-zap" type="button" id="zap-enviar">📲 Enviar pelo WhatsApp</button>
+    </div>`);
+  $('zap-enviar').addEventListener('click', () => {
+    const n = _zapNumero($('zap-num').value);
+    const url = `https://wa.me/${n}?text=${encodeURIComponent($('zap-texto').value)}`;
+    window.open(url, '_blank', 'noopener');
+  });
+  $('zap-copiar').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('zap-texto').value); toast('Mensagem copiada.'); }
+    catch(e) { $('zap-texto').select(); document.execCommand('copy'); toast('Mensagem copiada.'); }
+  });
+}
+
 // novo usuario
 $('btn-novo').addEventListener('click', () => {
   abrirModal(`<h2>Novo usuário</h2><p class="sub">A pessoa entra com este e-mail e a senha inicial. Depois pode trocar a senha no menu dela.</p>
@@ -481,7 +534,10 @@ $('btn-novo').addEventListener('click', () => {
       let r = await sb.from('perfis').insert({ id: uid, nome, email, papel });
       if (r.error) throw r.error;
       if (empresas.length) { r = await sb.from('acessos').insert(empresas.map(e => ({ usuario: uid, empresa: e }))); if (r.error) throw r.error; }
-      fecharModal(); toast(`${nome} cadastrado. Envie a ele o link do portal, o e-mail e a senha inicial.`, 6000); carregarAdmin();
+      const senhaIni = $('nv-senha').value;
+      const nomesEmp = papel === 'admin' ? ['todas (administrador)'] : TODAS_EMPRESAS.filter(e => empresas.includes(e.slug)).map(e => e.nome);
+      carregarAdmin();
+      abrirEnvioZap(`${nome} cadastrado ✔`, nome, email, senhaIni, nomesEmp);
     } catch (e) {
       msg('nv-msg', traduzErro(e)); btn.disabled = false; btn.textContent = 'Cadastrar';
     }
