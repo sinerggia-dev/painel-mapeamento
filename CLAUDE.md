@@ -1,0 +1,88 @@
+# Painel de Mapeamento — Sinergia
+
+Portal com login que mostra, para cada cliente da Sinergia, o andamento do **mapeamento de
+atividades** feito no sistema **mapeia** (https://mapeia.sinerggia.com.br). Hoje há 3 painéis
+(um por grupo): **Millena**, **Novatec** (8 unidades) e **Metropolitana**.
+
+- Portal: https://sinerggia-dev.github.io/painel-mapeamento/
+- Dono: Natanael Silva (Sinerggia). Fale sempre em **português**, de forma simples e prática.
+  Ele não é programador: quando precisar que ele faça algo em outro site (GitHub, Supabase,
+  cron-job.org, mapeia), dê **um passo de cada vez**, com o link exato e o nome do botão
+  como aparece na tela. Ele costuma responder com prints.
+
+## Como funciona (visão geral)
+
+```
+cron-job.org (a cada 10 min) ──► GitHub Actions "Atualizar painel"
+                                   1. pergunta ao Supabase quais grupos estão na hora
+                                   2. API do mapeia (1 consulta para TODAS as empresas)
+                                   3. gera 1 HTML por grupo (painel/gerar_dashboard.py)
+                                   4. grava em Supabase Storage (bucket PRIVADO "paineis/<slug>/index.html")
+                                   5. em push: publica o portal (portal/index.html) no GitHub Pages
+
+cron-job.org (1x por dia, 00:06) ──► GitHub Actions "Atualizar lista de usuarios"
+                                   Playwright entra no mapeia, exporta os cadastrados de cada empresa
+                                   e grava em Supabase Storage "paineis/_privado/usuarios.json"
+
+Portal (GitHub Pages, público) ──► login Supabase Auth ──► baixa o HTML do grupo do Storage
+                                   (regras RLS: só quem tem acesso à empresa) e mostra num iframe
+```
+
+**Nenhum dado de funcionário fica no repositório** (ele é público). Dados e painéis ficam só
+no Supabase. Não commitar `dados/`, xlsx, html gerados, nem nada com nomes de pessoas.
+
+## Arquivos
+
+| Arquivo | Para que serve |
+|---|---|
+| `portal/index.html` | O site inteiro do portal: login, seletor de empresa, iframe do painel, Área Admin (usuários, acessos, empresas, prazo, intervalo, senha, WhatsApp/e-mail). Vira a raiz do Pages. |
+| `painel/gerar_dashboard.py` | Gera o HTML de um painel (template gigante dentro do Python). Lê os xlsx da pasta de trabalho e o `config.json` do grupo. |
+| `painel/buscar_api.py` | Busca a API do mapeia e monta `trabalho/<slug>/` (xlsx + config.json + gerador + logo) para cada grupo. |
+| `painel/baixar_usuarios.py` | Robô Playwright que exporta os cadastrados do mapeia. |
+| `painel/grupos.json` | **Lista de grupos**: slug, nome, prefixo de arquivo, empresas (pedaços do nome no mapeia, sem acento), prazo padrão, logo, fundo da logo. Grupo novo = nova linha aqui (+ logo em `painel/`). |
+| `painel/logo_*.png` | Logos dos grupos. `logo_fundo` no grupos.json põe um fundo atrás da logo (logo branca/transparente). |
+| `painel/pwa/` | Ícones (alfa da Sinergia) e manifesto do portal. |
+| `.github/workflows/atualizar-painel.yml` | Robô dos painéis (ver fluxo acima). |
+| `.github/workflows/atualizar-usuarios.yml` | Robô da lista de cadastrados. |
+| `supabase/estrutura.sql` | Estrutura do banco (tabelas, regras, funções). Já foi rodada; serve de referência. Mudança no banco = SQL novo que o **usuário** roda no SQL Editor do Supabase. |
+
+## Detalhes importantes
+
+- **Gerador**: o HTML é uma string Python normal (não f-string). Marcadores em MAIÚSCULAS são
+  trocados no fim, do maior para o menor; `GRUPO_NOME_PH`, `GRUPO_ARQ_PH` e `INTERVALO_MIN_PH`
+  são trocados por último. O painel herdou da Novatec 3 "slots" (al/se/rec): **o grupo sempre
+  ocupa o slot `se` / `DATA.sergipe`**; al e rec ficam vazios e escondidos.
+- **Filtros do painel**: período/turno, setor (`window._setorFiltro`) e empresa do grupo
+  (`window._empFiltro`) passam por `_calcularEmpresaFiltrada` e `_pessoaPassa`.
+- **Painel dentro do portal**: o painel chama `parent.recarregarPainel()`,
+  `parent.prazoDoPainel()` e `parent.atualizacaoDoPainel()` (prazo e intervalo vêm da tabela
+  `empresas`, editados pelo admin). Fora do portal usa os valores gravados pelo robô.
+- **Portal só recarrega quando há versão nova** no Storage e troca o iframe sem piscar.
+- **API do mapeia**: `https://ruwfvtgacnimpebelxfd.supabase.co/functions/v1/api-relatorio`,
+  Bearer `MAPEIA_API_KEY`, **1 consulta de atividades a cada 5 min** (429 → o robô espera e
+  repete). Não tem cadastro de usuários (por isso o robô Playwright).
+- **Supabase do portal**: projeto `dcdbsiuveisxoypcblzd` (São Paulo). Tabelas `empresas`
+  (slug, nome, ativo, prazo, intervalo_min, atualizacao_ativa), `perfis`, `acessos`;
+  funções `eh_admin()`, `pode_ver(slug)`, `admin_definir_senha()`. A chave publishable no
+  `portal/index.html` é pública (pode ficar). A chave secreta **nunca** vai para o código.
+- **Segredos do GitHub** (Settings → Secrets → Actions): `MAPEIA_API_KEY`, `MAPEIA_EMAIL`,
+  `MAPEIA_SENHA`, `SUPABASE_SERVICE_KEY`. Nunca pedir esses valores no chat; o usuário cola
+  direto no GitHub.
+- **cron-job.org** (conta do usuário): job "Paineis Sinergia" a cada 10 min →
+  `.../actions/workflows/atualizar-painel.yml/dispatches`; job "Usuarios Sinergia" diário →
+  `atualizar-usuarios.yml`. Usam um token fine-grained "cron-painel" (Actions read/write, só
+  este repositório).
+- Erro "No artifacts named github-pages" no deploy é passageiro (o workflow já tenta de novo).
+
+## Como alterar e testar
+
+1. Altere o arquivo (para o gerador, prefira trocas exatas e pequenas).
+2. Teste localmente antes de publicar, **com dados inventados** (nunca dados reais no repo):
+   monte uma pasta com `Relatorio_<Arq>_<data>.xlsx` (aba "Atividades", colunas como em
+   `COLS_REL` de `buscar_api.py`), `Usuarios_<Arq>_<data>.xlsx` e `config.json`, rode
+   `python gerar_dashboard.py` com `BROWSER=true` e abra o HTML (Playwright) em 1500 px e
+   390 px; confira que não há erro de JavaScript.
+3. Para o portal: `node -e` com `new Function(...)` em cada `<script>` para checar a sintaxe.
+4. `git push` na branch `main`: o robô gera os painéis e republica o portal sozinho
+   (~2 min). Acompanhe em https://github.com/sinerggia-dev/painel-mapeamento/actions.
+5. Depois avise o usuário para apertar **Ctrl+F5** no portal (ou tocar no ↻ do painel).
