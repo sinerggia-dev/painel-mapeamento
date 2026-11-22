@@ -1,0 +1,168 @@
+# Busca as atividades na API do mapeia, gera um painel por grupo (painel/grupos.json),
+# guarda cada um na area privada do Supabase e publica o portal (login) no GitHub Pages.
+# Roda a cada 10 min das 07h as 21h (Brasilia) e pelo botao "Run workflow".
+name: Atualizar painel
+
+on:
+  schedule:
+    - cron: "*/10 10-23 * * *"   # UTC = 07:00-20:59 em Brasilia
+  workflow_dispatch:
+  push:                    # publica na hora quando o painel ou a lista de usuarios mudam
+    branches: [main]
+    paths:
+      - painel/**
+      - portal/**
+      - .github/workflows/atualizar-painel.yml
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: painel
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    # Liga/desliga o agendamento: existir a variavel PAINEL_ATIVO (qualquer valor) liga; apagar desliga.
+    # O botao "Run workflow" funciona sempre.
+    if: github.event_name != 'schedule' || vars.PAINEL_ATIVO != ''
+    runs-on: ubuntu-24.04   # fixo: o ubuntu-latest esta migrando de versao
+    environment:
+      name: github-pages
+      url: https://sinerggia-dev.github.io/painel-mapeamento/
+    env:
+      TZ: America/Sao_Paulo
+      BROWSER: "true"          # o gerador tenta abrir o navegador; aqui nao faz nada
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install openpyxl
+
+      # "Novas atividades HOJE" compara com a execucao anterior
+      - uses: actions/cache/restore@v4
+        with:
+          path: trabalho/*/ResumoGerencialMapeamentoMillena/estado_anterior.json
+          key: grupos-estado-${{ github.run_id }}
+          restore-keys: grupos-estado-
+
+      # o admin escolhe no portal (aba Empresas) o intervalo e se a atualizacao esta ligada.
+      # O despertador (cron-job.org) chama a cada 10 min; aqui so entram as empresas que estao na hora.
+      # Push no codigo (ou falta das colunas no banco) atualiza todas.
+      - name: Quais paineis atualizar agora
+        id: quais
+        env:
+          SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          EVENTO: ${{ github.event_name }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          from datetime import datetime
+          grupos = [g["slug"] for g in json.load(open("painel/grupos.json", encoding="utf-8"))["grupos"]]
+          agora = datetime.now()                       # TZ do job = America/Sao_Paulo
+          fatia = (agora.hour * 60 + agora.minute) // 10 * 10   # inicio da janela de 10 min
+          lista, motivo = grupos, "push/manual: todas"
+          if os.environ["EVENTO"] != "push":
+              try:
+                  url = os.environ["SUPABASE_URL"] + "/rest/v1/empresas?select=slug,intervalo_min,atualizacao_ativa"
+                  k = os.environ["SUPABASE_SERVICE_KEY"]
+                  req = urllib.request.Request(url, headers={"apikey": k, "Authorization": "Bearer " + k})
+                  conf = {e["slug"]: e for e in json.load(urllib.request.urlopen(req, timeout=30))}
+                  lista = [g for g in grupos if g not in conf or (conf[g].get("atualizacao_ativa", True)
+                           and fatia % max(10, int(conf[g].get("intervalo_min") or 60)) == 0)]
+                  motivo = f"janela {fatia // 60:02d}:{fatia % 60:02d}"
+              except Exception as e:
+                  motivo = f"sem configuracao no banco ({str(e)[:80]}): todas"
+          print(f"::notice::Atualizar agora ({motivo}): {', '.join(lista) or 'nenhuma'}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              print("lista=" + " ".join(lista), file=f)
+          PY
+
+      - name: Buscar a lista de cadastrados na area privada (Supabase)
+        if: steps.quais.outputs.lista != ''
+        env:
+          SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          mkdir -p dados
+          code=$(curl -s -o usuarios.tmp -w "%{http_code}" "$SUPABASE_URL/storage/v1/object/authenticated/paineis/_privado/usuarios.json"             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+          if [ "$code" = "200" ]; then mv usuarios.tmp dados/usuarios.json; echo "lista de cadastrados baixada";
+          elif [ -f dados/usuarios.json ]; then echo "::warning::lista privada ainda nao existe ($code); usando a do repositorio";
+          else echo "::error::nao consegui baixar a lista de cadastrados ($code): $(head -c 200 usuarios.tmp)"; exit 1; fi
+
+      - name: Buscar atividades na API
+        if: steps.quais.outputs.lista != ''
+        env:
+          MAPEIA_API_KEY: ${{ secrets.MAPEIA_API_KEY }}
+          GRUPOS_AGORA: ${{ steps.quais.outputs.lista }}
+        run: python painel/buscar_api.py trabalho
+
+      - name: Gerar os paineis
+        if: steps.quais.outputs.lista != ''
+        run: |
+          for g in $(cat trabalho/grupos.txt); do
+            echo "== $g"; python trabalho/$g/ResumoGerencialMapeamentoMillena/gerar_dashboard.py
+          done
+
+      - run: |
+          mkdir -p _site
+          cp portal/index.html _site/index.html   # o endereco principal e o portal com login
+          cp painel/pwa/* _site/                  # icones e manifesto para instalar no celular
+          mkdir -p _site/portal                   # links antigos de /portal/ levam para o endereco principal
+          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../"><script>location.replace("../"+location.hash)</script>' > _site/portal/index.html
+
+      - name: Guardar os paineis na area privada (Supabase)
+        if: steps.quais.outputs.lista != ''
+        env:
+          SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then echo "::error::segredo SUPABASE_SERVICE_KEY nao configurado"; exit 1; fi
+          # cada grupo vira uma "empresa" no portal (cria e acerta o nome; o ativo fica com o admin)
+          python - > empresas.json <<'PY'
+          import json
+          gs = {g["slug"]: g for g in json.load(open("painel/grupos.json", encoding="utf-8"))["grupos"]}
+          print(json.dumps([{"slug": s, "nome": gs[s]["nome"]} for s in open("trabalho/grupos.txt").read().split()]))
+          PY
+          code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/empresas?on_conflict=slug"             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"             -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates,return=minimal"             --data-binary @empresas.json)
+          if [ "$code" -ge 300 ]; then echo "::warning::cadastro dos grupos no portal: $code $(head -c 200 resp.txt)"; fi
+          falhou=0
+          for g in $(cat trabalho/grupos.txt); do
+            arq=$(ls trabalho/$g/ResumoGerencialMapeamentoMillena/Dashboard_*_ATUAL.html)
+            for t in 1 2 3; do
+              code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/storage/v1/object/paineis/$g/index.html"               -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"               -H "x-upsert: true" -H "Content-Type: text/html; charset=utf-8" -H "Cache-Control: no-cache"               --data-binary @"$arq")
+              [ "$code" -lt 300 ] && break; sleep 8
+            done
+            if [ "$code" -ge 300 ]; then echo "::error::$g: Supabase respondeu $code: $(head -c 300 resp.txt)"; falhou=1;
+            else echo "::notice::Painel $g guardado na area privada (HTTP $code)"; fi
+          done
+          exit $falhou
+
+      - uses: actions/cache/save@v4
+        with:
+          path: trabalho/*/ResumoGerencialMapeamentoMillena/estado_anterior.json
+          key: grupos-estado-${{ github.run_id }}
+
+      # o site publico e so o portal (login): so republica quando o codigo muda
+      - if: github.event_name == 'push'
+        uses: actions/configure-pages@v5
+      - if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deploy
+        if: github.event_name == 'push'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: github.event_name == 'push' && steps.deploy.outcome == 'failure'
+        run: sleep 30
+      - id: deploy2
+        if: github.event_name == 'push' && steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4

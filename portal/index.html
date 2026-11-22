@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161b22">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painéis">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icone-192.png">
+<title>Painéis de Mapeamento</title>
+<!-- portal v1 (19/11/2026 14:15) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2330;--border:#2a3441;--text:#e2e8f0;--muted:#94a3b8;--white:#f8fafc;
+    --acc:#7c3aed;--acc2:#2563eb;--green:#10b981;--red:#ef4444;--orange:#f59e0b}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:14px;-webkit-text-size-adjust:100%}
+  button,input,select{font-family:inherit;font-size:14px}
+  .oculto{display:none!important}
+  /* ── login ── */
+  .tela-login{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+  .cartao{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .marca{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .marca-ic{width:38px;height:38px;border-radius:10px;display:block;flex-shrink:0}
+  .marca b{display:block;font-size:17px;color:var(--white)}
+  .marca span{font-size:12px;color:var(--muted)}
+  h2{font-size:18px;color:var(--white);margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 6px}
+  input[type=email],input[type=password],input[type=text],select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:9px;padding:11px 12px;outline:none}
+  input:focus,select:focus{border-color:var(--acc)}
+  /* olho para mostrar/ocultar a senha */
+  .olho-wrap{position:relative;display:block}
+  .olho-wrap input{padding-right:46px}
+  .olho{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:none;
+    color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}
+  .olho:hover{color:var(--white);background:rgba(255,255,255,.06)}
+  .olho svg{width:20px;height:20px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:9px;padding:11px 16px;font-weight:600;cursor:pointer}
+  .btn-pri{background:var(--acc);color:#fff;width:100%;margin-top:18px}
+  .btn-pri:hover{filter:brightness(1.1)}
+  .btn-sec{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+  .btn-sec:hover{border-color:var(--muted)}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .link{background:none;border:0;color:#a78bfa;cursor:pointer;font-size:13px;margin-top:14px;text-decoration:underline}
+  .msg{font-size:13px;border-radius:8px;padding:10px 12px;margin-top:14px}
+  .msg.erro{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+  .msg.ok{background:rgba(16,185,129,.1);color:#6ee7b7;border:1px solid rgba(16,185,129,.3)}
+  /* ── app ── */
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+  .barra{display:flex;align-items:center;gap:10px;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .barra .marca{margin:0}
+  .barra .marca-ic{width:30px;height:30px;font-size:15px}
+  .barra .marca b{font-size:14px;white-space:nowrap}
+  .barra .espaco{flex:1}
+  .seletor{display:flex;align-items:center;gap:8px}
+  .seletor select{width:auto;min-width:170px;padding:7px 10px}
+  .usuario{position:relative}
+  .usuario-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:4px 12px 4px 4px;cursor:pointer}
+  .avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .menu{position:absolute;right:0;top:42px;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:220px;padding:6px;z-index:50;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+  .menu .info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:4px}
+  .menu .info b{display:block;color:var(--white)}
+  .menu .info span{font-size:12px;color:var(--muted);word-break:break-all}
+  .menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:9px 10px;border-radius:8px;cursor:pointer}
+  .menu button:hover{background:var(--surface2)}
+  .palco{flex:1;position:relative;background:var(--bg)}
+  .palco iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+  .aviso-centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center;padding:24px}
+  .gira{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--acc);border-radius:50%;animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  /* ── admin ── */
+  .admin{flex:1;overflow:auto;padding:22px;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+  .admin-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .admin-cab h2{margin:0}
+  .abas{display:flex;gap:6px;margin-bottom:16px}
+  .aba{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;cursor:pointer;font-weight:600}
+  .aba.ativa{background:var(--surface2);color:var(--white);border-color:var(--acc)}
+  .tabela{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .tabela th{background:var(--surface2);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px}
+  .tabela td{padding:10px 12px;border-top:1px solid var(--border);vertical-align:middle}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+  .tag.adm{background:rgba(124,58,237,.18);color:#c4b5fd}
+  .tag.vis{background:rgba(37,99,235,.15);color:#93c5fd}
+  .tag.on{background:rgba(16,185,129,.15);color:#6ee7b7}
+  .tag.off{background:rgba(239,68,68,.15);color:#fca5a5}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;user-select:none}
+  .chip input{accent-color:var(--acc)}
+  .prazo-ed{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .prazo-ed select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;width:auto}
+  .prazo-ed select:disabled{opacity:.5}
+  .btn-liga{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5);color:#34d399}
+  .prazo-ed input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;color-scheme:dark}
+  .chip.marcado{border-color:var(--acc);background:rgba(124,58,237,.12);color:var(--white)}
+  .acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .mini{padding:6px 10px;font-size:12px}
+  .modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .modal-fundo .cartao{max-width:460px}
+  .linha2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);
+    padding:10px 16px;border-radius:10px;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:calc(100vw - 32px)}
+  @media(max-width:700px){
+    input,select{font-size:16px}
+    .barra{gap:8px}
+    .seletor{order:3;width:100%}
+    .seletor select{flex:1;min-width:0}
+    .usuario-btn .nome-curto{display:none}
+    .admin{padding:14px}
+    .tabela thead{display:none}
+    .tabela,.tabela tbody,.tabela tr,.tabela td{display:block;width:100%}
+    .tabela tr{border-top:1px solid var(--border);padding:8px 0}
+    .tabela td{border:0;padding:5px 12px}
+    .acoes{justify-content:flex-start}
+    .linha2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═════════ LOGIN ═════════ -->
+<div id="tela-login" class="tela-login oculto">
+  <div class="cartao">
+    <div class="marca"><img class="marca-ic" src="favicon.svg" alt="Sinergia"><div><b>Painéis de Mapeamento</b><span>Sinergia · acompanhamento por empresa</span></div></div>
+    <form id="form-login">
+      <h2>Entrar</h2>
+      <p class="sub">Use o e-mail e a senha cadastrados pelo administrador.</p>
+      <label for="l-email">E-mail</label>
+      <input id="l-email" type="email" autocomplete="username" required>
+      <label for="l-senha">Senha</label>
+      <input id="l-senha" type="password" autocomplete="current-password" required>
+      <button class="btn btn-pri" type="submit">Entrar</button>
+      <button class="link" type="button" id="btn-esqueci">Esqueci minha senha</button>
+      <div id="login-msg"></div>
+    </form>
+    <form id="form-nova-senha" class="oculto">
+      <h2>Definir nova senha</h2>
+      <p class="sub">Digite a nova senha (mínimo de 8 caracteres).</p>
+      <label for="n-senha">Nova senha</label>
+      <input id="n-senha" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="n-senha2">Repita a nova senha</label>
+      <input id="n-senha2" type="password" autocomplete="new-password" minlength="8" required>
+      <button class="btn btn-pri" type="submit">Salvar nova senha</button>
+      <div id="nova-msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ APP ═════════ -->
+<div id="tela-app" class="app oculto">
+  <div class="barra">
+    <div class="marca"><img class="marca-ic" src="favicon.svg" alt="Sinergia"><div><b>Painel de Mapeamento</b></div></div>
+    <div class="seletor" id="seletor"><select id="sel-empresa" aria-label="Empresa"></select></div>
+    <div class="espaco"></div>
+    <button class="btn btn-sec mini oculto" id="btn-admin" type="button">⚙ Admin</button>
+    <div class="usuario">
+      <button class="usuario-btn" id="btn-usuario" type="button" aria-haspopup="true"><span class="avatar" id="u-avatar">?</span><span class="nome-curto" id="u-nome"></span></button>
+      <div class="menu oculto" id="menu-usuario">
+        <div class="info"><b id="m-nome"></b><span id="m-email"></span></div>
+        <button type="button" id="btn-trocar-senha">🔑 Trocar minha senha</button>
+        <button type="button" id="btn-sair">↩ Sair</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="palco" id="palco">
+    <div class="aviso-centro" id="palco-aviso"><div class="gira"></div><div>Carregando…</div></div>
+    <iframe id="quadro" title="Painel" class="oculto"></iframe>
+  </div>
+
+  <div class="admin oculto" id="area-admin">
+    <div class="admin-cab">
+      <h2>Área do administrador</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sec mini" id="btn-voltar" type="button">← Voltar ao painel</button>
+        <button class="btn btn-pri mini" id="btn-novo" type="button" style="width:auto;margin:0">+ Novo usuário</button>
+      </div>
+    </div>
+    <div class="abas">
+      <button class="aba ativa" data-aba="usuarios" type="button">Usuários e acessos</button>
+      <button class="aba" data-aba="empresas" type="button">Empresas</button>
+    </div>
+    <div id="aba-usuarios"></div>
+    <div id="aba-empresas" class="oculto"></div>
+  </div>
+</div>
+
+<div id="modal" class="modal-fundo oculto"></div>
+<div id="toast" class="toast oculto"></div>
+
+<script>
+const SUPABASE_URL = 'https://dcdbsiuveisxoypcblzd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_hYZiMKCggK1yAJ9Ryzwylw_qq-VRwLQ';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// cliente separado, sem guardar sessao: cria usuarios sem derrubar o login do admin
+const sbCadastro = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession:false, autoRefreshToken:false, detectSessionInUrl:false, storageKey:'sb-cadastro' } });
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iniciais = n => { const p=String(n||'').trim().split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:'')).toUpperCase():'?'; };
+const URL_PORTAL = location.origin + location.pathname;
+let PERFIL = null, EMPRESAS = [], modoRecuperacao = false, timerPainel = null;
+
+function toast(t, ms=3200){ const e=$('toast'); e.textContent=t; e.classList.remove('oculto'); clearTimeout(toast._t); toast._t=setTimeout(()=>e.classList.add('oculto'),ms); }
+function msg(id, texto, tipo='erro'){ $(id).innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : ''; }
+function traduzErro(e){
+  const m = (e && (e.message||e.error_description||e)) + '';
+  if (/Invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+  if (/Email not confirmed/i.test(m)) return 'E-mail ainda não confirmado.';
+  if (/already registered|already been registered|User already/i.test(m)) return 'Este e-mail já tem cadastro.';
+  if (/Password should be at least/i.test(m)) return 'A senha precisa ter pelo menos 8 caracteres.';
+  if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Aguarde alguns minutos.';
+  if (/Failed to fetch|NetworkError/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet.';
+  return m;
+}
+
+// ═════════ LOGIN ═════════
+$('form-login').addEventListener('submit', async ev => {
+  ev.preventDefault(); msg('login-msg','');
+  const b = ev.submitter || ev.target.querySelector('button[type=submit]'); b.disabled = true; b.textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({ email: $('l-email').value.trim(), password: $('l-senha').value });
+  b.disabled = false; b.textContent = 'Entrar';
+  if (error) msg('login-msg', traduzErro(error));
+});
+$('btn-esqueci').addEventListener('click', async () => {
+  const email = $('l-email').value.trim();
+  if (!email) { msg('login-msg','Digite seu e-mail no campo acima e clique de novo em "Esqueci minha senha".'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: URL_PORTAL });
+  msg('login-msg', error ? traduzErro(error) : 'Se o e-mail estiver cadastrado, você vai receber um link para criar uma nova senha.', error?'erro':'ok');
+});
+$('form-nova-senha').addEventListener('submit', async ev => {
+  ev.preventDefault(); msg('nova-msg','');
+  if ($('n-senha').value !== $('n-senha2').value) { msg('nova-msg','As duas senhas não são iguais.'); return; }
+  const { error } = await sb.auth.updateUser({ password: $('n-senha').value });
+  if (error) { msg('nova-msg', traduzErro(error)); return; }
+  modoRecuperacao = false; history.replaceState(null,'',URL_PORTAL);
+  toast('Senha alterada com sucesso.'); iniciar();
+});
+
+// ═════════ SESSAO ═════════
+sb.auth.onAuthStateChange((evento, sessao) => {
+  if (evento === 'PASSWORD_RECOVERY') { modoRecuperacao = true; mostrarNovaSenha(); return; }
+  if (evento === 'SIGNED_IN' && !modoRecuperacao) iniciar();
+  if (evento === 'SIGNED_OUT') mostrarLogin();
+});
+function mostrarLogin(){ $('tela-app').classList.add('oculto'); $('tela-login').classList.remove('oculto'); $('form-login').classList.remove('oculto'); $('form-nova-senha').classList.add('oculto'); clearInterval(timerPainel); }
+function mostrarNovaSenha(){ $('tela-app').classList.add('oculto'); $('tela-login').classList.remove('oculto'); $('form-login').classList.add('oculto'); $('form-nova-senha').classList.remove('oculto'); }
+
+let iniciando = false;
+async function iniciar(){
+  if (iniciando) return; iniciando = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { mostrarLogin(); return; }
+    const { data: perfil, error } = await sb.from('perfis').select('id,nome,email,papel,ativo').eq('id', session.user.id).maybeSingle();
+    if (error || !perfil || !perfil.ativo) {
+      await sb.auth.signOut();
+      mostrarLogin(); msg('login-msg', perfil && !perfil.ativo ? 'Seu acesso está bloqueado. Fale com o administrador.' : 'Seu usuário ainda não foi liberado pelo administrador.');
+      return;
+    }
+    PERFIL = perfil;
+    const { data: emps } = await sb.from('empresas').select('*').eq('ativo', true).order('nome');   // '*' = as colunas que existirem
+    EMPRESAS = emps || [];
+    $('tela-login').classList.add('oculto'); $('tela-app').classList.remove('oculto');
+    $('u-avatar').textContent = iniciais(perfil.nome); $('u-nome').textContent = perfil.nome.split(' ')[0];
+    $('m-nome').textContent = perfil.nome; $('m-email').textContent = perfil.email;
+    $('btn-admin').classList.toggle('oculto', perfil.papel !== 'admin');
+    try { localStorage.setItem('painel_nome', perfil.nome); } catch(e){}
+    const sel = $('sel-empresa');
+    sel.innerHTML = EMPRESAS.map(e => `<option value="${esc(e.slug)}">${esc(e.nome)}</option>`).join('');
+    $('seletor').classList.toggle('oculto', EMPRESAS.length < 2);
+    let salva = ''; try { salva = localStorage.getItem('portal_empresa') || ''; } catch(e){}
+    if (EMPRESAS.some(e => e.slug === salva)) sel.value = salva;
+    mostrarPainel();
+  } finally { iniciando = false; }
+}
+
+// ═════════ PAINEL ═════════
+// versao (data de gravacao) do painel que esta na tela, por empresa
+const versaoPainel = {};
+let carregandoPainel = false;
+async function _versaoNoServidor(slug){
+  try {
+    const { data } = await sb.storage.from('paineis').list(slug, { search: 'index.html', limit: 5 });
+    const f = (data || []).find(x => x.name === 'index.html');
+    return f ? (f.updated_at || f.created_at || '') : '';
+  } catch(e) { return ''; }
+}
+async function carregarPainel(silencioso=false){
+  const slug = $('sel-empresa').value;
+  const aviso = $('palco-aviso');
+  let quadro = $('quadro');
+  if (!slug) { quadro.classList.add('oculto'); aviso.classList.remove('oculto'); aviso.innerHTML = '<div>Nenhuma empresa liberada para você ainda.<br>Fale com o administrador.</div>'; return; }
+  if (carregandoPainel) return;
+  carregandoPainel = true;
+  try {
+    const versao = await _versaoNoServidor(slug);
+    // recarga automatica: so baixa de novo quando o robo gravou uma versao nova
+    if (silencioso && versao && versaoPainel[slug] === versao && quadro.dataset.slug === slug) return;
+    if (!silencioso) { quadro.classList.add('oculto'); aviso.classList.remove('oculto'); aviso.innerHTML = '<div class="gira"></div><div>Carregando painel…</div>'; }
+    const { data, error } = await sb.storage.from('paineis').download(`${slug}/index.html`);
+    if (error || !data) {
+      if (silencioso) return;
+      aviso.innerHTML = `<div>O painel desta empresa ainda não foi publicado.</div><div style="font-size:12px">(${esc(traduzErro(error)||'sem arquivo')})</div>`;
+      return;
+    }
+    const html = await data.text();
+    // monta o painel novo escondido e so troca quando ele terminou de desenhar (sem piscar)
+    const y = silencioso && quadro.contentWindow ? quadro.contentWindow.scrollY : 0;
+    const novo = document.createElement('iframe');
+    novo.title = 'Painel'; novo.style.visibility = 'hidden';
+    // srcdoc antes de entrar na pagina: so ha um "load", o do painel ja montado
+    const montado = new Promise(ok => { novo.onload = ok; });
+    novo.srcdoc = html;
+    quadro.parentNode.appendChild(novo);
+    await montado;
+    await new Promise(ok => setTimeout(ok, 150));
+    try { if (y) novo.contentWindow.scrollTo(0, y); } catch(e){}
+    quadro.remove();
+    novo.id = 'quadro'; novo.dataset.slug = slug; novo.style.visibility = '';
+    versaoPainel[slug] = versao;
+    aviso.classList.add('oculto');
+  } finally { carregandoPainel = false; }
+}
+// o painel pergunta o prazo do temporizador: '' = a definir; null = usar o do robo (coluna ainda nao existe)
+window.prazoDoPainel = () => {
+  const e = EMPRESAS.find(x => x.slug === $('sel-empresa').value);
+  if (!e || !('prazo' in e)) return null;
+  return e.prazo || '';
+};
+// o painel pergunta como esta a atualizacao automatica da empresa (null = padrao do robo)
+window.atualizacaoDoPainel = () => {
+  const e = EMPRESAS.find(x => x.slug === $('sel-empresa').value);
+  if (!e || !('intervalo_min' in e)) return null;
+  return { ativa: e.atualizacao_ativa !== false, intervalo: e.intervalo_min || 60 };
+};
+// o painel chama isto no lugar de location.reload() quando esta dentro do portal
+window.recarregarPainel = () => carregarPainel(true);
+function mostrarPainel(){
+  $('area-admin').classList.add('oculto'); $('palco').classList.remove('oculto');
+  carregarPainel();
+}
+$('sel-empresa').addEventListener('change', () => { try { localStorage.setItem('portal_empresa', $('sel-empresa').value); } catch(e){} carregarPainel(); });
+
+// ═════════ MENU DO USUARIO ═════════
+$('btn-usuario').addEventListener('click', e => { e.stopPropagation(); $('menu-usuario').classList.toggle('oculto'); });
+document.addEventListener('click', e => { if (!e.target.closest('.usuario')) $('menu-usuario').classList.add('oculto'); });
+$('btn-sair').addEventListener('click', async () => { await sb.auth.signOut(); try{ localStorage.removeItem('painel_nome'); }catch(e){} });
+$('btn-trocar-senha').addEventListener('click', () => {
+  $('menu-usuario').classList.add('oculto');
+  abrirModal(`<h2>Trocar minha senha</h2><p class="sub">Mínimo de 8 caracteres.</p>
+    <form id="f-troca"><label>Nova senha</label><input type="password" id="t1" minlength="8" required autocomplete="new-password">
+    <label>Repita a nova senha</label><input type="password" id="t2" minlength="8" required autocomplete="new-password">
+    <div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-sec" type="button" data-fechar>Cancelar</button><button class="btn btn-pri" style="margin:0" type="submit">Salvar</button></div>
+    <div id="t-msg"></div></form>`);
+  $('f-troca').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if ($('t1').value !== $('t2').value) { msg('t-msg','As duas senhas não são iguais.'); return; }
+    const { error } = await sb.auth.updateUser({ password: $('t1').value });
+    if (error) { msg('t-msg', traduzErro(error)); return; }
+    fecharModal(); toast('Senha alterada.');
+  });
+});
+
+// ═════════ MODAL ═════════
+function abrirModal(html){ const m=$('modal'); m.innerHTML=`<div class="cartao">${html}</div>`; m.classList.remove('oculto'); const f=m.querySelector('input'); if(f) f.focus(); }
+function fecharModal(){ $('modal').classList.add('oculto'); $('modal').innerHTML=''; }
+$('modal').addEventListener('click', e => { if (e.target.id==='modal' || e.target.hasAttribute('data-fechar')) fecharModal(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') fecharModal(); });
+
+// ═════════ AREA ADMIN ═════════
+let TODAS_EMPRESAS = [];
+$('btn-admin').addEventListener('click', abrirAdmin);
+$('btn-voltar').addEventListener('click', () => { iniciar(); });
+document.querySelectorAll('.aba').forEach(a => a.addEventListener('click', () => {
+  document.querySelectorAll('.aba').forEach(x => x.classList.toggle('ativa', x===a));
+  $('aba-usuarios').classList.toggle('oculto', a.dataset.aba!=='usuarios');
+  $('aba-empresas').classList.toggle('oculto', a.dataset.aba!=='empresas');
+}));
+async function abrirAdmin(){
+  $('palco').classList.add('oculto'); $('area-admin').classList.remove('oculto');
+  await carregarAdmin();
+}
+async function carregarAdmin(){
+  $('aba-usuarios').innerHTML = '<div class="aviso-centro" style="position:static"><div class="gira"></div></div>';
+  const [p, a, e] = await Promise.all([
+    sb.from('perfis').select('id,nome,email,papel,ativo,criado_em').order('nome'),
+    sb.from('acessos').select('usuario,empresa'),
+    sb.from('empresas').select('*').order('nome'),
+  ]);
+  if (p.error || a.error || e.error) { $('aba-usuarios').innerHTML = `<div class="msg erro">${esc(traduzErro(p.error||a.error||e.error))}</div>`; return; }
+  TODAS_EMPRESAS = e.data;
+  const acessosDe = id => new Set(a.data.filter(x=>x.usuario===id).map(x=>x.empresa));
+  $('aba-usuarios').innerHTML = `<table class="tabela"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th>Empresas que pode ver</th><th></th></tr></thead><tbody>
+    ${p.data.map(u => { const acs=acessosDe(u.id); const eu=u.id===PERFIL.id; return `<tr data-id="${u.id}">
+      <td><b style="color:var(--white)">${esc(u.nome)}</b>${eu?' <span class="tag vis">você</span>':''}<div style="font-size:12px;color:var(--muted)">${esc(u.email)}</div></td>
+      <td><span class="tag ${u.papel==='admin'?'adm':'vis'}">${u.papel==='admin'?'Administrador':'Visualizador'}</span></td>
+      <td><span class="tag ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></td>
+      <td>${u.papel==='admin' ? '<span style="color:var(--muted);font-size:12px">Todas (administrador)</span>' :
+        `<div class="chips">${TODAS_EMPRESAS.map(em=>`<label class="chip ${acs.has(em.slug)?'marcado':''}"><input type="checkbox" data-acesso="${u.id}" value="${esc(em.slug)}" ${acs.has(em.slug)?'checked':''}>${esc(em.nome)}</label>`).join('')}</div>`}</td>
+      <td><div class="acoes">
+        <button class="btn btn-sec mini" data-acao="papel" type="button" ${eu?'disabled title="Você não pode tirar seu próprio acesso de administrador"':''}>${u.papel==='admin'?'Tornar visualizador':'Tornar admin'}</button>
+        <button class="btn btn-sec mini" data-acao="ativo" type="button" ${eu?'disabled':''}>${u.ativo?'Bloquear':'Reativar'}</button>
+        <button class="btn btn-sec mini" data-acao="senha" type="button">Enviar link de senha</button>
+      </div></td></tr>`; }).join('')}
+  </tbody></table>
+  <p class="sub" style="margin-top:10px">Marque ou desmarque as empresas: a mudança vale na hora.</p>`;
+  renderEmpresas();
+}
+// marcar/desmarcar empresa
+$('aba-usuarios').addEventListener('change', async ev => {
+  const cb = ev.target; if (!cb.dataset.acesso) return;
+  cb.disabled = true;
+  const r = cb.checked
+    ? await sb.from('acessos').insert({ usuario: cb.dataset.acesso, empresa: cb.value })
+    : await sb.from('acessos').delete().eq('usuario', cb.dataset.acesso).eq('empresa', cb.value);
+  cb.disabled = false;
+  if (r.error) { cb.checked = !cb.checked; toast('Erro: ' + traduzErro(r.error)); return; }
+  cb.closest('.chip').classList.toggle('marcado', cb.checked);
+  toast(cb.checked ? 'Acesso liberado.' : 'Acesso removido.');
+});
+// botoes de cada usuario
+$('aba-usuarios').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-acao]'); if (!b) return;
+  const tr = b.closest('tr'), id = tr.dataset.id;
+  const { data: u } = await sb.from('perfis').select('*').eq('id', id).single();
+  if (b.dataset.acao === 'papel') {
+    const novo = u.papel === 'admin' ? 'visualizador' : 'admin';
+    if (!confirm(`${u.nome} passa a ser ${novo==='admin'?'ADMINISTRADOR (vê todas as empresas e gerencia usuários)':'VISUALIZADOR'}. Confirmar?`)) return;
+    const { error } = await sb.from('perfis').update({ papel: novo }).eq('id', id);
+    if (error) return toast('Erro: ' + traduzErro(error));
+  }
+  if (b.dataset.acao === 'ativo') {
+    if (u.ativo && !confirm(`Bloquear o acesso de ${u.nome}? Ele não conseguirá mais ver os painéis.`)) return;
+    const { error } = await sb.from('perfis').update({ ativo: !u.ativo }).eq('id', id);
+    if (error) return toast('Erro: ' + traduzErro(error));
+  }
+  if (b.dataset.acao === 'senha') {
+    const { error } = await sb.auth.resetPasswordForEmail(u.email, { redirectTo: URL_PORTAL });
+    if (error) return toast('Erro: ' + traduzErro(error));
+    return toast(`Link para criar nova senha enviado para ${u.email}.`);
+  }
+  carregarAdmin();
+});
+// novo usuario
+$('btn-novo').addEventListener('click', () => {
+  abrirModal(`<h2>Novo usuário</h2><p class="sub">A pessoa entra com este e-mail e a senha inicial. Depois pode trocar a senha no menu dela.</p>
+    <form id="f-novo">
+      <label>Nome</label><input type="text" id="nv-nome" required maxlength="60">
+      <label>E-mail</label><input type="email" id="nv-email" required autocomplete="off">
+      <div class="linha2">
+        <div><label>Senha inicial</label><input type="text" id="nv-senha" minlength="8" required autocomplete="off"></div>
+        <div><label>Perfil</label><select id="nv-papel"><option value="visualizador">Visualizador</option><option value="admin">Administrador</option></select></div>
+      </div>
+      <label>Empresas que pode ver</label>
+      <div class="chips" id="nv-empresas">${TODAS_EMPRESAS.filter(e=>e.ativo).map(e=>`<label class="chip"><input type="checkbox" value="${esc(e.slug)}">${esc(e.nome)}</label>`).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-sec" type="button" data-fechar>Cancelar</button><button class="btn btn-pri" style="margin:0" type="submit">Cadastrar</button></div>
+      <div id="nv-msg"></div>
+    </form>`);
+  $('nv-empresas').addEventListener('change', e => e.target.closest('.chip').classList.toggle('marcado', e.target.checked));
+  $('f-novo').addEventListener('submit', async ev => {
+    ev.preventDefault(); msg('nv-msg','');
+    const btn = ev.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Cadastrando…';
+    const nome = $('nv-nome').value.trim(), email = $('nv-email').value.trim().toLowerCase(), papel = $('nv-papel').value;
+    const empresas = [...document.querySelectorAll('#nv-empresas input:checked')].map(i => i.value);
+    try {
+      const { data, error } = await sbCadastro.auth.signUp({ email, password: $('nv-senha').value, options: { data: { nome } } });
+      if (error) throw error;
+      const uid = data.user && data.user.id;
+      if (!uid || (data.user.identities && data.user.identities.length === 0)) throw new Error('User already registered');
+      let r = await sb.from('perfis').insert({ id: uid, nome, email, papel });
+      if (r.error) throw r.error;
+      if (empresas.length) { r = await sb.from('acessos').insert(empresas.map(e => ({ usuario: uid, empresa: e }))); if (r.error) throw r.error; }
+      fecharModal(); toast(`${nome} cadastrado. Envie a ele o link do portal, o e-mail e a senha inicial.`, 6000); carregarAdmin();
+    } catch (e) {
+      msg('nv-msg', traduzErro(e)); btn.disabled = false; btn.textContent = 'Cadastrar';
+    }
+  });
+});
+// empresas
+function renderEmpresas(){
+  const temPrazo = TODAS_EMPRESAS.length && ('prazo' in TODAS_EMPRESAS[0]);
+  const temAtual = TODAS_EMPRESAS.length && ('intervalo_min' in TODAS_EMPRESAS[0]);
+  const OPC = [[10,'a cada 10 min'],[15,'a cada 15 min'],[30,'a cada 30 min'],[60,'a cada 1 hora'],[120,'a cada 2 horas'],[240,'a cada 4 horas'],[720,'a cada 12 horas'],[1440,'1 vez por dia']];
+  const celAtual = e => !temAtual ? '<span style="color:var(--muted);font-size:12px">falta criar a coluna no banco</span>' :
+    `<div class="prazo-ed"><button class="btn mini ${e.atualizacao_ativa!==false?'btn-liga':'btn-sec'}" data-emp="liga" type="button" title="Ligar ou pausar a atualização automática">${e.atualizacao_ativa!==false?'● Ligada':'❚❚ Pausada'}</button>
+      <select data-intervalo aria-label="Intervalo de ${esc(e.nome)}" ${e.atualizacao_ativa===false?'disabled':''}>${OPC.map(([v,t])=>`<option value="${v}" ${Number(e.intervalo_min||60)===v?'selected':''}>${t}</option>`).join('')}</select></div>`;
+  $('aba-empresas').innerHTML = `<table class="tabela"><thead><tr><th>Empresa</th><th>Identificador</th><th>Situação</th><th>Atualização automática</th><th>Prazo do temporizador</th><th></th></tr></thead><tbody>
+    ${TODAS_EMPRESAS.map(e=>`<tr data-slug="${esc(e.slug)}"><td><b style="color:var(--white)">${esc(e.nome)}</b></td><td><code>${esc(e.slug)}</code></td>
+      <td><span class="tag ${e.ativo?'on':'off'}">${e.ativo?'Ativa':'Oculta'}</span></td>
+      <td>${celAtual(e)}</td>
+      <td>${temPrazo ? `<div class="prazo-ed"><input type="date" data-prazo value="${esc(e.prazo||'')}" aria-label="Prazo de ${esc(e.nome)}">
+        <button class="btn btn-sec mini" data-emp="prazo" type="button">Salvar</button>
+        ${e.prazo?'<button class="btn btn-sec mini" data-emp="sem-prazo" type="button" title="Deixa o temporizador como “a definir”">Limpar</button>':''}</div>`
+        : '<span style="color:var(--muted);font-size:12px">falta criar a coluna no banco</span>'}</td>
+      <td><div class="acoes"><button class="btn btn-sec mini" data-emp="ativo" type="button">${e.ativo?'Ocultar do portal':'Mostrar no portal'}</button></div></td></tr>`).join('')}
+  </tbody></table>
+  <p class="sub" style="margin-top:10px">Cada empresa precisa do robô dela publicando o painel. Empresas novas entram por aqui depois que o robô estiver pronto.</p>`;
+}
+$('aba-empresas').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-emp]'); if (!b) return;
+  const tr = b.closest('tr'), slug = tr.dataset.slug, e = TODAS_EMPRESAS.find(x=>x.slug===slug);
+  if (b.dataset.emp === 'liga') {
+    const nova = e.atualizacao_ativa === false;
+    const { error } = await sb.from('empresas').update({ atualizacao_ativa: nova }).eq('slug', slug);
+    if (error) return toast('Erro: ' + traduzErro(error));
+    e.atualizacao_ativa = nova; const vis = EMPRESAS.find(x=>x.slug===slug); if (vis) vis.atualizacao_ativa = nova;
+    toast(`${e.nome}: atualização automática ${nova?'ligada':'pausada'}`); renderEmpresas(); return;
+  }
+  if (b.dataset.emp === 'prazo' || b.dataset.emp === 'sem-prazo') {
+    const valor = b.dataset.emp === 'prazo' ? (tr.querySelector('[data-prazo]').value || null) : null;
+    const { error } = await sb.from('empresas').update({ prazo: valor }).eq('slug', slug);
+    if (error) return toast('Erro: ' + traduzErro(error));
+    e.prazo = valor; const vis = EMPRESAS.find(x=>x.slug===slug); if (vis) vis.prazo = valor;
+    toast(valor ? `Prazo de ${e.nome}: ${valor.split('-').reverse().join('/')}` : `${e.nome}: prazo a definir`);
+    renderEmpresas(); return;
+  }
+  const { error } = await sb.from('empresas').update({ ativo: !e.ativo }).eq('slug', slug);
+  if (error) return toast('Erro: ' + traduzErro(error));
+  carregarAdmin();
+});
+
+$('aba-empresas').addEventListener('change', async ev => {
+  const sel = ev.target.closest('select[data-intervalo]'); if (!sel) return;
+  const slug = sel.closest('tr').dataset.slug, e = TODAS_EMPRESAS.find(x=>x.slug===slug), v = Number(sel.value);
+  const { error } = await sb.from('empresas').update({ intervalo_min: v }).eq('slug', slug);
+  if (error) { toast('Erro: ' + traduzErro(error)); return renderEmpresas(); }
+  e.intervalo_min = v; const vis = EMPRESAS.find(x=>x.slug===slug); if (vis) vis.intervalo_min = v;
+  toast(`${e.nome}: atualiza ${sel.options[sel.selectedIndex].text}`);
+});
+
+// ═════════ INICIO ═════════
+(async () => {
+  const hash = location.hash || '';
+  if (/type=recovery/.test(hash)) { modoRecuperacao = true; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (modoRecuperacao && session) { mostrarNovaSenha(); return; }
+  if (session) iniciar(); else mostrarLogin();
+  if (/error_description=/.test(hash)) { const m = decodeURIComponent((hash.match(/error_description=([^&]+)/)||[])[1]||'').replace(/\+/g,' '); msg('login-msg', /expired|invalid/i.test(m) ? 'O link expirou. Peça um novo em "Esqueci minha senha".' : m); history.replaceState(null,'',URL_PORTAL); }
+})();
+</script>
+<script>
+// ── olho magico em todos os campos de senha (inclusive os criados depois, como no Admin) ──
+(function(){
+  const ABERTO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const FECHADO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  function equipar(inp){
+    if(inp.dataset.olho) return; inp.dataset.olho='1';
+    const w=document.createElement('span'); w.className='olho-wrap';
+    inp.parentNode.insertBefore(w,inp); w.appendChild(inp);
+    const b=document.createElement('button'); b.type='button'; b.className='olho'; b.innerHTML=ABERTO;
+    b.title='Mostrar senha'; b.setAttribute('aria-label','Mostrar senha');
+    b.addEventListener('click',()=>{
+      const ver=inp.type==='password'; inp.type=ver?'text':'password';
+      b.innerHTML=ver?FECHADO:ABERTO; const t=ver?'Ocultar senha':'Mostrar senha'; b.title=t; b.setAttribute('aria-label',t);
+      inp.focus();
+    });
+    w.appendChild(b);
+  }
+  const varrer=()=>document.querySelectorAll('input[type=password]:not([data-olho])').forEach(equipar);
+  varrer(); new MutationObserver(varrer).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+</body>
+</html>

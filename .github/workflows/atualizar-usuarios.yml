@@ -1,0 +1,62 @@
+# A API ainda nao traz o cadastro de colaboradores. Uma vez por dia (e pelo botao
+# "Run workflow"), entra no mapeia, exporta os Usuarios da empresa e atualiza
+# a lista (so nome, cargo, empresa, setor, perfil e status) de todas as empresas dos grupos.
+name: Atualizar lista de usuarios
+
+on:
+  schedule:
+    - cron: "30 9 * * *"   # 06:30 em Brasilia
+  workflow_dispatch:
+  push:                    # roda quando o robo de usuarios e alterado
+    branches: [main]
+    paths:
+      - painel/baixar_usuarios.py
+      - painel/grupos.json
+      - .github/workflows/atualizar-usuarios.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: usuarios
+  cancel-in-progress: true   # execucao nova cancela a que estiver rodando
+
+jobs:
+  usuarios:
+    if: github.event_name != 'schedule' || vars.PAINEL_ATIVO != ''
+    runs-on: ubuntu-24.04   # fixo: o ubuntu-latest esta migrando de versao
+    env:
+      TZ: America/Sao_Paulo
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar navegador
+        run: |
+          pip install openpyxl playwright
+          for t in 1 2 3; do
+            python -m playwright install --with-deps chromium && exit 0
+            echo "instalacao falhou (tentativa $t), tentando de novo..."; sleep 20
+          done
+          exit 1
+
+      - name: Baixar usuarios do mapeia
+        env:
+          MAPEIA_EMAIL: ${{ secrets.MAPEIA_EMAIL }}
+          MAPEIA_SENHA: ${{ secrets.MAPEIA_SENHA }}
+        run: python painel/baixar_usuarios.py
+
+      # a lista fica so na area privada do Supabase (o repositorio e publico)
+      - name: Guardar a lista na area privada (Supabase)
+        env:
+          SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/storage/v1/object/paineis/_privado/usuarios.json"             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"             -H "x-upsert: true" -H "Content-Type: application/json" --data-binary @dados/usuarios.json)
+          if [ "$code" -ge 300 ]; then echo "::error::Supabase respondeu $code: $(head -c 300 resp.txt)"; exit 1; fi
+          qtd=$(python -c 'import json; print(len(json.load(open("dados/usuarios.json", encoding="utf-8"))["usuarios"]))')
+          echo "::notice::Lista de cadastrados guardada na area privada (HTTP $code, $qtd usuarios)"

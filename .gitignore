@@ -1,0 +1,8 @@
+trabalho/
+_site/
+__pycache__/
+*.xlsx
+config.json
+.session.json
+dados/
+index.html
