@@ -423,6 +423,7 @@ async function carregarAdmin(){
         <button class="btn btn-sec mini" data-acao="papel" type="button" ${eu?'disabled title="Você não pode tirar seu próprio acesso de administrador"':''}>${u.papel==='admin'?'Tornar visualizador':'Tornar admin'}</button>
         <button class="btn btn-sec mini" data-acao="ativo" type="button" ${eu?'disabled':''}>${u.ativo?'Bloquear':'Reativar'}</button>
         <button class="btn btn-sec mini" data-acao="senha" type="button" title="Gera uma senha nova (com confirmação) para enviar à pessoa">🔑 Nova senha</button>
+        <button class="btn btn-sec mini" data-acao="email" type="button" title="Gera uma senha nova (com confirmação) e envia o acesso por e-mail">✉️ E-mail</button>
         <button class="btn btn-zap mini" data-acao="zap" type="button" title="Gera uma senha nova (com confirmação) e envia o acesso pelo WhatsApp">📲 WhatsApp</button>
       </div></td></tr>`; }).join('')}
   </tbody></table>
@@ -457,10 +458,10 @@ $('aba-usuarios').addEventListener('click', async ev => {
     const { error } = await sb.from('perfis').update({ ativo: !u.ativo }).eq('id', id);
     if (error) return toast('Erro: ' + traduzErro(error));
   }
-  if (b.dataset.acao === 'zap' || b.dataset.acao === 'senha') {
+  if (b.dataset.acao === 'zap' || b.dataset.acao === 'senha' || b.dataset.acao === 'email') {
     const { data: acs } = await sb.from('acessos').select('empresa').eq('usuario', id);
     const nomesEmp = u.papel === 'admin' ? ['todas (administrador)'] : TODAS_EMPRESAS.filter(e => (acs||[]).some(a => a.empresa === e.slug)).map(e => e.nome);
-    return abrirNovaSenha(u, nomesEmp, b.dataset.acao === 'zap');
+    return abrirNovaSenha(u, nomesEmp, b.dataset.acao);
   }
   carregarAdmin();
 });
@@ -484,6 +485,12 @@ function _zapMensagem(nome, email, senha, empresas){
   if (senha) linhas.push('', 'Depois de entrar, troque a senha: toque no seu nome (canto superior direito) → *Trocar minha senha*.');
   return linhas.join('\n');
 }
+// abre o e-mail do administrador (Outlook etc.) ja preenchido para a pessoa
+function abrirEmailAcesso(nome, email, senha, empresas, texto){
+  const corpo = (texto || _zapMensagem(nome, email, senha, empresas)).replace(/\*/g, '');   // sem o negrito do WhatsApp
+  const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Seu acesso ao Painel de Mapeamento — Sinergia')}&body=${encodeURIComponent(corpo)}`;
+  const a = document.createElement('a'); a.href = url; document.body.appendChild(a); a.click(); a.remove();
+}
 function abrirEnvioZap(titulo, nome, email, senha, empresas){
   const texto = _zapMensagem(nome, email, senha, empresas);
   abrirModal(`<h2>${esc(titulo)}</h2><p class="sub">Confira a mensagem e envie para ${esc(nome)}.</p>
@@ -499,8 +506,10 @@ function abrirEnvioZap(titulo, nome, email, senha, empresas){
     <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
       <button class="btn btn-sec" type="button" data-fechar>Fechar</button>
       <button class="btn btn-sec" type="button" id="zap-copiar">📋 Copiar mensagem</button>
+      <button class="btn btn-sec" type="button" id="zap-email">✉️ Enviar por e-mail</button>
       <button class="btn btn-zap" type="button" id="zap-enviar">📲 Enviar pelo WhatsApp</button>
     </div>`);
+  $('zap-email').addEventListener('click', () => abrirEmailAcesso(nome, email, senha, empresas, $('zap-texto').value));
   $('zap-enviar').addEventListener('click', () => {
     const n = _zapNumero($('zap-num').value);
     const url = `https://wa.me/${n}?text=${encodeURIComponent($('zap-texto').value)}`;
@@ -522,9 +531,9 @@ function gerarSenha(){
   return senha;
 }
 // gera senha nova para um usuario ja cadastrado: so depois de confirmar
-function abrirNovaSenha(u, nomesEmp, viaZap){
+function abrirNovaSenha(u, nomesEmp, via){
   const eu = u.id === PERFIL.id;
-  abrirModal(`<h2>${viaZap ? 'Enviar acesso pelo WhatsApp' : 'Gerar nova senha'}</h2>
+  abrirModal(`<h2>${via === 'zap' ? 'Enviar acesso pelo WhatsApp' : via === 'email' ? 'Enviar acesso por e-mail' : 'Gerar nova senha'}</h2>
     <p class="sub">Uma senha nova será criada para <b style="color:var(--white)">${esc(u.nome)}</b> (${esc(u.email)}).
       <b style="color:var(--orange)">A senha atual deixa de funcionar</b> assim que você confirmar.${eu ? ' <b>Atenção: este é o seu próprio usuário.</b>' : ''}</p>
     <label>Nova senha</label>
@@ -547,6 +556,7 @@ function abrirNovaSenha(u, nomesEmp, viaZap){
       return msg('ns-msg', falta ? 'Falta criar a função de troca de senha no banco (comando SQL). Fale com o suporte.' : traduzErro(error));
     }
     abrirEnvioZap(`Nova senha de ${u.nome} ✔`, u.nome, u.email, senha, nomesEmp);
+    if (via === 'email') abrirEmailAcesso(u.nome, u.email, senha, nomesEmp);
   });
 }
 // novo usuario
