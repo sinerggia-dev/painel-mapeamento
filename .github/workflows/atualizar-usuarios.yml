@@ -1,4 +1,4 @@
-# A API ainda nao traz o cadastro de colaboradores. Uma vez por dia (e pelo botao
+# (repositorio painel-mapeamento) A API ainda nao traz o cadastro de colaboradores. Uma vez por dia (e pelo botao
 # "Run workflow"), entra no mapeia, exporta os Usuarios da empresa e atualiza
 # a lista (so nome, cargo, empresa, setor, perfil e status) de todas as empresas dos grupos.
 name: Atualizar lista de usuarios
