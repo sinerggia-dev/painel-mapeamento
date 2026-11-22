@@ -1,5 +1,5 @@
 {
-  "_leia": "Um painel por grupo (chave da API: todas as empresas). 'empresas' = pedacos do nome da empresa no mapeia (sem acento e sem maiuscula tambem serve). slug = pasta na area privada e codigo no portal.",
+  "_leia": "Um painel por grupo (chave da API: todas as empresas; repositorio painel-mapeamento). 'empresas' = pedacos do nome da empresa no mapeia (sem acento e sem maiuscula tambem serve). slug = pasta na area privada e codigo no portal.",
   "grupos": [
     {
       "slug": "millena",
