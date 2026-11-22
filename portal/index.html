@@ -102,6 +102,13 @@
   .prazo-ed select:disabled{opacity:.5}
   .btn-liga{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5);color:#34d399}
   .prazo-ed input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;color-scheme:dark}
+  .acesso-quadro{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;background:var(--surface2);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;margin:12px 0 4px;align-items:baseline}
+  .acesso-quadro span{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',ui-monospace,monospace}
+  .acesso-quadro b{font-family:'DM Mono',ui-monospace,monospace;font-weight:600;color:var(--white);word-break:break-all}
+  .senha-gerar{display:flex;gap:6px;align-items:center}
+  .senha-gerar input{flex:1;min-width:0;font-family:'DM Mono',ui-monospace,monospace;letter-spacing:.03em}
+  .senha-gerar .btn{white-space:nowrap;margin:0}
   .btn-zap{background:#25d366;border:1px solid #25d366;color:#06301a;font-weight:700}
   .btn-zap:hover{filter:brightness(1.07)}
   .zap-texto{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 12px;
@@ -485,6 +492,11 @@ function _zapMensagem(nome, email, senha, empresas){
 function abrirEnvioZap(titulo, nome, email, senha, empresas){
   const texto = _zapMensagem(nome, email, senha, empresas);
   abrirModal(`<h2>${esc(titulo)}</h2><p class="sub">Confira a mensagem e envie para ${esc(nome)}.</p>
+    <div class="acesso-quadro">
+      <span>Link</span><b>${esc(URL_PORTAL)}</b>
+      <span>Usuário</span><b>${esc(email)}</b>
+      <span>Senha</span><b>${senha ? esc(senha) : '<i style="font-weight:400;color:var(--muted)">a que a pessoa já recebeu</i>'}</b>
+    </div>
     <label>WhatsApp da pessoa (com DDD) — opcional</label>
     <input type="text" id="zap-num" inputmode="tel" placeholder="Ex.: 81 99999-9999 · em branco = escolher o contato no WhatsApp" autocomplete="off">
     <label>Mensagem</label>
@@ -505,6 +517,15 @@ function abrirEnvioZap(titulo, nome, email, senha, empresas){
   });
 }
 
+// senha no formato do exemplo (xxxx-xxxx): minusculas e numeros, sem os que se confundem (0/o, 1/l/i)
+function gerarSenha(){
+  const letras = 'abcdefghjkmnpqrstuvwxyz', nums = '23456789', todos = letras + nums;
+  const r = n => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+  const bloco = () => { let t = ''; for (let i = 0; i < 4; i++) t += todos[r(todos.length)]; return t; };
+  let senha;
+  do { senha = bloco() + '-' + bloco(); } while (!/[0-9]/.test(senha) || !/[a-z]/.test(senha));   // sempre letra e numero
+  return senha;
+}
 // novo usuario
 $('btn-novo').addEventListener('click', () => {
   abrirModal(`<h2>Novo usuário</h2><p class="sub">A pessoa entra com este e-mail e a senha inicial. Depois pode trocar a senha no menu dela.</p>
@@ -512,7 +533,8 @@ $('btn-novo').addEventListener('click', () => {
       <label>Nome</label><input type="text" id="nv-nome" required maxlength="60">
       <label>E-mail</label><input type="email" id="nv-email" required autocomplete="off">
       <div class="linha2">
-        <div><label>Senha inicial</label><input type="text" id="nv-senha" minlength="8" required autocomplete="off"></div>
+        <div><label>Senha inicial</label><div class="senha-gerar"><input type="text" id="nv-senha" minlength="8" required autocomplete="off" spellcheck="false">
+          <button class="btn btn-sec mini" type="button" id="nv-gerar" title="Gerar uma senha forte automaticamente">🎲 Gerar</button></div></div>
         <div><label>Perfil</label><select id="nv-papel"><option value="visualizador">Visualizador</option><option value="admin">Administrador</option></select></div>
       </div>
       <label>Empresas que pode ver</label>
@@ -521,6 +543,8 @@ $('btn-novo').addEventListener('click', () => {
       <div id="nv-msg"></div>
     </form>`);
   $('nv-empresas').addEventListener('change', e => e.target.closest('.chip').classList.toggle('marcado', e.target.checked));
+  $('nv-gerar').addEventListener('click', () => { $('nv-senha').value = gerarSenha(); $('nv-senha').focus(); });
+  $('nv-senha').value = gerarSenha();   // ja abre com uma senha sugerida
   $('f-novo').addEventListener('submit', async ev => {
     ev.preventDefault(); msg('nv-msg','');
     const btn = ev.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Cadastrando…';
