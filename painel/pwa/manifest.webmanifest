@@ -1,6 +1,6 @@
 {
-  "name": "Painéis de Mapeamento — Sinergia",
-  "short_name": "Painéis Sinergia",
+  "name": "Painel de Mapeamento — Sinergia",
+  "short_name": "Painel Sinergia",
   "description": "Status do mapeamento de atividades dos clientes",
   "start_url": "./",
   "scope": "./",
