@@ -428,7 +428,24 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') fecharModal();
 // ═════════ AREA ADMIN ═════════
 let TODAS_EMPRESAS = [], FILTROS = null, OPCOES = null, PERFIS_ADMIN = [];
 $('btn-admin').addEventListener('click', abrirAdmin);
-$('btn-voltar').addEventListener('click', () => { iniciar(); });
+// voltar do Admin: mostra o painel que ja estava aberto, no mesmo lugar (so recarrega se houver versao nova)
+$('btn-voltar').addEventListener('click', voltarDoAdmin);
+async function voltarDoAdmin(){
+  const { data: emps } = await sb.from('empresas').select('*').eq('ativo', true).order('nome');   // o admin pode ter mudado prazo, intervalo ou ocultado empresas
+  if (emps) {
+    const sel = $('sel-empresa'), antes = sel.value;
+    const mudouLista = emps.map(e => e.slug + '|' + e.nome).join() !== EMPRESAS.map(e => e.slug + '|' + e.nome).join();
+    EMPRESAS = emps;
+    if (mudouLista) {
+      sel.innerHTML = EMPRESAS.map(e => `<option value="${esc(e.slug)}">${esc(e.nome)}</option>`).join('');
+      $('seletor').classList.toggle('oculto', EMPRESAS.length < 2);
+      if (EMPRESAS.some(e => e.slug === antes)) sel.value = antes;
+    }
+  }
+  $('area-admin').classList.add('oculto'); $('palco').classList.remove('oculto');
+  const q = $('quadro');
+  carregarPainel(!!(q && q.dataset.slug && q.dataset.slug === $('sel-empresa').value && !q.classList.contains('oculto')));
+}
 document.querySelectorAll('.aba').forEach(a => a.addEventListener('click', () => {
   document.querySelectorAll('.aba').forEach(x => x.classList.toggle('ativa', x===a));
   $('aba-usuarios').classList.toggle('oculto', a.dataset.aba!=='usuarios');
