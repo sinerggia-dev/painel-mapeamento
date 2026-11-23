@@ -213,7 +213,13 @@ def _opcoes(atv, usuarios):
         n = str(a.get("Funcionário", "") or "").strip()
         if n:
             pessoas.setdefault(_chave(n), {"nome": n, "setor": a.get("Setor", "") or "", "cargo": a.get("Cargo", "") or ""})
-    lista = lambda vals: sorted({str(v).strip() for v in vals if str(v or "").strip()}, key=_chave)
+    def lista(vals):   # sem repetir o que so muda em maiuscula/acento (o filtro ja trata como igual)
+        unicos = {}
+        for v in vals:
+            v = str(v or "").strip()
+            if v:
+                unicos.setdefault(_chave(v), v)
+        return [unicos[k] for k in sorted(unicos)]
     return {"setores": lista([a.get("Setor") for a in atv] + [u.get("setor") for u in usuarios]),
             "cargos": lista([a.get("Cargo") for a in atv] + [u.get("cargo") for u in usuarios]),
             "funcionarios": sorted(pessoas.values(), key=lambda p: _chave(p["nome"]))}
