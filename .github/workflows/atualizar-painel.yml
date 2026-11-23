@@ -68,25 +68,50 @@ jobs:
           grupos = [g["slug"] for g in json.load(open("painel/grupos.json", encoding="utf-8"))["grupos"]]
           agora = datetime.now()                       # TZ do job = America/Sao_Paulo
           fatia = (agora.hour * 60 + agora.minute) // 10 * 10   # inicio da janela de 10 min
+          k = os.environ["SUPABASE_SERVICE_KEY"]
+          def ler(tabela, campos):
+              url = os.environ["SUPABASE_URL"] + f"/rest/v1/{tabela}?select={campos}"
+              req = urllib.request.Request(url, headers={"apikey": k, "Authorization": "Bearer " + k})
+              return json.load(urllib.request.urlopen(req, timeout=30))
           lista, motivo = grupos, "push/manual: todas"
           if os.environ["EVENTO"] != "push":
               try:
-                  url = os.environ["SUPABASE_URL"] + "/rest/v1/empresas?select=slug,intervalo_min,atualizacao_ativa"
-                  k = os.environ["SUPABASE_SERVICE_KEY"]
-                  req = urllib.request.Request(url, headers={"apikey": k, "Authorization": "Bearer " + k})
-                  conf = {e["slug"]: e for e in json.load(urllib.request.urlopen(req, timeout=30))}
+                  conf = {e["slug"]: e for e in ler("empresas", "slug,intervalo_min,atualizacao_ativa")}
                   lista = [g for g in grupos if g not in conf or (conf[g].get("atualizacao_ativa", True)
                            and fatia % max(10, int(conf[g].get("intervalo_min") or 60)) == 0)]
                   motivo = f"janela {fatia // 60:02d}:{fatia % 60:02d}"
               except Exception as e:
                   motivo = f"sem configuracao no banco ({str(e)[:80]}): todas"
-          print(f"::notice::Atualizar agora ({motivo}): {', '.join(lista) or 'nenhuma'}")
+          # paineis restritos (o que cada usuario ve): os dos grupos da vez + os que o admin
+          # acabou de mudar (ficam prontos em ate 10 min, sem esperar o intervalo da empresa)
+          filtros, pendentes = [], 0
+          try:
+              perfis = {p["id"]: p for p in ler("perfis", "id,papel,ativo")}
+              acessos = {(a["usuario"], a["empresa"]) for a in ler("acessos", "usuario,empresa")}
+              gerados = {(g["usuario"], g["empresa"]): g["base_em"] for g in ler("paineis_gerados", "usuario,empresa,base_em")}
+              for f in ler("filtros", "usuario,empresa,setores,cargos,funcionarios,alterado_em"):
+                  p = perfis.get(f["usuario"]) or {}
+                  if not p.get("ativo") or p.get("papel") == "admin" or (f["usuario"], f["empresa"]) not in acessos:
+                      continue
+                  if f["empresa"] not in grupos:
+                      continue
+                  base = gerados.get((f["usuario"], f["empresa"]))
+                  novo = not base or datetime.fromisoformat(base) < datetime.fromisoformat(f["alterado_em"])
+                  if f["empresa"] in lista or novo:
+                      filtros.append(f); pendentes += novo
+          except Exception as e:
+              print(f"::notice::Filtros por usuario ainda nao configurados no banco ({str(e)[:80]})")
+          print(f"::notice::Atualizar agora ({motivo}): {', '.join(lista) or 'nenhuma'}; "
+                f"paineis restritos: {len(filtros)} ({pendentes} com filtro novo)")
+          os.makedirs("trabalho", exist_ok=True)
+          json.dump({"grupos": lista, "filtros": filtros}, open("trabalho/agora.json", "w", encoding="utf-8"))
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               print("lista=" + " ".join(lista), file=f)
+              print("rodar=" + ("1" if lista or filtros else ""), file=f)
           PY
 
       - name: Buscar a lista de cadastrados na area privada (Supabase)
-        if: steps.quais.outputs.lista != ''
+        if: steps.quais.outputs.rodar != ''
         env:
           SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -98,18 +123,19 @@ jobs:
           else echo "::error::nao consegui baixar a lista de cadastrados ($code): $(head -c 200 usuarios.tmp)"; exit 1; fi
 
       - name: Buscar atividades na API
-        if: steps.quais.outputs.lista != ''
+        if: steps.quais.outputs.rodar != ''
         env:
           MAPEIA_API_KEY: ${{ secrets.MAPEIA_API_KEY }}
-          GRUPOS_AGORA: ${{ steps.quais.outputs.lista }}
         run: python painel/buscar_api.py trabalho
 
       - name: Gerar os paineis
-        if: steps.quais.outputs.lista != ''
+        if: steps.quais.outputs.rodar != ''
         run: |
-          for g in $(cat trabalho/grupos.txt); do
-            echo "== $g"; python trabalho/$g/ResumoGerencialMapeamentoMillena/gerar_dashboard.py
-          done
+          # paineis.txt: uma linha por painel (os completos e os restritos de cada usuario)
+          while read -r pasta destino usuario empresa base; do
+            if [ "$usuario" = "-" ]; then echo "== $empresa (completo)"; else echo "== $empresa (restrito)"; fi
+            python trabalho/$pasta/ResumoGerencialMapeamentoMillena/gerar_dashboard.py < /dev/null
+          done < trabalho/paineis.txt
 
       - run: |
           mkdir -p _site
@@ -119,7 +145,7 @@ jobs:
           printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../"><script>location.replace("../"+location.hash)</script>' > _site/portal/index.html
 
       - name: Guardar os paineis na area privada (Supabase)
-        if: steps.quais.outputs.lista != ''
+        if: steps.quais.outputs.rodar != ''
         env:
           SUPABASE_URL: https://dcdbsiuveisxoypcblzd.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -134,15 +160,22 @@ jobs:
           code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/empresas?on_conflict=slug"             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"             -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates,return=minimal"             --data-binary @empresas.json)
           if [ "$code" -ge 300 ]; then echo "::warning::cadastro dos grupos no portal: $code $(head -c 200 resp.txt)"; fi
           falhou=0
-          for g in $(cat trabalho/grupos.txt); do
-            arq=$(ls trabalho/$g/ResumoGerencialMapeamentoMillena/Dashboard_*_ATUAL.html)
+          while read -r pasta destino usuario empresa base; do
+            arq=$(ls trabalho/$pasta/ResumoGerencialMapeamentoMillena/Dashboard_*_ATUAL.html)
             for t in 1 2 3; do
-              code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/storage/v1/object/paineis/$g/index.html"               -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"               -H "x-upsert: true" -H "Content-Type: text/html; charset=utf-8" -H "Cache-Control: no-cache"               --data-binary @"$arq")
+              code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/storage/v1/object/paineis/$destino"               -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"               -H "x-upsert: true" -H "Content-Type: text/html; charset=utf-8" -H "Cache-Control: no-cache"               --data-binary @"$arq")
               [ "$code" -lt 300 ] && break; sleep 8
             done
-            if [ "$code" -ge 300 ]; then echo "::error::$g: Supabase respondeu $code: $(head -c 300 resp.txt)"; falhou=1;
-            else echo "::notice::Painel $g guardado na area privada (HTTP $code)"; fi
-          done
+            if [ "$code" -ge 300 ]; then echo "::error::$empresa: Supabase respondeu $code: $(head -c 300 resp.txt)"; falhou=1; continue; fi
+            if [ "$usuario" = "-" ]; then echo "::notice::Painel $empresa guardado na area privada (HTTP $code)"; continue; fi
+            # painel restrito: registra qual versao do filtro foi usada (libera a leitura para o usuario)
+            code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/paineis_gerados?on_conflict=usuario,empresa"               -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"               -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates,return=minimal"               --data-binary "{\"usuario\":\"$usuario\",\"empresa\":\"$empresa\",\"base_em\":\"$base\"}")
+            if [ "$code" -ge 300 ]; then echo "::error::$empresa: registro do painel restrito falhou ($code): $(head -c 200 resp.txt)"; falhou=1;
+            else echo "::notice::Painel restrito de $empresa guardado"; fi
+          done < trabalho/paineis.txt
+          # setores, cargos e nomes de cada grupo, para o Admin montar os filtros (area so de admin)
+          code=$(curl -s -o resp.txt -w "%{http_code}" -X POST "$SUPABASE_URL/storage/v1/object/paineis/_privado/opcoes.json"             -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"             -H "x-upsert: true" -H "Content-Type: application/json" -H "Cache-Control: no-cache"             --data-binary @trabalho/opcoes.json)
+          if [ "$code" -ge 300 ]; then echo "::warning::lista de opcoes dos filtros: $code $(head -c 200 resp.txt)"; fi
           exit $falhou
 
       - uses: actions/cache/save@v4

@@ -44,6 +44,7 @@ no Supabase. Não commitar `dados/`, xlsx, html gerados, nem nada com nomes de p
 | `painel/pwa/` | Ícones (alfa da Sinergia) e manifesto do portal. |
 | `.github/workflows/atualizar-painel.yml` | Robô dos painéis (ver fluxo acima). |
 | `.github/workflows/atualizar-usuarios.yml` | Robô da lista de cadastrados. |
+| `supabase/2026-11-23_filtros.sql` | Filtro do que cada usuário vê dentro do painel (tabelas `filtros` e `paineis_gerados`, função `pode_ler_painel`, regra do Storage). |
 | `supabase/estrutura.sql` | Estrutura do banco (tabelas, regras, funções). Já foi rodada; serve de referência. Mudança no banco = SQL novo que o **usuário** roda no SQL Editor do Supabase. |
 
 ## Detalhes importantes
@@ -58,6 +59,14 @@ no Supabase. Não commitar `dados/`, xlsx, html gerados, nem nada com nomes de p
   `parent.prazoDoPainel()` e `parent.atualizacaoDoPainel()` (prazo e intervalo vêm da tabela
   `empresas`, editados pelo admin). Fora do portal usa os valores gravados pelo robô.
 - **Portal só recarrega quando há versão nova** no Storage e troca o iframe sem piscar.
+- **Filtro por usuário (o que ele vê dentro do painel)**: no Admin, botão 👁 ao lado de cada
+  empresa marcada. Sem linha em `filtros` = vê o painel completo (`<slug>/index.html`). Com
+  linha = vê só `<slug>/u/<id do usuário>.html`, que o robô gera só com quem estiver em
+  QUALQUER setor/cargo/nome marcado (`_filtrar` em `buscar_api.py`); o completo fica bloqueado
+  pela regra `pode_ler_painel`. Filtro mudado = painel antigo bloqueado até o robô gerar o novo
+  (`filtros.alterado_em` > `paineis_gerados.base_em`); o robô gera os pendentes em até 10 min.
+  As opções (setores, cargos, nomes) ficam em `paineis/_privado/opcoes.json` (só admin lê).
+  O log do Actions é público: não imprimir nomes nem filtros.
 - **API do mapeia**: `https://ruwfvtgacnimpebelxfd.supabase.co/functions/v1/api-relatorio`,
   Bearer `MAPEIA_API_KEY`, **1 consulta de atividades a cada 5 min** (429 → o robô espera e
   repete). Não tem cadastro de usuários (por isso o robô Playwright).

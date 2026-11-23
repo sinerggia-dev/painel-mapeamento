@@ -118,6 +118,29 @@
   .mini{padding:6px 10px;font-size:12px}
   .modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
   .modal-fundo .cartao{max-width:460px}
+  .modal-fundo .cartao.largo{max-width:680px;max-height:calc(100dvh - 32px);overflow:auto}
+  .emp-acesso{display:inline-flex;align-items:center;gap:2px}
+  .ver-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .ver-btn:hover{color:var(--white);border-color:var(--acc)}
+  .ver-btn.restrito{color:#fcd34d;border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.1)}
+  .f-modo{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px}
+  .f-modo label{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:13px;margin:0;color:var(--text)}
+  .f-modo label.marcado{border-color:var(--acc);background:rgba(124,58,237,.12);color:var(--white)}
+  .f-modo input{accent-color:var(--acc)}
+  .f-sec{margin-top:14px}
+  .f-sec .chip{margin:0;font-weight:500;color:var(--text)}
+  .f-sec .chip.marcado{color:var(--white)}
+  .f-sec h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .f-sec h3 small{text-transform:none;letter-spacing:0;font-weight:400}
+  .f-pessoas{max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:10px}
+  .f-pessoas label{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);margin:0;cursor:pointer;font-size:13px;color:var(--text)}
+  .f-pessoas label:last-child{border-bottom:0}
+  .f-pessoas label.marcado{background:rgba(124,58,237,.12);color:var(--white)}
+  .f-pessoas small{color:var(--muted);font-size:11px;margin-left:auto;text-align:right}
+  .f-pessoas input{accent-color:var(--acc)}
+  .f-resumo{margin-top:12px;font-size:13px;color:var(--muted)}
+  .f-resumo b{color:var(--white)}
+  .f-desligado{opacity:.4;pointer-events:none}
   .linha2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);
     padding:10px 16px;border-radius:10px;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:calc(100vw - 32px)}
@@ -221,6 +244,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const iniciais = n => { const p=String(n||'').trim().split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:'')).toUpperCase():'?'; };
 const URL_PORTAL = location.origin + location.pathname;
 let PERFIL = null, EMPRESAS = [], modoRecuperacao = false, timerPainel = null;
+// empresas em que o usuario logado tem filtro (ve so o painel feito para ele: <slug>/u/<id>.html)
+let MEUS_FILTROS = new Set();
+async function lerMeusFiltros(){
+  if (!PERFIL || PERFIL.papel === 'admin') { MEUS_FILTROS = new Set(); return; }
+  const { data, error } = await sb.from('filtros').select('empresa').eq('usuario', PERFIL.id);
+  if (!error) MEUS_FILTROS = new Set((data || []).map(f => f.empresa));   // tabela ainda nao existe = sem filtro
+}
+const caminhoPainel = slug => MEUS_FILTROS.has(slug) ? { pasta: `${slug}/u`, arquivo: `${PERFIL.id}.html` } : { pasta: slug, arquivo: 'index.html' };
 
 function toast(t, ms=3200){ const e=$('toast'); e.textContent=t; e.classList.remove('oculto'); clearTimeout(toast._t); toast._t=setTimeout(()=>e.classList.add('oculto'),ms); }
 function msg(id, texto, tipo='erro'){ $(id).innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : ''; }
@@ -302,8 +333,9 @@ const versaoPainel = {};
 let carregandoPainel = false;
 async function _versaoNoServidor(slug){
   try {
-    const { data } = await sb.storage.from('paineis').list(slug, { search: 'index.html', limit: 5 });
-    const f = (data || []).find(x => x.name === 'index.html');
+    const c = caminhoPainel(slug);
+    const { data } = await sb.storage.from('paineis').list(c.pasta, { search: c.arquivo, limit: 5 });
+    const f = (data || []).find(x => x.name === c.arquivo);
     return f ? (f.updated_at || f.created_at || '') : '';
   } catch(e) { return ''; }
 }
@@ -315,14 +347,18 @@ async function carregarPainel(silencioso=false){
   if (carregandoPainel) return;
   carregandoPainel = true;
   try {
+    await lerMeusFiltros();   // o admin pode ter mudado o que esta pessoa ve
     const versao = await _versaoNoServidor(slug);
     // recarga automatica: so baixa de novo quando o robo gravou uma versao nova
     if (silencioso && versao && versaoPainel[slug] === versao && quadro.dataset.slug === slug) return;
     if (!silencioso) { quadro.classList.add('oculto'); aviso.classList.remove('oculto'); aviso.innerHTML = '<div class="gira"></div><div>Carregando painel…</div>'; }
-    const { data, error } = await sb.storage.from('paineis').download(`${slug}/index.html`);
+    const c = caminhoPainel(slug);
+    const { data, error } = await sb.storage.from('paineis').download(`${c.pasta}/${c.arquivo}`);
     if (error || !data) {
       if (silencioso) return;
-      aviso.innerHTML = `<div>O painel desta empresa ainda não foi publicado.</div><div style="font-size:12px">(${esc(traduzErro(error)||'sem arquivo')})</div>`;
+      aviso.innerHTML = MEUS_FILTROS.has(slug)
+        ? '<div>Seu painel está sendo preparado.</div><div style="font-size:12px">Fica pronto em até 10 minutos. Depois, aperte F5.</div>'
+        : `<div>O painel desta empresa ainda não foi publicado.</div><div style="font-size:12px">(${esc(traduzErro(error)||'sem arquivo')})</div>`;
       return;
     }
     const html = await data.text();
@@ -390,7 +426,7 @@ $('modal').addEventListener('click', e => { if (e.target.id==='modal' || e.targe
 document.addEventListener('keydown', e => { if (e.key==='Escape') fecharModal(); });
 
 // ═════════ AREA ADMIN ═════════
-let TODAS_EMPRESAS = [];
+let TODAS_EMPRESAS = [], FILTROS = null, OPCOES = null, PERFIS_ADMIN = [];
 $('btn-admin').addEventListener('click', abrirAdmin);
 $('btn-voltar').addEventListener('click', () => { iniciar(); });
 document.querySelectorAll('.aba').forEach(a => a.addEventListener('click', () => {
@@ -404,13 +440,15 @@ async function abrirAdmin(){
 }
 async function carregarAdmin(){
   $('aba-usuarios').innerHTML = '<div class="aviso-centro" style="position:static"><div class="gira"></div></div>';
-  const [p, a, e] = await Promise.all([
+  const [p, a, e, f] = await Promise.all([
     sb.from('perfis').select('id,nome,email,papel,ativo,criado_em').order('nome'),
     sb.from('acessos').select('usuario,empresa'),
     sb.from('empresas').select('*').order('nome'),
+    sb.from('filtros').select('usuario,empresa,setores,cargos,funcionarios'),
   ]);
   if (p.error || a.error || e.error) { $('aba-usuarios').innerHTML = `<div class="msg erro">${esc(traduzErro(p.error||a.error||e.error))}</div>`; return; }
-  TODAS_EMPRESAS = e.data;
+  TODAS_EMPRESAS = e.data; PERFIS_ADMIN = p.data;
+  FILTROS = f.error ? null : f.data;   // null = falta rodar o comando SQL dos filtros
   const acessosDe = id => new Set(a.data.filter(x=>x.usuario===id).map(x=>x.empresa));
   $('aba-usuarios').innerHTML = `<table class="tabela"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th>Empresas que pode ver</th><th></th></tr></thead><tbody>
     ${p.data.map(u => { const acs=acessosDe(u.id); const eu=u.id===PERFIL.id; return `<tr data-id="${u.id}">
@@ -418,7 +456,7 @@ async function carregarAdmin(){
       <td><span class="tag ${u.papel==='admin'?'adm':'vis'}">${u.papel==='admin'?'Administrador':'Visualizador'}</span></td>
       <td><span class="tag ${u.ativo?'on':'off'}">${u.ativo?'Ativo':'Bloqueado'}</span></td>
       <td>${u.papel==='admin' ? '<span style="color:var(--muted);font-size:12px">Todas (administrador)</span>' :
-        `<div class="chips">${TODAS_EMPRESAS.map(em=>`<label class="chip ${acs.has(em.slug)?'marcado':''}"><input type="checkbox" data-acesso="${u.id}" value="${esc(em.slug)}" ${acs.has(em.slug)?'checked':''}>${esc(em.nome)}</label>`).join('')}</div>`}</td>
+        `<div class="chips">${TODAS_EMPRESAS.map(em=>`<span class="emp-acesso"><label class="chip ${acs.has(em.slug)?'marcado':''}"><input type="checkbox" data-acesso="${u.id}" value="${esc(em.slug)}" ${acs.has(em.slug)?'checked':''}>${esc(em.nome)}</label>${acs.has(em.slug)?botaoVer(u.id, em.slug):''}</span>`).join('')}</div>`}</td>
       <td><div class="acoes">
         <button class="btn btn-sec mini" data-acao="papel" type="button" ${eu?'disabled title="Você não pode tirar seu próprio acesso de administrador"':''}>${u.papel==='admin'?'Tornar visualizador':'Tornar admin'}</button>
         <button class="btn btn-sec mini" data-acao="ativo" type="button" ${eu?'disabled':''}>${u.ativo?'Bloquear':'Reativar'}</button>
@@ -427,7 +465,7 @@ async function carregarAdmin(){
         <button class="btn btn-zap mini" data-acao="zap" type="button" title="Gera uma senha nova (com confirmação) e envia o acesso pelo WhatsApp">📲 WhatsApp</button>
       </div></td></tr>`; }).join('')}
   </tbody></table>
-  <p class="sub" style="margin-top:10px">Marque ou desmarque as empresas: a mudança vale na hora.</p>`;
+  <p class="sub" style="margin-top:10px">Marque ou desmarque as empresas: a mudança vale na hora. No botão 👁 ao lado de cada empresa você escolhe o que a pessoa vê dentro do painel (todos, ou só alguns setores, cargos ou funcionários).</p>`;
   renderEmpresas();
 }
 // marcar/desmarcar empresa
@@ -439,11 +477,107 @@ $('aba-usuarios').addEventListener('change', async ev => {
     : await sb.from('acessos').delete().eq('usuario', cb.dataset.acesso).eq('empresa', cb.value);
   cb.disabled = false;
   if (r.error) { cb.checked = !cb.checked; toast('Erro: ' + traduzErro(r.error)); return; }
-  cb.closest('.chip').classList.toggle('marcado', cb.checked);
-  toast(cb.checked ? 'Acesso liberado.' : 'Acesso removido.');
+  if (!cb.checked && FILTROS) await sb.from('filtros').delete().eq('usuario', cb.dataset.acesso).eq('empresa', cb.value);
+  toast(cb.checked ? 'Acesso liberado (vê todos). Use o 👁 para limitar.' : 'Acesso removido.');
+  carregarAdmin();
 });
+// ── o que cada usuario ve dentro do painel (setor, cargo, nome ou todos) ──
+const chave = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const filtroDe = (uid, slug) => (FILTROS || []).find(f => f.usuario === uid && f.empresa === slug);
+function resumoFiltro(f){
+  if (!f) return 'Todos';
+  const p = [];
+  if (f.setores.length) p.push(f.setores.length === 1 ? f.setores[0] : `${f.setores.length} setores`);
+  if (f.cargos.length) p.push(f.cargos.length === 1 ? f.cargos[0] : `${f.cargos.length} cargos`);
+  if (f.funcionarios.length) p.push(f.funcionarios.length === 1 ? f.funcionarios[0] : `${f.funcionarios.length} pessoas`);
+  return p.join(' + ') || 'Ninguém';
+}
+function botaoVer(uid, slug){
+  const f = filtroDe(uid, slug);
+  return `<button class="ver-btn ${f?'restrito':''}" type="button" data-ver="${esc(uid)}" data-emp="${esc(slug)}" title="Escolher o que a pessoa vê neste painel">👁 ${esc(resumoFiltro(f))}</button>`;
+}
+async function lerOpcoes(){
+  if (OPCOES) return OPCOES;
+  const { data, error } = await sb.storage.from('paineis').download('_privado/opcoes.json');
+  if (error || !data) return null;
+  try { OPCOES = JSON.parse(await data.text()); } catch(e) { return null; }
+  return OPCOES;
+}
+async function abrirFiltro(uid, slug){
+  if (!FILTROS) return toast('Falta rodar o comando SQL dos filtros no Supabase.');
+  const u = PERFIS_ADMIN.find(x => x.id === uid), em = TODAS_EMPRESAS.find(x => x.slug === slug);
+  const atual = filtroDe(uid, slug) || { setores: [], cargos: [], funcionarios: [] };
+  abrirModal('<div class="aviso-centro" style="position:static"><div class="gira"></div></div>');
+  const op = await lerOpcoes();
+  const g = (op && op.grupos && op.grupos[slug]) || { setores: [], cargos: [], funcionarios: [] };
+  // valores ja escolhidos que sumiram da lista continuam aparecendo (marcados)
+  const junta = (lista, extra) => { const ks = new Set(lista.map(chave)); return lista.concat(extra.filter(x => !ks.has(chave(x)))); };
+  const setores = junta(g.setores, atual.setores), cargos = junta(g.cargos, atual.cargos);
+  const ksPessoas = new Set(g.funcionarios.map(p => chave(p.nome)));
+  const pessoas = g.funcionarios.concat(atual.funcionarios.filter(n => !ksPessoas.has(chave(n))).map(n => ({ nome: n, setor: '', cargo: '' })));
+  const tem = (lista, v) => lista.some(x => chave(x) === chave(v));
+  const restrito = !!filtroDe(uid, slug);
+  const chipsDe = (tipo, lista, marcados) => lista.length
+    ? `<div class="chips">${lista.map(v => `<label class="chip ${tem(marcados, v)?'marcado':''}"><input type="checkbox" data-f="${tipo}" value="${esc(v)}" ${tem(marcados, v)?'checked':''}>${esc(v)}</label>`).join('')}</div>`
+    : '<p class="sub">Nenhum encontrado.</p>';
+  const m = $('modal'); m.querySelector('.cartao').classList.add('largo');
+  m.querySelector('.cartao').innerHTML = `<h2>O que ${esc(u ? u.nome.split(' ')[0] : 'a pessoa')} vê em ${esc(em ? em.nome : slug)}</h2>
+    ${op ? '' : '<div class="msg erro">A lista de setores, cargos e funcionários ainda não foi gerada pelo robô. Ela aparece depois da próxima atualização (até 10 min).</div>'}
+    <div class="f-modo">
+      <label class="${restrito?'':'marcado'}"><input type="radio" name="f-modo" value="todos" ${restrito?'':'checked'}>Todos do painel</label>
+      <label class="${restrito?'marcado':''}"><input type="radio" name="f-modo" value="restrito" ${restrito?'checked':''}>Só quem eu escolher</label>
+    </div>
+    <div id="f-escolha" class="${restrito?'':'f-desligado'}">
+      <p class="sub">A pessoa vê quem estiver em <b style="color:var(--white)">qualquer</b> item marcado (um setor, um cargo ou um nome).</p>
+      <div class="f-sec"><h3>Setores</h3>${chipsDe('setores', setores, atual.setores)}</div>
+      <div class="f-sec"><h3>Cargos / funções</h3>${chipsDe('cargos', cargos, atual.cargos)}</div>
+      <div class="f-sec"><h3>Funcionários <small>(${pessoas.length})</small></h3>
+        <input type="text" id="f-busca" placeholder="Procurar por nome, setor ou cargo…" autocomplete="off" style="margin-bottom:6px">
+        <div class="f-pessoas">${pessoas.length ? pessoas.map(p => `<label class="${tem(atual.funcionarios, p.nome)?'marcado':''}" data-busca="${esc(chave(p.nome+' '+p.setor+' '+p.cargo))}"><input type="checkbox" data-f="funcionarios" value="${esc(p.nome)}" ${tem(atual.funcionarios, p.nome)?'checked':''}>${esc(p.nome)}<small>${esc([p.setor, p.cargo].filter(Boolean).join(' · '))}</small></label>`).join('') : '<p class="sub" style="padding:8px 10px">Nenhum encontrado.</p>'}</div>
+      </div>
+    </div>
+    <div class="f-resumo" id="f-resumo"></div>
+    <div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-sec" type="button" data-fechar>Cancelar</button><button class="btn btn-pri" style="margin:0" type="button" id="f-salvar">Salvar</button></div>
+    <div id="f-msg"></div>`;
+  const marcados = tipo => [...m.querySelectorAll(`input[data-f="${tipo}"]:checked`)].map(i => i.value);
+  const modo = () => m.querySelector('input[name="f-modo"]:checked').value;
+  const atualizarResumo = () => {
+    if (modo() === 'todos') { $('f-resumo').innerHTML = 'Vai ver <b>todos</b> os funcionários do painel.'; return; }
+    const S = new Set(marcados('setores').map(chave)), C = new Set(marcados('cargos').map(chave)), N = new Set(marcados('funcionarios').map(chave));
+    const n = pessoas.filter(p => S.has(chave(p.setor)) || C.has(chave(p.cargo)) || N.has(chave(p.nome))).length;
+    $('f-resumo').innerHTML = (S.size || C.size || N.size) ? `Vai ver <b>${n}</b> de ${pessoas.length} funcionários.` : '<span style="color:var(--orange)">Marque pelo menos um setor, cargo ou funcionário.</span>';
+  };
+  m.querySelector('.cartao').addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.name === 'f-modo') {
+      m.querySelectorAll('.f-modo label').forEach(l => l.classList.toggle('marcado', l.querySelector('input').checked));
+      $('f-escolha').classList.toggle('f-desligado', t.value === 'todos');
+    } else if (t.dataset.f) t.closest('label').classList.toggle('marcado', t.checked);
+    atualizarResumo();
+  });
+  $('f-busca').addEventListener('input', ev => {
+    const q = chave(ev.target.value);
+    m.querySelectorAll('.f-pessoas label').forEach(l => { l.style.display = !q || l.dataset.busca.includes(q) ? '' : 'none'; });
+  });
+  atualizarResumo();
+  $('f-salvar').addEventListener('click', async ev => {
+    const novo = { setores: marcados('setores'), cargos: marcados('cargos'), funcionarios: marcados('funcionarios') };
+    if (modo() === 'restrito' && !novo.setores.length && !novo.cargos.length && !novo.funcionarios.length)
+      return msg('f-msg', 'Marque pelo menos um setor, cargo ou funcionário (ou escolha "Todos do painel").');
+    ev.target.disabled = true; ev.target.textContent = 'Salvando…';
+    const todos = modo() === 'todos';
+    const r = todos
+      ? await sb.from('filtros').delete().eq('usuario', uid).eq('empresa', slug)
+      : await sb.from('filtros').upsert({ usuario: uid, empresa: slug, ...novo }, { onConflict: 'usuario,empresa' });
+    if (r.error) { ev.target.disabled = false; ev.target.textContent = 'Salvar'; return msg('f-msg', traduzErro(r.error)); }
+    fecharModal();
+    toast(todos ? 'Salvo: vê todos.' : 'Salvo. O painel desta pessoa fica pronto em até 10 minutos.', 5000);
+    carregarAdmin();
+  });
+}
 // botoes de cada usuario
 $('aba-usuarios').addEventListener('click', async ev => {
+  const v = ev.target.closest('button[data-ver]'); if (v) return abrirFiltro(v.dataset.ver, v.dataset.emp);
   const b = ev.target.closest('button[data-acao]'); if (!b) return;
   const tr = b.closest('tr'), id = tr.dataset.id;
   const { data: u } = await sb.from('perfis').select('*').eq('id', id).single();

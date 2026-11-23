@@ -109,3 +109,7 @@ begin
 end $$;
 revoke all on function public.admin_definir_senha(uuid, text) from public, anon;
 grant execute on function public.admin_definir_senha(uuid, text) to authenticated;
+
+-- ── 23/11/2026: filtro do que cada usuario ve dentro do painel (setor, cargo, nome) ──
+-- Ver o arquivo supabase/2026-11-23_filtros.sql (tabelas filtros e paineis_gerados,
+-- funcao pode_ler_painel e a nova regra paineis_ler do Storage, que substitui a de cima).

@@ -7,6 +7,12 @@ pasta por grupo, os arquivos que o gerar_dashboard.py le (Relatorio, Aprovacoes 
 
 Uso: python buscar_api.py <pasta_de_trabalho>   ->  <pasta>/<slug>/... e <pasta>/grupos.txt
 A chave vem da variavel de ambiente MAPEIA_API_KEY (segredo do repositorio).
+
+Paineis restritos (tabela "filtros" do portal): se existir <pasta>/agora.json (montado pelo
+workflow), alem dos grupos completos monta uma pasta <slug>__<usuario> por usuario restrito,
+so com as pessoas que ele pode ver (setor, cargo ou nome). Tudo vai para <pasta>/paineis.txt:
+"<pasta> <caminho no Storage> <usuario|-> <empresa> <base_em|->", uma linha por painel.
+Tambem grava <pasta>/opcoes.json (setores, cargos e nomes de cada grupo, para o Admin escolher).
 """
 import json, os, sys, shutil, gzip, unicodedata
 import urllib.request, urllib.parse, urllib.error
@@ -133,9 +139,9 @@ def _do_grupo(g, empresa):
     return bool(e) and any(_chave(t) in e for t in g["empresas"])
 
 
-def _montar_grupo(trab, g, atv, usuarios):
-    """Grava, em <trab>/<slug>/, o que o gerador precisa para o painel do grupo."""
-    raiz = trab / g["slug"]
+def _montar_grupo(trab, g, atv, usuarios, pasta=None):
+    """Grava, em <trab>/<pasta ou slug>/, o que o gerador precisa para o painel do grupo."""
+    raiz = trab / (pasta or g["slug"])
     dest = raiz / "ResumoGerencialMapeamentoMillena"
     dest.mkdir(parents=True, exist_ok=True)
     arq = g["arquivo"]
@@ -185,6 +191,34 @@ def _montar_grupo(trab, g, atv, usuarios):
             [("Usuarios", [cab_u] + [[u.get(c.lower(), "") for c in cab_u] for u in usuarios])])
 
 
+def _filtrar(atv, usuarios, f):
+    """So as atividades e cadastrados que o filtro libera: quem estiver em QUALQUER item marcado
+    (um dos setores, um dos cargos ou um dos nomes). Filtro vazio = ninguem."""
+    S = {_chave(x) for x in f.get("setores") or []} - {""}
+    C = {_chave(x) for x in f.get("cargos") or []} - {""}
+    N = {_chave(x) for x in f.get("funcionarios") or []} - {""}
+    ok = lambda setor, cargo, nome: _chave(setor) in S or _chave(cargo) in C or _chave(nome) in N
+    return ([a for a in atv if ok(a.get("Setor", ""), a.get("Cargo", ""), a.get("Funcionário", ""))],
+            [u for u in usuarios if ok(u.get("setor", ""), u.get("cargo", ""), u.get("nome", ""))])
+
+
+def _opcoes(atv, usuarios):
+    """Setores, cargos e funcionarios do grupo (para o Admin montar os filtros)."""
+    pessoas = {}
+    for u in usuarios:
+        n = str(u.get("nome", "") or "").strip()
+        if n:
+            pessoas.setdefault(_chave(n), {"nome": n, "setor": u.get("setor", "") or "", "cargo": u.get("cargo", "") or ""})
+    for a in atv:
+        n = str(a.get("Funcionário", "") or "").strip()
+        if n:
+            pessoas.setdefault(_chave(n), {"nome": n, "setor": a.get("Setor", "") or "", "cargo": a.get("Cargo", "") or ""})
+    lista = lambda vals: sorted({str(v).strip() for v in vals if str(v or "").strip()}, key=_chave)
+    return {"setores": lista([a.get("Setor") for a in atv] + [u.get("setor") for u in usuarios]),
+            "cargos": lista([a.get("Cargo") for a in atv] + [u.get("cargo") for u in usuarios]),
+            "funcionarios": sorted(pessoas.values(), key=lambda p: _chave(p["nome"]))}
+
+
 def main():
     trab = Path(sys.argv[1]).resolve()
     trab.mkdir(parents=True, exist_ok=True)
@@ -212,26 +246,46 @@ def main():
     usuarios = usr["usuarios"]
     print(f"Usuarios: {len(usuarios)} (lista de {usr.get('atualizado_em', '?')})")
 
-    agora = os.environ.get("GRUPOS_AGORA", "").split()   # vazio = todos
-    gerados, usadas = [], set()
+    # quais paineis gerar: agora.json (do workflow) ou, sem ele, todos os grupos e nenhum restrito
+    arq_agora = trab / "agora.json"
+    if arq_agora.exists():
+        cfg = json.loads(arq_agora.read_text(encoding="utf-8"))
+        agora, filtros = cfg.get("grupos") or [], cfg.get("filtros") or []
+    else:
+        agora, filtros = [g["slug"] for g in GRUPOS], []
+
+    gerados, usadas, paineis, opcoes = [], set(), [], {}
     for g in GRUPOS:
-        if agora and g["slug"] not in agora:
-            continue
         a_g = [a for a in atv if _do_grupo(g, a.get("Empresa", ""))]
         u_g = [u for u in usuarios if _do_grupo(g, u.get("empresa", ""))]
         emps = sorted({a.get("Empresa") for a in a_g} | {u.get("empresa") for u in u_g})
         usadas.update(emps)
-        if not a_g and not u_g:
-            print(f"::warning::Grupo {g['nome']}: nenhuma empresa encontrada para {g['empresas']}")
-            continue
-        _montar_grupo(trab, g, a_g, u_g)
-        gerados.append(g["slug"])
-        print(f"::notice::{g['nome']}: {len(a_g)} atividades, {len(u_g)} cadastrados "
-              f"({len(emps)} empresas: {', '.join(emps)})")
+        opcoes[g["slug"]] = _opcoes(a_g, u_g)
+        if g["slug"] in agora:
+            if not a_g and not u_g:
+                print(f"::warning::Grupo {g['nome']}: nenhuma empresa encontrada para {g['empresas']}")
+            else:
+                _montar_grupo(trab, g, a_g, u_g)
+                gerados.append(g["slug"])
+                paineis.append(f"{g['slug']} {g['slug']}/index.html - {g['slug']} -")
+                print(f"::notice::{g['nome']}: {len(a_g)} atividades, {len(u_g)} cadastrados "
+                      f"({len(emps)} empresas: {', '.join(emps)})")
+        # paineis restritos deste grupo (sem nomes no log: o log do GitHub e publico)
+        meus = [f for f in filtros if f.get("empresa") == g["slug"]]
+        for i, f in enumerate(meus, 1):
+            a_f, u_f = _filtrar(a_g, u_g, f)
+            pasta = f"{g['slug']}__{f['usuario']}"
+            _montar_grupo(trab, g, a_f, u_f, pasta)
+            paineis.append(f"{pasta} {g['slug']}/u/{f['usuario']}.html {f['usuario']} {g['slug']} {f['alterado_em']}")
+            print(f"::notice::{g['nome']}: painel restrito {i}/{len(meus)} com {len(a_f)} atividades e {len(u_f)} cadastrados")
     sobra = sorted({a.get("Empresa") for a in atv} - usadas - {""})
     if sobra:
         print(f"::notice::Empresas sem grupo (sem painel): {', '.join(sobra)}")
     (trab / "grupos.txt").write_text(" ".join(gerados), encoding="utf-8")
+    (trab / "paineis.txt").write_text("\n".join(paineis) + ("\n" if paineis else ""), encoding="utf-8")
+    (trab / "opcoes.json").write_text(json.dumps(
+        {"atualizado_em": datetime.now().strftime("%d/%m/%Y %H:%M"), "grupos": opcoes}, ensure_ascii=False),
+        encoding="utf-8")
 
 
 if __name__ == "__main__":
