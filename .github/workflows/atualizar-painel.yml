@@ -12,6 +12,7 @@ on:
     paths:
       - painel/**
       - portal/**
+      - contratos/**
       - .github/workflows/atualizar-painel.yml
 
 permissions:
@@ -141,6 +142,7 @@ jobs:
           mkdir -p _site
           cp portal/index.html _site/index.html   # o endereco principal e o portal com login
           cp painel/pwa/* _site/                  # icones e manifesto para instalar no celular
+          mkdir -p _site/contratos && cp contratos/index.html _site/contratos/index.html   # Gestao de Contratos
           mkdir -p _site/portal                   # links antigos de /portal/ levam para o endereco principal
           printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../"><script>location.replace("../"+location.hash)</script>' > _site/portal/index.html
 
