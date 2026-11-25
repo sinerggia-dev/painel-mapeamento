@@ -2059,6 +2059,15 @@ function _descricaoFiltros(){
     ['Setores',_temSetor(window._setorFiltro)?window._setorFiltro.join(', '):'Todos'],
     ['Exportado em',new Date().toLocaleString('pt-BR')]];
 }
+// Nome do arquivo: "Relatório de Mapeamento - <empresa> - <setores>[ - <complemento>]"
+function _nomeArquivo(complemento,setores){
+  const limpa=t=>String(t||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
+  const s=setores||window._setorFiltro||[];
+  const st=!s.length?'Todos os setores':(s.length<=3?s.join(', '):s.length+' setores');
+  const partes=['Relatório de Mapeamento',window._empFiltro||'GRUPO_NOME_PH',st];
+  if(complemento) partes.push(complemento);
+  return partes.map(limpa).join(' - ');
+}
 function _sufixoSetores(){
   const s=window._setorFiltro||[];
   if(!s.length) return '';
@@ -2323,7 +2332,7 @@ function exportarEnviaram(){
     lista.forEach(p=>{linhas.push([p.empresa||filial,p.nome,p.cargo,p.setor,p.perfil,p.atividades]);});
   });
   _exportarTabela([['Empresa',22],['Nome',30],['Cargo',24],['Setor',22],['Perfil',14],['Atividades',11]],linhas,
-    'Enviaram'+_sufixoSetores()+'_'+_hojeArq(),null,'Enviaram');
+    _nomeArquivo('Enviaram'),null,'Enviaram');
   return;
   const csv=linhas.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');
   const hoje=new Date().toLocaleDateString('pt-BR').replace(/\//g,'');
@@ -2476,13 +2485,13 @@ function _hojeArq(){ return new Date().toLocaleDateString('pt-BR').split('/').jo
 function exportarAtividades(ev){
   const lista=EMP('sergipe').atividades||[];
   const btn=ev&&ev.currentTarget?ev.currentTarget:null;
-  _exportarModelo(lista,'Atividades_GRUPO_ARQ_PH'+_sufixoSetores()+'_'+_hojeArq(),btn);
+  _exportarModelo(lista,_nomeArquivo(),btn);
 }
 function exportarAtividadesPessoa(){
   const at=window._vaAtual; if(!at||!at.lista.length) return;
   const pessoa=[...(EMP('sergipe').enviaram_list||[]),...(EMP('sergipe').nao_enviaram_list||[])].find(p=>_normJS(p.nome)===_normJS(at.nome))||{};
   const extra={nome:at.nome,cargo:pessoa.cargo,setor:pessoa.setor};
-  _exportarModelo(at.lista,'Atividades_'+at.nome.trim().split(' ').join('_')+'_'+_hojeArq(),document.getElementById('va-exportar'),{extra});
+  _exportarModelo(at.lista,_nomeArquivo(at.nome.trim(),pessoa.setor?[pessoa.setor]:null),document.getElementById('va-exportar'),{extra});
 }
 function exportarAnalise(){
   const fontes=[
@@ -2508,7 +2517,7 @@ function exportarAnalise(){
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url; a.download='Analise_Atividades_'+hoje+'.csv';
+  a.href=url; a.download=_nomeArquivo('Análise')+'.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
@@ -2648,7 +2657,7 @@ function exportarPendentes(){
     lista.forEach(p=>{linhas.push([p.empresa||filial, p.nome, p.cargo, p.setor, p.perfil, p.status_usr]);});
   });
   _exportarTabela([['Empresa',22],['Nome',30],['Cargo',24],['Setor',22],['Perfil',14],['Status',10]],linhas,
-    'Pendentes'+_sufixoSetores()+'_'+_hojeArq(),null,'Pendentes');
+    _nomeArquivo('Pendentes'),null,'Pendentes');
   return;
   const csv=linhas.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');
   const hoje=new Date().toLocaleDateString('pt-BR').replace(/\//g,'');
@@ -2972,7 +2981,7 @@ function exportarVisaoGeral(ev){
   const quem=new Set(rows.filter(p=>!p.pendente).map(p=>_normJS(p.nome)));
   const atv=(EMP('sergipe').atividades||[]).filter(a=>quem.has(_normJS(a.funcionario)));
   const btn=ev&&ev.currentTarget?ev.currentTarget:null;
-  _exportarModelo(atv,'relatorio-atividades_GRUPO_ARQ_PH'+_sufixoSetores()+'_'+_hojeArq(),btn,{pessoas:rows});
+  _exportarModelo(atv,_nomeArquivo(),btn,{pessoas:rows});
 }
 function populate(){
   // Enviaram + Não enviaram — armazena globalmente para filtro
