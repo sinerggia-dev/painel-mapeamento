@@ -1032,6 +1032,22 @@ HTML = """<!DOCTYPE html>
   .filtros-qtd{background:var(--al);color:#fff;border-radius:99px;font-size:11px;min-width:18px;height:18px;padding:0 5px;display:none;align-items:center;justify-content:center}
   .filtros-qtd:not(:empty){display:inline-flex}
   #filtros-painel:not(.aberto){display:none!important}
+  .setor-picker{position:relative}
+  .sp-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;
+    color:var(--text);font-family:inherit;cursor:pointer;width:100%;min-height:34px}
+  .sp-label{flex:1;text-align:left;font-size:12px;font-weight:600;color:var(--white);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sp-seta{color:var(--muted);font-size:11px}
+  .sp-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:260px;max-width:92vw;background:var(--surface);
+    border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.45);padding:8px}
+  .setor-picker.aberto .sp-menu{display:block}
+  .sp-acoes{display:flex;gap:6px;margin-bottom:6px}
+  .sp-acoes button{flex:1;font-size:12px;padding:7px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit;font-weight:600}
+  .sp-lista{max-height:300px;overflow:auto}
+  .sp-item{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer}
+  .sp-item:hover{background:var(--surface2)}
+  .sp-item input{width:18px;height:18px;accent-color:#7c3aed;flex:none}
+  .sp-vazio{color:var(--muted);font-size:12px;padding:8px}
+  @media(max-width:900px){.setor-picker{width:100%}.sp-label{max-width:none}.sp-menu{left:0;right:0;min-width:0}}
   @media(max-width:900px){
     .saudacao{padding:4px 8px 4px 4px;gap:8px}
     .sd-avatar{width:34px;height:34px;font-size:12px}
@@ -1153,6 +1169,15 @@ HTML = """<!DOCTYPE html>
           <option value="tarde">Tarde</option>
           <option value="noite">Noite</option>
         </select>
+      </div>
+      <div id="setor-picker" class="setor-picker">
+        <button type="button" id="setor-picker-btn" class="sp-btn" onclick="abrirSetorPicker(event)" aria-expanded="false">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap">🏷️ Setores</span>
+          <span id="setor-picker-label" class="sp-label">Todos</span><span class="sp-seta">▾</span></button>
+        <div class="sp-menu">
+          <div class="sp-acoes"><button type="button" onclick="setorPickerTodos(true)">Marcar todos</button><button type="button" onclick="setorPickerTodos(false)">Limpar</button></div>
+          <div id="setor-picker-lista" class="sp-lista"></div>
+        </div>
       </div>
     </div>
     </div>
@@ -1298,7 +1323,7 @@ HTML = """<!DOCTYPE html>
           <button id="fg-btn-enviaram" onclick="filtrarEnviaram('enviaram')" style="font-size:11px;padding:4px 11px;border-radius:6px;border:none;cursor:pointer;font-weight:400;transition:all .15s">Enviaram</button>
           <button id="fg-btn-pendentes" onclick="filtrarEnviaram('pendentes')" style="font-size:11px;padding:4px 11px;border-radius:6px;border:none;cursor:pointer;font-weight:400;transition:all .15s">Pendentes</button>
         </div>
-        <button onclick="exportarVisaoGeral()" style="font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid rgba(16,185,129,.3);cursor:pointer;background:rgba(16,185,129,.12);color:#34d399;font-weight:600;white-space:nowrap">⬇ Exportar Excel</button>
+        <button onclick="exportarVisaoGeral(event)" style="font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid rgba(16,185,129,.3);cursor:pointer;background:rgba(16,185,129,.12);color:#34d399;font-weight:600;white-space:nowrap">⬇ Exportar Excel</button>
       </div>
     </div>
     <table><thead><tr><th>Nome</th><th>Cargo</th><th>Setor</th><th>Filial</th><th>Atividades</th><th>Gestor</th><th>Consultor</th><th></th></tr></thead>
@@ -1722,31 +1747,34 @@ function _registroEmpresa(raw){
   return map;
 }
 window._registros={};
-window._setorFiltro='';
+window._setorFiltro=[];   // varios setores: lista vazia = todos
+function _temSetor(f){return Array.isArray(f)?f.length>0:!!f;}
+function _setorBate(f,st){return Array.isArray(f)?f.includes(st):f===st;}
 function _setorDe(p){return ((p&&p.setor)||'').toString().trim()||'(sem setor)';}
 window._empFiltro='';
 function _empDe(p){return ((p&&p.empresa)||'').toString().trim()||'(sem empresa)';}
 function _pessoaPassa(info,setorF,empF){
   if(setorF===undefined) setorF=window._setorFiltro;
   if(empF===undefined) empF=window._empFiltro;
-  return !!info && (!setorF||_setorDe(info)===setorF) && (!empF||_empDe(info)===empF);
+  return !!info && (!_temSetor(setorF)||_setorBate(setorF,_setorDe(info))) && (!empF||_empDe(info)===empF);
 }
 function _calcularEmpresaFiltrada(empKey,de,ate,turno,setorF){
   const raw=DATA[empKey];
   if(setorF===undefined) setorF=window._setorFiltro;
   const empF=window._empFiltro;
-  if(!de && !ate && (!turno||turno==='todos') && !setorF && !empF) return raw;
+  const temSetor=_temSetor(setorF);
+  if(!de && !ate && (!turno||turno==='todos') && !temSetor && !empF) return raw;
   if(!window._registros[empKey]) window._registros[empKey]=_registroEmpresa(raw);
   let registro=window._registros[empKey];
-  if(setorF||empF) registro=new Map([...registro].filter(([n,info])=>_pessoaPassa(info,setorF,empF)));
+  if(temSetor||empF) registro=new Map([...registro].filter(([n,info])=>_pessoaPassa(info,setorF,empF)));
   const atividadesFiltradas=(raw.atividades||[]).filter(a=>_passaFiltroAtividade(a,de,ate,turno)
-    && (!(setorF||empF) || registro.has(_normJS(a.funcionario))));
+    && (!(temSetor||empF) || registro.has(_normJS(a.funcionario))));
   const contagem={};
   atividadesFiltradas.forEach(a=>{const n=_normJS(a.funcionario); contagem[n]=(contagem[n]||0)+1;});
   const enviaram_list=[], nao_enviaram_list=[];
   registro.forEach((info,n)=>{
-    if(contagem[n]) enviaram_list.push({nome:info.nome,cargo:info.cargo,setor:info.setor,perfil:info.perfil,atividades:contagem[n]});
-    else nao_enviaram_list.push({nome:info.nome,cargo:info.cargo,setor:info.setor,perfil:info.perfil,status_usr:info.status_usr||'Ativo'});
+    if(contagem[n]) enviaram_list.push({nome:info.nome,cargo:info.cargo,setor:info.setor,perfil:info.perfil,empresa:info.empresa,atividades:contagem[n]});
+    else nao_enviaram_list.push({nome:info.nome,cargo:info.cargo,setor:info.setor,perfil:info.perfil,empresa:info.empresa,status_usr:info.status_usr||'Ativo'});
   });
   enviaram_list.sort((a,b)=>b.atividades-a.atividades);
   nao_enviaram_list.sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -1755,7 +1783,7 @@ function _calcularEmpresaFiltrada(empKey,de,ate,turno,setorF){
   enviaram_list.forEach(p=>{const c=p.cargo||''; if(c && cargoMap[c]){cargoMap[c].enviaram++; cargoMap[c].atividades+=p.atividades;}});
   const cargo_data=Object.entries(cargoMap).map(([cargo,d])=>({cargo,total:d.total,enviaram:d.enviaram,atividades:d.atividades,pct:Math.round(d.enviaram/Math.max(d.total,1)*100)})).sort((a,b)=>b.atividades-a.atividades);
   const envios_por_data=_computeEnviosPorData(atividadesFiltradas);
-  return {...raw, total:(setorF||empF)?registro.size:raw.total, enviaram:enviaram_list.length, nao_enviaram:nao_enviaram_list.length, total_atividades:atividadesFiltradas.length, enviaram_list, nao_enviaram_list, cargo_data, atividades:atividadesFiltradas, envios_por_data};
+  return {...raw, total:(temSetor||empF)?registro.size:raw.total, enviaram:enviaram_list.length, nao_enviaram:nao_enviaram_list.length, total_atividades:atividadesFiltradas.length, enviaram_list, nao_enviaram_list, cargo_data, atividades:atividadesFiltradas, envios_por_data};
 }
 function _valOuVazioJS(v){v=(v||'').toString().trim(); return v?v:'(vazio)';}
 function _contarCampoJS(atividades,campo){
@@ -1798,7 +1826,7 @@ function _recalcularFiltro(de,ate,turno){
     sergipe:_calcularEmpresaFiltrada('sergipe',de,ate,turno),
     recife:_calcularEmpresaFiltrada('recife',de,ate,turno),
   };
-  const ativo=!!(de||ate||(turno&&turno!=='todos')||window._setorFiltro||window._empFiltro);
+  const ativo=!!(de||ate||(turno&&turno!=='todos')||_temSetor(window._setorFiltro)||window._empFiltro);
   const atvTotal=[...window._empDataAtual.alagoas.atividades,...window._empDataAtual.sergipe.atividades,...window._empDataAtual.recife.atividades];
   window._analiseAtual={
     alagoas: ativo?_analiseFromAtividades(window._empDataAtual.alagoas.atividades):(DATA.analise&&DATA.analise.alagoas),
@@ -1825,7 +1853,7 @@ function _hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.get
 function _filtroEhHoje(){ const h=_hojeISO(); return document.getElementById('filtro-data-de').value===h && document.getElementById('filtro-data-ate').value===h; }
 function _atualizarNovas(){
   const card=document.getElementById('card-novas'); if(!card) return;
-  const h=_hojeISO(), filtra=!!(window._setorFiltro||window._empFiltro);
+  const h=_hojeISO(), filtra=!!(_temSetor(window._setorFiltro)||window._empFiltro);
   const reg=_registroEmpresa(DATA.sergipe);
   const n=(DATA.sergipe.atividades||[]).filter(a=>_parseDataISO(a.criada_em)===h
      && (!filtra || _pessoaPassa(reg.get(_normJS(a.funcionario))))).length;
@@ -1851,8 +1879,9 @@ function _atualizarInfoFiltro(){
   const ate=document.getElementById('filtro-data-ate').value;
   const turno=document.getElementById('filtro-turno').value;
   const box=document.getElementById('filtro-data-info');
-  const setorF=window._setorFiltro;
-  const qtd=(de||ate?1:0)+(turno&&turno!=='todos'?1:0);
+  const setorF=_temSetor(window._setorFiltro)?window._setorFiltro.join(', '):'';
+  const qtd=(de||ate?1:0)+(turno&&turno!=='todos'?1:0)+(setorF?1:0);
+  _renderSetorPicker();
   const q=document.getElementById('filtros-qtd'); if(q){ q.textContent=qtd||''; q.style.display=qtd?'':'none'; }
   if(!de && !ate && (!turno||turno==='todos') && !setorF && !window._empFiltro){ box.style.display='none'; return; }
   const fmt=iso=>iso?iso.split('-').reverse().join('/'):'';
@@ -1901,7 +1930,7 @@ function limparFiltroData(){
   document.getElementById('filtro-data-de').value='';
   document.getElementById('filtro-data-ate').value='';
   document.getElementById('filtro-turno').value='todos';
-  window._setorFiltro=''; window._empFiltro='';
+  window._setorFiltro=[]; window._empFiltro='';
   _recalcularFiltro('','','todos');
   _salvarFiltroLocal('','','todos');
   populate();
@@ -1925,14 +1954,16 @@ function renderSetores(){
     x.total++; if(n in env){x.enviaram++; x.atividades+=env[n];}});
   const lista=Object.values(m).map(x=>({...x,pct:Math.round(x.enviaram/Math.max(x.total,1)*100)}))
     .sort((a,b)=>(b.enviaram/b.total-a.enviaram/a.total)||(b.total-a.total)||a.setor.localeCompare(b.setor));
-  const sel=window._setorFiltro;
+  const sel=window._setorFiltro, temSel=_temSetor(sel);
+  window._setoresDisponiveis=lista.map(x=>x.setor).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   box.innerHTML=lista.map(x=>{const cor=x.pct>=70?'#10b981':(x.pct>=30?'#f59e0b':'#ef4444');
-    const cls='setor-row'+(sel?(x.setor===sel?' ativo':' apagado'):'');
+    const cls='setor-row'+(temSel?(_setorBate(sel,x.setor)?' ativo':' apagado'):'');
     const corBarra='#8b5cf6';   // setores: roxo
     return `<div class="${cls}" data-setor="${esc(x.setor)}" role="button" tabindex="0" title="Filtrar a página por ${esc(x.setor)}"><div class="setor-top"><span class="setor-nome">${esc(x.setor)}</span><span class="setor-num"><strong>${x.enviaram}</strong>/${x.total} · ${x.atividades} ativ. · <strong style="color:${cor}">${x.pct}%</strong></span></div><div class="setor-track"><div class="setor-fill" style="width:${Math.max(x.pct,2)}%;background:${corBarra}"></div></div></div>`;}).join('')
     || '<div class="setor-vazio">Sem setores no cadastro.</div>';
   const chip=document.getElementById('setor-chip');
-  if(chip){chip.style.display=sel?'':'none'; chip.querySelector('b').textContent=sel;}
+  if(chip){chip.style.display=temSel?'':'none'; chip.querySelector('b').textContent=sel.length===1?sel[0]:(sel.length+' setores');}
+  _renderSetorPicker();
 }
 const _PALETA_BARRAS=['#3b82f6','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#f97316','#84cc16','#6366f1','#14b8a6','#eab308','#f43f5e','#0ea5e9','#22c55e','#d946ef','#fb923c'];
 function _coresPorNome(nomes){
@@ -1961,15 +1992,91 @@ function renderEmpresas(reg,de,ate,turno){
 }
 function filtrarEmpresaGrupo(e){
   window._empFiltro=(window._empFiltro===e)?'':(e||'');
-  window._setorFiltro='';   // os setores mudam conforme a empresa
+  window._setorFiltro=[];   // os setores mudam conforme a empresa
   aplicarFiltroData();
 }
 function filtrarSetor(st){
-  window._setorFiltro=(window._setorFiltro===st)?'':(st||'');
+  // clicar num setor liga/desliga ele; vazio limpa todos
+  if(!st){ window._setorFiltro=[]; }
+  else { const a=[...window._setorFiltro]; const i=a.indexOf(st); if(i>=0) a.splice(i,1); else a.push(st); window._setorFiltro=a; }
   aplicarFiltroData();
 }
+function definirSetores(lista){ window._setorFiltro=[...(lista||[])]; aplicarFiltroData(); }
+// ── Seletor de varios setores (dentro de Filtros) ──
+function _renderSetorPicker(){
+  const lb=document.getElementById('setor-picker-label'), box=document.getElementById('setor-picker-lista');
+  if(!lb||!box) return;
+  const sel=window._setorFiltro||[], todos=window._setoresDisponiveis||[];
+  lb.textContent=!sel.length?'Todos':(sel.length===1?sel[0]:(sel.length+' selecionados'));
+  const sig=todos.join('|')+'#'+sel.join('|');
+  if(box.dataset.sig===sig) return;
+  box.dataset.sig=sig;
+  box.innerHTML=todos.map(st=>`<label class="sp-item"><input type="checkbox" value="${esc(st)}"${sel.includes(st)?' checked':''}> <span>${esc(st)}</span></label>`).join('')
+    || '<div class="sp-vazio">Sem setores.</div>';
+}
+function abrirSetorPicker(ev){
+  if(ev) ev.stopPropagation();
+  const p=document.getElementById('setor-picker'); if(!p) return;
+  p.classList.toggle('aberto');
+  document.getElementById('setor-picker-btn').setAttribute('aria-expanded',p.classList.contains('aberto'));
+}
+function _setorPickerMudou(){
+  const box=document.getElementById('setor-picker-lista');
+  definirSetores([...box.querySelectorAll('input:checked')].map(i=>i.value));
+}
+function setorPickerTodos(marcar){ definirSetores(marcar?(window._setoresDisponiveis||[]):[]); }
+document.addEventListener('change',e=>{ if(e.target.closest&&e.target.closest('#setor-picker-lista')) _setorPickerMudou(); });
+document.addEventListener('click',e=>{ const p=document.getElementById('setor-picker');
+  if(p&&p.classList.contains('aberto')&&!(e.target.closest&&e.target.closest('#setor-picker'))){ p.classList.remove('aberto'); document.getElementById('setor-picker-btn').setAttribute('aria-expanded','false'); } });
+function _descricaoFiltros(){
+  const de=document.getElementById('filtro-data-de').value, ate=document.getElementById('filtro-data-ate').value;
+  const turno=document.getElementById('filtro-turno').value, fmt=iso=>iso?iso.split('-').reverse().join('/'):'';
+  return [['Período',de||ate?((de?fmt(de):'início')+' até '+(ate?fmt(ate):'hoje')):'Todo o período'],
+    ['Turno',turno&&turno!=='todos'?_TURNO_LABEL[turno]:'Todos'],
+    ['Empresa',window._empFiltro||'Todas'],
+    ['Setores',_temSetor(window._setorFiltro)?window._setorFiltro.join(', '):'Todos'],
+    ['Exportado em',new Date().toLocaleString('pt-BR')]];
+}
+function _sufixoSetores(){
+  const s=window._setorFiltro||[];
+  if(!s.length) return '';
+  const t=s.length===1?s[0]:(s.length+'_setores');
+  return '_'+t.normalize('NFD').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40);
+}
+// Planilha .xlsx simples: aba de dados + aba "Filtros" dizendo o que foi aplicado
+function _exportarTabela(cols,linhas,base,btn,aba){
+  const txt=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.textContent='Gerando…'; }
+  return _carregarExcelJS().then(EJ=>{
+    const wb=new EJ.Workbook();
+    const ws=wb.addWorksheet(aba||'Dados',{views:[{state:'frozen',ySplit:1}]});
+    ws.columns=cols.map(c=>({header:c[0],width:c[1]}));
+    linhas.forEach(l=>ws.addRow(l));
+    ws.eachRow({includeEmpty:true},(row,n)=>{
+      row.eachCell({includeEmpty:true},c=>{
+        if(n===1){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9222A'}};
+          c.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}}; c.alignment={vertical:'middle',wrapText:true}; return; }
+        c.font={name:'Calibri',size:10,color:{argb:'FF1F2937'}}; c.alignment={vertical:'middle',wrapText:true};
+        c.border={bottom:{style:'thin',color:{argb:'FFE5E7EB'}}};
+        if(n%2===1) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F6F8'}};
+      });
+    });
+    ws.getRow(1).height=24;
+    ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}};
+    const wf=wb.addWorksheet('Filtros');
+    wf.columns=[{header:'Filtro',width:16},{header:'Valor',width:70}];
+    _descricaoFiltros().forEach(l=>wf.addRow(l));
+    wf.addRow(['Linhas',linhas.length]);
+    wf.getRow(1).font={bold:true};
+    return wb.xlsx.writeBuffer();
+  }).then(buf=>{
+    _baixarArquivo(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),base+'.xlsx');
+  }).catch(()=>{
+    const csv=[cols.map(c=>c[0]),...linhas].map(r=>r.map(c=>'"'+String(c===null||c===undefined?'':c).split('"').join('""')+'"').join(';')).join(String.fromCharCode(13,10));
+    _baixarArquivo(new Blob([String.fromCharCode(65279)+csv],{type:'text/csv;charset=utf-8'}),base+'.csv');
+  }).finally(()=>{ if(btn){ btn.disabled=false; btn.innerHTML=txt; } });
+}
 function _filtrarAprovacoes(){
-  const st=window._setorFiltro||window._empFiltro;
+  const st=_temSetor(window._setorFiltro)||window._empFiltro;
   const reg=_registroEmpresa(DATA.sergipe);
   const raw=(DATA.aprovacoes&&DATA.aprovacoes.sergipe&&DATA.aprovacoes.sergipe.itens)||[];
   const itens=st?raw.filter(a=>_pessoaPassa(reg.get(_normJS(a.funcionario)))):raw;
@@ -2189,10 +2296,13 @@ function exportarEnviaram(){
     rec:{filial:'Novatec Recife', lista:EMP('recife').enviaram_list},
   };
   const selecionadas=empAtiva==='todas'?Object.values(fontes):[fontes[empAtiva]];
-  const linhas=[['Filial','Nome','Cargo','Setor','Perfil','Atividades']];
+  const linhas=[];
   selecionadas.forEach(({filial,lista})=>{
-    lista.forEach(p=>{linhas.push([filial,p.nome,p.cargo,p.setor,p.perfil,p.atividades]);});
+    lista.forEach(p=>{linhas.push([p.empresa||filial,p.nome,p.cargo,p.setor,p.perfil,p.atividades]);});
   });
+  _exportarTabela([['Empresa',22],['Nome',30],['Cargo',24],['Setor',22],['Perfil',14],['Atividades',11]],linhas,
+    'Enviaram'+_sufixoSetores()+'_'+_hojeArq(),null,'Enviaram');
+  return;
   const csv=linhas.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');
   const hoje=new Date().toLocaleDateString('pt-BR').replace(/\//g,'');
   const sufixo=empAtiva==='todas'?'Todas':fontes[empAtiva].filial.replace(/\\s+/g,'_');
@@ -2443,10 +2553,13 @@ function exportarPendentes(){
     rec:{filial:'Novatec Recife',  lista:EMP('recife').nao_enviaram_list},
   };
   const selecionadas = empAtiva==='todas' ? Object.values(fontes) : [fontes[empAtiva]];
-  const linhas=[['Filial','Nome','Cargo','Setor','Perfil','Status']];
+  const linhas=[];
   selecionadas.forEach(({filial,lista})=>{
-    lista.forEach(p=>{linhas.push([filial, p.nome, p.cargo, p.setor, p.perfil, p.status_usr]);});
+    lista.forEach(p=>{linhas.push([p.empresa||filial, p.nome, p.cargo, p.setor, p.perfil, p.status_usr]);});
   });
+  _exportarTabela([['Empresa',22],['Nome',30],['Cargo',24],['Setor',22],['Perfil',14],['Status',10]],linhas,
+    'Pendentes'+_sufixoSetores()+'_'+_hojeArq(),null,'Pendentes');
+  return;
   const csv=linhas.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');
   const hoje=new Date().toLocaleDateString('pt-BR').replace(/\//g,'');
   const sufixo=empAtiva==='todas'?'Todas':fontes[empAtiva].filial.replace(/\s+/g,'_');
@@ -2710,18 +2823,14 @@ function filtrarEnviaram(tipo){
     b.style.fontWeight=ativo?'600':'400';
   });
 }
-function exportarVisaoGeral(){
+function exportarVisaoGeral(ev){
   const rows=window._vgFiltro==='enviaram'?window._vgEnv:window._vgFiltro==='pendentes'?window._vgNao:[...window._vgEnv,...window._vgNao];
-  const linhas=[['Nome','Cargo','Setor','Filial','Status','Atividades','Gestor','Consultor'],...rows.map(p=>{
+  const cols=[['Nome',30],['Cargo',24],['Setor',22],['Empresa',22],['Status',11],['Atividades',11],['Gestor',26],['Consultor',26]];
+  const linhas=rows.map(p=>{
     const d=p.pendente?{gestor:{},consultor:{},total:0}:_decisoesPessoa(p.nome);
-    return [p.nome,p.cargo,p.setor||'',p.empresa||p.filial,p.pendente?'Pendente':'Enviou',p.pendente?0:p.atividades,_resumoDec(d.gestor,d.total).txt,_resumoDec(d.consultor,d.total).txt];})];
-  const csv=linhas.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');
-  const blob=new Blob(['\\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const hoje=new Date().toLocaleDateString('pt-BR').replace(/\\//g,'');
-  a.href=url;a.download='Visao_Geral_'+hoje+'.csv';a.click();
-  URL.revokeObjectURL(url);
+    return [p.nome,p.cargo,p.setor||'',p.empresa||p.filial,p.pendente?'Pendente':'Enviou',p.pendente?0:p.atividades,_resumoDec(d.gestor,d.total).txt,_resumoDec(d.consultor,d.total).txt];});
+  const btn=ev&&ev.currentTarget?ev.currentTarget:null;
+  _exportarTabela(cols,linhas,'Visao_Geral'+_sufixoSetores()+'_'+_hojeArq(),btn,'Visão Geral');
 }
 function populate(){
   // Enviaram + Não enviaram — armazena globalmente para filtro
