@@ -1032,6 +1032,14 @@ HTML = """<!DOCTYPE html>
   .filtros-qtd{background:var(--al);color:#fff;border-radius:99px;font-size:11px;min-width:18px;height:18px;padding:0 5px;display:none;align-items:center;justify-content:center}
   .filtros-qtd:not(:empty){display:inline-flex}
   #filtros-painel:not(.aberto){display:none!important}
+  .vg-ordem-box{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:3px 4px 3px 10px}
+  .vg-ordem-box span{font-size:11px;color:var(--muted);white-space:nowrap}
+  .vg-ordem-box select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:4px 6px;font-family:inherit;max-width:190px}
+  .vg-ordem-box button{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:600;white-space:nowrap;font-family:inherit}
+  tr.vg-grupo td{background:rgba(124,58,237,.14)!important;color:var(--white);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:8px 12px!important;text-align:left!important}
+  tr.vg-grupo td small{font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:6px;font-size:11px}
+  @media(max-width:640px){.vg-ordem-box{width:100%;box-sizing:border-box;min-width:0}.vg-ordem-box select{flex:1;width:0;min-width:0;max-width:none;font-size:14px;padding:7px}.vg-ordem-box button{padding:8px 10px}
+    .table-wrap tr.vg-grupo{padding:0;border-bottom:0}.table-wrap tr.vg-grupo td{padding:10px 12px!important}}
   .setor-picker{position:relative}
   .sp-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;
     color:var(--text);font-family:inherit;cursor:pointer;width:100%;min-height:34px}
@@ -1322,6 +1330,20 @@ HTML = """<!DOCTYPE html>
           <button id="fg-btn-todos" onclick="filtrarEnviaram('todos')" style="font-size:11px;padding:4px 11px;border-radius:6px;border:none;cursor:pointer;font-weight:600;transition:all .15s">Todos</button>
           <button id="fg-btn-enviaram" onclick="filtrarEnviaram('enviaram')" style="font-size:11px;padding:4px 11px;border-radius:6px;border:none;cursor:pointer;font-weight:400;transition:all .15s">Enviaram</button>
           <button id="fg-btn-pendentes" onclick="filtrarEnviaram('pendentes')" style="font-size:11px;padding:4px 11px;border-radius:6px;border:none;cursor:pointer;font-weight:400;transition:all .15s">Pendentes</button>
+        </div>
+        <div class="vg-ordem-box">
+          <span>↕ Ordenar</span>
+          <select id="vg-ordem" onchange="mudarOrdemVG()">
+            <option value="setor">Setor</option>
+            <option value="nome">Nome</option>
+            <option value="cargo">Cargo</option>
+            <option value="atividades">Atividades</option>
+            <option value="gestor">Gestor (aguardando aprovação)</option>
+            <option value="consultor">Consultor (aguardando aprovação)</option>
+            <option value="status">Status (pendentes primeiro)</option>
+            <option value="empresa">Empresa</option>
+          </select>
+          <button type="button" id="vg-dir" onclick="inverterOrdemVG()" title="Inverter a ordem">A→Z</button>
         </div>
         <button onclick="exportarVisaoGeral(event)" style="font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid rgba(16,185,129,.3);cursor:pointer;background:rgba(16,185,129,.12);color:#34d399;font-weight:600;white-space:nowrap">⬇ Exportar Excel</button>
       </div>
@@ -2795,6 +2817,57 @@ function _vgRow(p){
   return `<tr><td><strong>${p.nome}</strong></td><td style="font-size:12px;color:var(--subtle)">${p.cargo}</td><td>${setor(p.setor)}</td><td><span style="font-size:11px;font-weight:600;color:${p.cor}">${esc(p.empresa||p.filial)}</span></td><td><span class="count-pill">${p.atividades}</span></td><td>${_resumoDec(d.gestor,d.total).html}</td><td>${_resumoDec(d.consultor,d.total).html}</td><td style="text-align:right"><button type="button" class="btn-ver" data-func="${esc(p.nome)}">Ver atividades</button></td></tr>`;
 }
 window._vgFiltro='todos';
+window._vgOrdem='setor'; window._vgDesc=false;
+try{ const o=JSON.parse(localStorage.getItem('painel_vg_ordem')||'null'); if(o&&o.campo){ window._vgOrdem=o.campo; window._vgDesc=!!o.desc; } }catch(e){}
+const _VG_NUM={atividades:1,gestor:1,consultor:1};   // numericos: comecam do maior
+function _vgAguardando(p,quem){ if(p.pendente) return -1; const d=_decisoesPessoa(p.nome); return d[quem].aguardando||0; }
+function _vgChave(p,campo){
+  if(campo==='nome') return p.nome||'';
+  if(campo==='cargo') return (p.cargo||'').trim()||'(sem cargo)';
+  if(campo==='setor') return _setorDe(p);
+  if(campo==='empresa') return p.empresa||p.filial||'';
+  if(campo==='status') return p.pendente?0:1;
+  if(campo==='atividades') return p.pendente?0:(p.atividades||0);
+  if(campo==='gestor'||campo==='consultor') return _vgAguardando(p,campo);
+  return '';
+}
+function _vgOrdenar(rows){
+  const campo=window._vgOrdem, num=!!_VG_NUM[campo]||campo==='status';
+  // numericos: padrao do maior para o menor; texto: A-Z. O botao inverte.
+  const inv=(_VG_NUM[campo]?!window._vgDesc:window._vgDesc)?-1:1;
+  const cmp=(a,b)=>{const x=_vgChave(a,campo), y=_vgChave(b,campo);
+    const r=num?(x-y):String(x).localeCompare(String(y),'pt-BR',{sensitivity:'base'});
+    return r*inv || (a.nome||'').localeCompare(b.nome||'','pt-BR');};
+  return [...rows].sort(cmp);
+}
+function _vgComGrupos(rows){
+  const campo=window._vgOrdem;
+  if(!['setor','cargo','empresa'].includes(campo)) return rows.map(_vgRow);
+  const html=[]; let atual=null;
+  const cont={}; rows.forEach(p=>{const k=_vgChave(p,campo); cont[k]=(cont[k]||0)+1;});
+  const env={}; rows.forEach(p=>{const k=_vgChave(p,campo); if(!p.pendente) env[k]=(env[k]||0)+1;});
+  rows.forEach(p=>{const k=_vgChave(p,campo);
+    if(k!==atual){ atual=k; html.push(`<tr class="vg-grupo"><td colspan="8">${esc(k)}<small>${cont[k]} pessoa${cont[k]>1?'s':''} · ${env[k]||0} enviaram</small></td></tr>`); }
+    html.push(_vgRow(p));});
+  return html;
+}
+function _vgAtualizarDir(){
+  const b=document.getElementById('vg-dir'), sel=document.getElementById('vg-ordem'); if(!b||!sel) return;
+  sel.value=window._vgOrdem;
+  const num=!!_VG_NUM[window._vgOrdem]||window._vgOrdem==='status';
+  b.textContent=num?(window._vgDesc?'↑ Menor':'↓ Maior'):(window._vgDesc?'Z→A':'A→Z');
+  if(window._vgOrdem==='status') b.textContent=window._vgDesc?'Enviaram 1º':'Pendentes 1º';
+}
+function mudarOrdemVG(){
+  window._vgOrdem=document.getElementById('vg-ordem').value; window._vgDesc=false;
+  try{ localStorage.setItem('painel_vg_ordem',JSON.stringify({campo:window._vgOrdem,desc:window._vgDesc})); }catch(e){}
+  filtrarEnviaram(window._vgFiltro);
+}
+function inverterOrdemVG(){
+  window._vgDesc=!window._vgDesc;
+  try{ localStorage.setItem('painel_vg_ordem',JSON.stringify({campo:window._vgOrdem,desc:window._vgDesc})); }catch(e){}
+  filtrarEnviaram(window._vgFiltro);
+}
 window._vgEmpresa='todas';
 function filtrarEnviaram(tipo){
   window._vgFiltro=tipo;
@@ -2806,7 +2879,10 @@ function filtrarEnviaram(tipo){
   let naoBase=filialFiltro?window._vgNao.filter(p=>p.filial===filialFiltro):window._vgNao;
   let rows=tipo==='enviaram'?envBase:tipo==='pendentes'?naoBase:[...envBase,...naoBase];
   if(busca) rows=rows.filter(p=>p.nome.toLowerCase().includes(busca));
-  setHtml('tb-enviaram',rows.map(_vgRow));
+  rows=_vgOrdenar(rows);
+  window._vgRows=rows;   // a exportacao sai na mesma ordem e com a mesma busca
+  _vgAtualizarDir();
+  setHtml('tb-enviaram',_vgComGrupos(rows));
   const total=envBase.length+naoBase.length;
   let label;
   if(busca) label=rows.length+' resultado'+(rows.length!==1?'s':'')+' de '+total+' — "'+busca+'"';
@@ -2824,7 +2900,7 @@ function filtrarEnviaram(tipo){
   });
 }
 function exportarVisaoGeral(ev){
-  const rows=window._vgFiltro==='enviaram'?window._vgEnv:window._vgFiltro==='pendentes'?window._vgNao:[...window._vgEnv,...window._vgNao];
+  const rows=window._vgRows||[...window._vgEnv,...window._vgNao];
   const cols=[['Nome',30],['Cargo',24],['Setor',22],['Empresa',22],['Status',11],['Atividades',11],['Gestor',26],['Consultor',26]];
   const linhas=rows.map(p=>{
     const d=p.pendente?{gestor:{},consultor:{},total:0}:_decisoesPessoa(p.nome);
