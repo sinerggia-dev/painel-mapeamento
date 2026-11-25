@@ -527,7 +527,7 @@ DATA = {
                      'setor': v.get('Setor',''), 'tipo': v.get('Tipo',''),
                      'autor': v.get('Autor',''), 'data': v.get('Data/hora',''),
                      'conteudo': v.get('Conteúdo','')} for v in versoes_al],
-        'sergipe': [{'atividade': v.get('Atividade',''), 'funcionario': v.get('Funcionário',''),
+        'sergipe': [{'atividade': v.get('Atividade',''), 'funcionario': v.get('Funcionário',''), 'empresa': v.get('Empresa',''),
                      'setor': v.get('Setor',''), 'tipo': v.get('Tipo',''),
                      'autor': v.get('Autor',''), 'data': v.get('Data/hora',''),
                      'conteudo': v.get('Conteúdo','')} for v in versoes_se],
@@ -2336,9 +2336,9 @@ function exportarEnviaram(){
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 // ── Exportar atividades no formato do modelo do mapeia ──
-const _XL_COLS=[['#',5],['Empresa',16],['Setor',18],['Funcionário',20],['Cargo',20],['Nome',30],['Detalhamento',55],
-  ['Periodicidade',16],['Como realiza',16],['Tempo',9],['Horário fixo',12],['Pontos críticos',34],['Sugestões de melhoria',34],
-  ['Status',14],['Decisão gestor',14],['Decisão consultor',14],['Edições do consultor',12],['Parecer do consultor',40],
+const _XL_COLS=[['#',5],['Empresa',24],['Setor',22],['Funcionário',24],['Cargo',22],['Nome',36],['Detalhamento',60],
+  ['Periodicidade',14],['Como realiza',14],['Tempo',10],['Horário fixo',12],['Pontos críticos',40],['Sugestões de melhoria',40],
+  ['Status',18],['Decisão gestor',16],['Decisão consultor',18],['Edições do consultor',18],['Parecer do consultor',50],
   ['Criada em',20],['Atualizada em',20]];
 function _xlData(v){
   if(v===null||v===undefined||v==='') return '';
@@ -2346,7 +2346,7 @@ function _xlData(v){
   if(s.length>=19&&s[4]==='-'&&s[10]==='T'){ const d=new Date(s); if(!isNaN(d)) return d.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}); }
   return s;
 }
-function _xlSN(v){ if(v===true) return 'Sim'; if(v===false) return 'Não'; return v===null||v===undefined?'':v; }
+function _xlSN(v){ const t=String(v===null||v===undefined?'':v).trim().toLowerCase(); if(v===true||t==='true'||t==='sim') return 'Sim'; if(v===false||t==='false'||t==='não'||t==='nao') return 'Não'; return v===null||v===undefined?'':v; }
 function _xlLinha(a,i,extra){
   extra=extra||{};
   const st=String(a.status||'');
@@ -2369,32 +2369,100 @@ function _baixarArquivo(blob,nome){
   const u=URL.createObjectURL(blob), l=document.createElement('a'); l.href=u; l.download=nome;
   document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
-function _exportarModelo(linhas,base,btn){
+// Planilha igual ao "Relatório de Atividades" do mapeia: abas Resumo, Atividades e Versões & Parecer.
+// opt.extra = {nome,cargo,setor} (export de uma pessoa); opt.pessoas = lista da Visao Geral (vira a aba Funcionários)
+function _xlHoras(t){ const m=String(t||'').match(/^(\d+):(\d{2})/); return m?(+m[1])+(+m[2])/60:0; }
+function _xlQuando(v){ const iso=_parseDataISO(v); if(!iso) return ''; const m=String(v).match(/[ T,]\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return iso+' '+(m?m[1].padStart(2,'0')+':'+m[2]+':'+(m[3]||'00'):'00:00:00'); }
+function _exportarModelo(atividades,base,btn,opt){
+  opt=opt||{};
   const txt=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.textContent='Gerando…'; }
+  // mesma ordem do mapeia: da mais nova para a mais antiga
+  const lista=[...atividades].sort((a,b)=>String(_xlQuando(b.criada_em)).localeCompare(String(_xlQuando(a.criada_em))));
+  const linhas=lista.map((a,i)=>_xlLinha(a,i,opt.extra));
+  const nomes=new Set(lista.map(a=>_normJS(a.funcionario||(opt.extra&&opt.extra.nome))));
+  const versoes=((DATA.versoes&&DATA.versoes.sergipe)||[]).filter(v=>nomes.has(_normJS(v.funcionario)));
+  const VERM='FFDA1F26', TXT='FF1F2937', ROT='FF4B5563', ZEBRA='FFF7F8FA';
+  const solido=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
+  function cabecalho(ws,n){
+    ws.views=[{state:'frozen',ySplit:1}];
+    const r=ws.getRow(1); r.height=26;
+    for(let c=1;c<=n;c++){ const x=r.getCell(c); x.fill=solido(VERM); x.font={bold:true,size:11,color:{argb:'FFFFFFFF'}};
+      x.alignment={horizontal:'left',vertical:'middle',wrapText:true}; x.border={bottom:{style:'medium'}}; }
+  }
   return _carregarExcelJS().then(EJ=>{
     const wb=new EJ.Workbook();
-    const ws=wb.addWorksheet('Atividades',{views:[{state:'frozen',ySplit:1}]});
+    // ── Resumo ──
+    const wr=wb.addWorksheet('Resumo');
+    wr.columns=[{width:38},{width:30}];
+    wr.addRow(['Relatório de Atividades']); wr.mergeCells('A1:B1');
+    wr.getCell('A1').font={bold:true,size:22,color:{argb:VERM}};
+    wr.addRow(['Gerado em '+new Date().toLocaleString('pt-BR')]); wr.mergeCells('A2:B2');
+    wr.getCell('A2').font={size:10,color:{argb:'FF6B7280'}};
+    wr.addRow([]);
+    const titulo=t=>{ const r=wr.addRow([t]); wr.mergeCells('A'+r.number+':B'+r.number);
+      r.getCell(1).font={bold:true,size:12,color:{argb:'FFFFFFFF'}}; r.getCell(1).fill=solido(VERM); r.getCell(1).alignment={horizontal:'left'}; };
+    titulo('Filtros aplicados');
+    const filtros=[['Empresa',window._empFiltro||'GRUPO_NOME_PH']];
+    _descricaoFiltros().forEach(([k,v])=>{ if(k==='Empresa'||k==='Exportado em') return;
+      if(v==='Todos'||v==='Todo o período') return; filtros.push([k,v]); });
+    if(opt.extra&&opt.extra.nome) filtros.push(['Funcionário',opt.extra.nome]);
+    filtros.forEach(([k,v])=>{ const r=wr.addRow([k,v]); r.getCell(1).font={size:11,color:{argb:ROT}}; r.getCell(2).font={bold:true,size:11,color:{argb:TXT}}; });
+    wr.addRow([]);
+    titulo('Resumo executivo');
+    const st=k=>lista.filter(a=>String(a.status||'')===k).length;
+    const vazio=v=>v===''||v===null||v===undefined||String(v).trim()==='0'||String(v).trim()==='';
+    const res=[
+      ['Total de atividades',lista.length,TXT],
+      ['Funcionários distintos',nomes.size,'FF0284C7'],
+      ['Aprovadas',st('Aprovada'),'FF059669'],
+      ['Ressalvas',st('Ressalva'),'FFE11D48'],
+      ['Aguardando gestor',st('Aguardando gestor'),'FFD97706'],
+      ['Aguardando consultor',st('Aguardando consultor'),'FFD97706'],
+      ['Tempo total mapeado (horas)',Math.round(lista.reduce((t,a)=>t+_xlHoras(a.tempo),0)*10)/10,TXT],
+      ['Atividades editadas pelo consultor',lista.filter(a=>!vazio(a.edicoes)).length,'FF0284C7'],
+      ['Atividades com parecer do consultor',lista.filter(a=>String(a.parecer||'').trim()).length,'FF0284C7'],
+    ];
+    res.forEach(([k,v,cor],i)=>{ const r=wr.addRow([k,v]);
+      r.getCell(1).font={size:11,color:{argb:ROT}}; r.getCell(2).font={bold:true,size:11,color:{argb:cor}}; r.getCell(2).numFmt='#,##0';
+      if(i%2===0){ r.getCell(1).fill=solido(ZEBRA); r.getCell(2).fill=solido(ZEBRA); } });
+    // ── Atividades ──
+    const ws=wb.addWorksheet('Atividades');
     ws.columns=_XL_COLS.map(c=>({header:c[0],width:c[1]}));
     linhas.forEach(l=>ws.addRow(l));
-    const fonte={name:'Calibri',size:10,color:{argb:'FF1F2937'}};
-    const linhaBorda={bottom:{style:'thin',color:{argb:'FFE5E7EB'}}};
-    ws.eachRow({includeEmpty:true},(row,n)=>{
+    cabecalho(ws,_XL_COLS.length);
+    const corDec=v=>{ const t=_tipoDecisao(v); return t==='aprovada'?'FF059669':(t==='aguardando'?'FFD97706':'FFE11D48'); };
+    ws.eachRow((row,n)=>{ if(n===1) return;
       row.eachCell({includeEmpty:true},(c,col)=>{
-        if(n===1){
-          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9222A'}};
-          c.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}};
-          c.alignment={vertical:'middle',horizontal:'left',wrapText:true};
-          return;
-        }
-        c.font=fonte; c.border=linhaBorda;
-        c.alignment={vertical:'middle',wrapText:true,horizontal:(col===1||col===10||col===17)?'right':'left'};
-        if(n%2===1) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF5F6F8'}};
-        if(col===15&&String(c.value||'').toLowerCase().indexOf('aguard')===0)
-          c.font={name:'Calibri',size:10,bold:true,color:{argb:'FFD97706'}};
+        const dir=(col===1||col===10||col===17);
+        c.font={size:10,color:{argb:TXT}}; c.border={bottom:{style:'hair'}};
+        c.alignment=dir?{vertical:'middle',horizontal:'right'}:{vertical:'middle',wrapText:true};
+        if(n%2===1) c.fill=solido(ZEBRA);
+        if(col===15) c.font={size:10,bold:true,color:{argb:corDec(c.value)}};
       });
     });
-    ws.getRow(1).height=26;
-    ws.autoFilter={from:{row:1,column:1},to:{row:1,column:_XL_COLS.length}};
+    ws.autoFilter={from:{row:1,column:1},to:{row:Math.max(linhas.length+1,1),column:_XL_COLS.length}};
+    // ── Versões & Parecer ──
+    const wv=wb.addWorksheet('Versões & Parecer');
+    wv.columns=[['Atividade',36],['Empresa',22],['Setor',20],['Funcionário',22],['Tipo',14],['Autor',22],['Data/hora',20],['Conteúdo',70]].map(c=>({header:c[0],width:c[1]}));
+    if(versoes.length) versoes.forEach(v=>wv.addRow([v.atividade,v.empresa||'GRUPO_NOME_PH',v.setor,v.funcionario,v.tipo,v.autor,_xlData(v.data),v.conteudo]));
+    else { wv.addRow(['(Nenhuma edição ou parecer)']); wv.getCell('A2').font={italic:true,color:{argb:'FF6B7280'}}; }
+    cabecalho(wv,8);
+    if(versoes.length) wv.eachRow((row,n)=>{ if(n===1) return; row.eachCell({includeEmpty:true},c=>{ c.font={size:10,color:{argb:TXT}};
+      c.alignment={vertical:'middle',wrapText:true}; c.border={bottom:{style:'hair'}}; if(n%2===1) c.fill=solido(ZEBRA); }); });
+    // ── Funcionários (so na Visao Geral: inclui quem ainda nao enviou, que o mapeia nao mostra) ──
+    if(opt.pessoas){
+      const wf=wb.addWorksheet('Funcionários');
+      wf.columns=[['Nome',30],['Cargo',26],['Setor',22],['Empresa',22],['Status',12],['Atividades',12],['Decisão gestor',26],['Decisão consultor',26]].map(c=>({header:c[0],width:c[1]}));
+      opt.pessoas.forEach(p=>{ const d=p.pendente?{gestor:{},consultor:{},total:0}:_decisoesPessoa(p.nome);
+        wf.addRow([p.nome,p.cargo,p.setor||'',p.empresa||p.filial,p.pendente?'Pendente':'Enviou',p.pendente?0:p.atividades,_resumoDec(d.gestor,d.total).txt,_resumoDec(d.consultor,d.total).txt]); });
+      cabecalho(wf,8);
+      wf.eachRow((row,n)=>{ if(n===1) return; row.eachCell({includeEmpty:true},(c,col)=>{ c.font={size:10,color:{argb:TXT}};
+        c.alignment={vertical:'middle',wrapText:true,horizontal:col===6?'right':'left'}; c.border={bottom:{style:'hair'}}; if(n%2===1) c.fill=solido(ZEBRA);
+        if(col===5&&c.value==='Pendente') c.font={size:10,bold:true,color:{argb:'FFD97706'}}; }); });
+      wf.autoFilter={from:{row:1,column:1},to:{row:1,column:8}};
+    }
+    wb.views=[{activeTab:1}];   // abre na aba Atividades, como o arquivo do mapeia
     return wb.xlsx.writeBuffer();
   }).then(buf=>{
     _baixarArquivo(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),base+'.xlsx');
@@ -2408,13 +2476,13 @@ function _hojeArq(){ return new Date().toLocaleDateString('pt-BR').split('/').jo
 function exportarAtividades(ev){
   const lista=EMP('sergipe').atividades||[];
   const btn=ev&&ev.currentTarget?ev.currentTarget:null;
-  _exportarModelo(lista.map((a,i)=>_xlLinha(a,i)),'Atividades_GRUPO_ARQ_PH_'+_hojeArq(),btn);
+  _exportarModelo(lista,'Atividades_GRUPO_ARQ_PH'+_sufixoSetores()+'_'+_hojeArq(),btn);
 }
 function exportarAtividadesPessoa(){
   const at=window._vaAtual; if(!at||!at.lista.length) return;
   const pessoa=[...(EMP('sergipe').enviaram_list||[]),...(EMP('sergipe').nao_enviaram_list||[])].find(p=>_normJS(p.nome)===_normJS(at.nome))||{};
   const extra={nome:at.nome,cargo:pessoa.cargo,setor:pessoa.setor};
-  _exportarModelo(at.lista.map((a,i)=>_xlLinha(a,i,extra)),'Atividades_'+at.nome.trim().split(' ').join('_')+'_'+_hojeArq(),document.getElementById('va-exportar'));
+  _exportarModelo(at.lista,'Atividades_'+at.nome.trim().split(' ').join('_')+'_'+_hojeArq(),document.getElementById('va-exportar'),{extra});
 }
 function exportarAnalise(){
   const fontes=[
@@ -2901,12 +2969,10 @@ function filtrarEnviaram(tipo){
 }
 function exportarVisaoGeral(ev){
   const rows=window._vgRows||[...window._vgEnv,...window._vgNao];
-  const cols=[['Nome',30],['Cargo',24],['Setor',22],['Empresa',22],['Status',11],['Atividades',11],['Gestor',26],['Consultor',26]];
-  const linhas=rows.map(p=>{
-    const d=p.pendente?{gestor:{},consultor:{},total:0}:_decisoesPessoa(p.nome);
-    return [p.nome,p.cargo,p.setor||'',p.empresa||p.filial,p.pendente?'Pendente':'Enviou',p.pendente?0:p.atividades,_resumoDec(d.gestor,d.total).txt,_resumoDec(d.consultor,d.total).txt];});
+  const quem=new Set(rows.filter(p=>!p.pendente).map(p=>_normJS(p.nome)));
+  const atv=(EMP('sergipe').atividades||[]).filter(a=>quem.has(_normJS(a.funcionario)));
   const btn=ev&&ev.currentTarget?ev.currentTarget:null;
-  _exportarTabela(cols,linhas,'Visao_Geral'+_sufixoSetores()+'_'+_hojeArq(),btn,'Visão Geral');
+  _exportarModelo(atv,'relatorio-atividades_GRUPO_ARQ_PH'+_sufixoSetores()+'_'+_hojeArq(),btn,{pessoas:rows});
 }
 function populate(){
   // Enviaram + Não enviaram — armazena globalmente para filtro
