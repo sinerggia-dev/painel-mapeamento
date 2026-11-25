@@ -2063,7 +2063,10 @@ function _descricaoFiltros(){
 function _nomeArquivo(complemento,setores){
   const limpa=t=>String(t||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
   const s=setores||window._setorFiltro||[];
-  const st=!s.length?'Todos os setores':(s.length<=3?s.join(', '):s.length+' setores');
+  // todos os nomes; so encurta se passar do limite seguro de nome de arquivo
+  let st='Todos os setores';
+  if(s.length){ st=''; for(let i=0;i<s.length;i++){ const prox=st?st+', '+s[i]:s[i];
+      if(prox.length>150){ st+=' e mais '+(s.length-i); break; } st=prox; } }
   const partes=['Relatório de Mapeamento',window._empFiltro||'GRUPO_NOME_PH',st];
   if(complemento) partes.push(complemento);
   return partes.map(limpa).join(' - ');
@@ -2391,6 +2394,8 @@ function _exportarModelo(atividades,base,btn,opt){
   const linhas=lista.map((a,i)=>_xlLinha(a,i,opt.extra));
   const nomes=new Set(lista.map(a=>_normJS(a.funcionario||(opt.extra&&opt.extra.nome))));
   const versoes=((DATA.versoes&&DATA.versoes.sergipe)||[]).filter(v=>nomes.has(_normJS(v.funcionario)));
+  const _grp={}; linhas.forEach(l=>{ const st=String(l[2]||'').trim()||'(sem setor)'; (_grp[st]=_grp[st]||[]).push(l); });
+  const porSetor=Object.entries(_grp).sort((a,b)=>a[0].localeCompare(b[0],'pt-BR'));
   const VERM='FFDA1F26', TXT='FF1F2937', ROT='FF4B5563', ZEBRA='FFF7F8FA';
   const solido=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
   function cabecalho(ws,n){
@@ -2435,12 +2440,19 @@ function _exportarModelo(atividades,base,btn,opt){
     res.forEach(([k,v,cor],i)=>{ const r=wr.addRow([k,v]);
       r.getCell(1).font={size:11,color:{argb:ROT}}; r.getCell(2).font={bold:true,size:11,color:{argb:cor}}; r.getCell(2).numFmt='#,##0';
       if(i%2===0){ r.getCell(1).fill=solido(ZEBRA); r.getCell(2).fill=solido(ZEBRA); } });
-    // ── Atividades ──
-    const ws=wb.addWorksheet('Atividades');
-    ws.columns=_XL_COLS.map(c=>({header:c[0],width:c[1]}));
-    linhas.forEach(l=>ws.addRow(l));
-    cabecalho(ws,_XL_COLS.length);
+    if(porSetor.length>1){
+      wr.addRow([]); titulo('Atividades por setor');
+      porSetor.forEach(([st,lin],i)=>{ const r=wr.addRow([st,lin.length]);
+        r.getCell(1).font={size:11,color:{argb:ROT}}; r.getCell(2).font={bold:true,size:11,color:{argb:TXT}}; r.getCell(2).numFmt='#,##0';
+        if(i%2===0){ r.getCell(1).fill=solido(ZEBRA); r.getCell(2).fill=solido(ZEBRA); } });
+    }
+    // ── Atividades (consolidada) + uma aba por setor ──
     const corDec=v=>{ const t=_tipoDecisao(v); return t==='aprovada'?'FF059669':(t==='aguardando'?'FFD97706':'FFE11D48'); };
+    function abaAtividades(nomeAba,lin){
+    const ws=wb.addWorksheet(nomeAba);
+    ws.columns=_XL_COLS.map(c=>({header:c[0],width:c[1]}));
+    lin.forEach(l=>ws.addRow(l));
+    cabecalho(ws,_XL_COLS.length);
     ws.eachRow((row,n)=>{ if(n===1) return;
       row.eachCell({includeEmpty:true},(c,col)=>{
         const dir=(col===1||col===10||col===17);
@@ -2450,7 +2462,19 @@ function _exportarModelo(atividades,base,btn,opt){
         if(col===15) c.font={size:10,bold:true,color:{argb:corDec(c.value)}};
       });
     });
-    ws.autoFilter={from:{row:1,column:1},to:{row:Math.max(linhas.length+1,1),column:_XL_COLS.length}};
+    ws.autoFilter={from:{row:1,column:1},to:{row:Math.max(lin.length+1,1),column:_XL_COLS.length}};
+    }
+    abaAtividades('Atividades',linhas);
+    if(porSetor.length>1){
+      const usados=new Set(['resumo','atividades','versões & parecer','funcionários']);
+      porSetor.forEach(([st,lin])=>{
+        // nome de aba no Excel: ate 31 letras, sem : \ / ? * [ ] e sem repetir
+        let base=st.replace(/[:\\\/?*\[\]]/g,'-').slice(0,31).trim()||'(sem setor)', nm=base, k=2;
+        while(usados.has(nm.toLowerCase())){ const suf=' ('+(k++)+')'; nm=base.slice(0,31-suf.length)+suf; }
+        usados.add(nm.toLowerCase());
+        abaAtividades(nm,lin.map((l,i)=>{ const c=[...l]; c[0]=i+1; return c; }));
+      });
+    }
     // ── Versões & Parecer ──
     const wv=wb.addWorksheet('Versões & Parecer');
     wv.columns=[['Atividade',36],['Empresa',22],['Setor',20],['Funcionário',22],['Tipo',14],['Autor',22],['Data/hora',20],['Conteúdo',70]].map(c=>({header:c[0],width:c[1]}));
