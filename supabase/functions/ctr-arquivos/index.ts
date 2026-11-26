@@ -139,11 +139,14 @@ async function nivel(usuario: ReturnType<typeof createClient>, contrato: number)
 }
 async function pastaDoContrato(db: ReturnType<typeof createClient>, contrato: number) {
   const { data: c, error } = await db.from("ctr_contratos")
-    .select("id,numero,empresa,categoria,fornecedor_nome").eq("id", contrato).single();
+    .select("id,numero,empresa,categoria,natureza_cliente,fornecedor_nome").eq("id", contrato).single();
   if (error || !c) throw new Falha(404, "Contrato não encontrado.");
   const { data: emp } = await db.from("empresas").select("nome").eq("slug", c.empresa).single();
   const { data: cat } = await db.from("ctr_categorias").select("nome").eq("id", c.categoria).maybeSingle();
-  const nomeCategoria = cat?.nome ?? "Sem categoria";
+  // empresa que cadastra pela natureza do ERP: a pasta e a natureza (o padrao dela); senao, a categoria
+  const { data: nat } = c.natureza_cliente == null ? { data: null } :
+    await db.from("ctr_naturezas").select("descricao").eq("empresa", c.empresa).eq("codigo", c.natureza_cliente).maybeSingle();
+  const nomeCategoria = nat ? `${c.natureza_cliente} - ${String(nat.descricao).replace(/^#\s*/, "")}` : (cat?.nome ?? "Sem categoria");
   const pasta = [
     limpar(env("SP_PASTA_RAIZ", "Contratos"), 40),
     limpar(emp?.nome ?? c.empresa, 50),

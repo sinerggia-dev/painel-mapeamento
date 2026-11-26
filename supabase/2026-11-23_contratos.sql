@@ -118,7 +118,25 @@ create table if not exists public.ctr_config (
   logo_fundo     boolean not null default false,       -- fundo branco atras da logo (logo escura)
   termo_unidade  text not null default 'Unidade'  check (length(trim(termo_unidade)) between 2 and 30),
   termo_unidades text not null default 'Unidades' check (length(trim(termo_unidades)) between 2 and 30),
+  usa_natureza   boolean not null default false,       -- cadastro pela natureza do ERP da empresa (ver ctr_naturezas)
   alterado_em    timestamptz not null default now()
+);
+alter table public.ctr_config add column if not exists usa_natureza boolean not null default false;
+
+-- ── Naturezas do ERP da empresa (ex.: Xadrex da Millena Moveis), importadas pelo admin ──
+-- A empresa cadastra pela natureza (o padrao dela); cada natureza fica ligada a uma categoria da
+-- Sinergia, que traz as regras (aviso, reajuste, documentos) e mantem os relatorios entre clientes.
+create table if not exists public.ctr_naturezas (
+  empresa      text not null references public.empresas(slug) on delete cascade on update cascade,
+  codigo       text not null check (length(trim(codigo)) between 1 and 30),
+  descricao    text not null,
+  classe       text,
+  tipo         text,                                -- DESPESA / RECEITA
+  ativa        boolean not null default true,       -- desativada (no Xadrex, descricao com "#") nao aparece
+  tem_contrato boolean not null default false,      -- aparece no cadastro de contratos
+  categoria    bigint references public.ctr_categorias(id) on delete set null,
+  revisada     boolean not null default false,      -- ligacao com a categoria conferida por uma pessoa
+  primary key (empresa, codigo)
 );
 
 -- ── Quem pode usar os contratos de cada empresa ──
@@ -263,7 +281,7 @@ grant execute on function public.ctr_usa_empresa(text) to authenticated, service
 -- ════════ Gatilhos dos contratos: numero, categoria valida e historico automatico ════════
 create or replace function public._ctr_contratos_antes() returns trigger
 language plpgsql set search_path = public as $$
-declare cat public.ctr_categorias;
+declare cat public.ctr_categorias; natcat bigint;
 begin
   if tg_op = 'INSERT' then
     new.numero      := 'CTR-' || to_char(clock_timestamp(), 'YYYY') || '-' || lpad(new.id::text, 5, '0');
@@ -273,6 +291,12 @@ begin
     -- o que identifica o contrato nao muda
     new.numero := old.numero; new.empresa := old.empresa; new.origem := old.origem;
     new.criado_por := old.criado_por; new.criado_em := old.criado_em;
+  end if;
+  -- empresa que cadastra pela natureza: a categoria vem da natureza (sempre coerentes)
+  new.natureza_cliente := nullif(trim(coalesce(new.natureza_cliente, '')), '');
+  if new.natureza_cliente is not null then
+    select categoria into natcat from ctr_naturezas where empresa = new.empresa and codigo = new.natureza_cliente;
+    if natcat is not null then new.categoria := natcat; end if;
   end if;
   -- a categoria tem que ser da lista padrao ou desta empresa, e estar ativa
   if tg_op = 'INSERT' or new.categoria is distinct from old.categoria then
@@ -323,6 +347,32 @@ drop trigger if exists ctr_contratos_historico on public.ctr_contratos;
 create trigger ctr_contratos_historico after insert or update on public.ctr_contratos
   for each row execute function public._ctr_contratos_historico();
 
+-- natureza: a categoria ligada tem que valer para a empresa; mudou a ligacao = contratos acompanham
+create or replace function public._ctr_naturezas_antes() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.categoria is not null and not exists (select 1 from ctr_categorias c where c.id = new.categoria and (c.empresa is null or c.empresa = new.empresa)) then
+    raise exception 'categoria invalida para esta empresa';
+  end if;
+  return new;
+end $$;
+drop trigger if exists ctr_naturezas_antes on public.ctr_naturezas;
+create trigger ctr_naturezas_antes before insert or update on public.ctr_naturezas
+  for each row execute function public._ctr_naturezas_antes();
+
+create or replace function public._ctr_naturezas_depois() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.categoria is not null and new.categoria is distinct from old.categoria then
+    update ctr_contratos set categoria = new.categoria
+     where empresa = new.empresa and natureza_cliente = new.codigo and categoria is distinct from new.categoria;
+  end if;
+  return null;
+end $$;
+drop trigger if exists ctr_naturezas_depois on public.ctr_naturezas;
+create trigger ctr_naturezas_depois after update on public.ctr_naturezas
+  for each row execute function public._ctr_naturezas_depois();
+
 -- historico e documentos nao podem ser alterados nem apagados (nem pela chave secreta)
 create or replace function public._ctr_imutavel() returns trigger
 language plpgsql as $$
@@ -345,22 +395,23 @@ alter table public.ctr_grupos       enable row level security;
 alter table public.ctr_categorias   enable row level security;
 alter table public.ctr_unidades     enable row level security;
 alter table public.ctr_config       enable row level security;
+alter table public.ctr_naturezas    enable row level security;
 alter table public.ctr_acessos      enable row level security;
 alter table public.ctr_contratos    enable row level security;
 alter table public.ctr_liberados    enable row level security;
 alter table public.ctr_documentos   enable row level security;
 alter table public.ctr_historico    enable row level security;
 
-revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_acessos,
+revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_acessos,
               public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico from anon;
 grant select on public.ctr_grupos to authenticated;
 revoke insert, update, delete on public.ctr_grupos from authenticated;
-grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config,
+grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas,
               public.ctr_acessos, public.ctr_contratos, public.ctr_liberados to authenticated;
 grant select on public.ctr_documentos, public.ctr_historico to authenticated;
 revoke insert, update, delete on public.ctr_documentos, public.ctr_historico from authenticated;
 grant select, insert on public.ctr_documentos, public.ctr_historico to service_role;
-grant select on public.ctr_contratos, public.ctr_categorias, public.ctr_grupos, public.ctr_acessos,
+grant select on public.ctr_contratos, public.ctr_categorias, public.ctr_grupos, public.ctr_naturezas, public.ctr_acessos,
               public.perfis, public.empresas to service_role;
 
 drop policy if exists ctr_grupos_ver on public.ctr_grupos;
@@ -379,6 +430,11 @@ drop policy if exists ctr_unidades_ver   on public.ctr_unidades;
 drop policy if exists ctr_unidades_admin on public.ctr_unidades;
 create policy ctr_unidades_ver   on public.ctr_unidades for select to authenticated using (public.ctr_usa_empresa(empresa));
 create policy ctr_unidades_admin on public.ctr_unidades for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
+
+drop policy if exists ctr_naturezas_ver   on public.ctr_naturezas;
+drop policy if exists ctr_naturezas_admin on public.ctr_naturezas;
+create policy ctr_naturezas_ver   on public.ctr_naturezas for select to authenticated using (public.ctr_usa_empresa(empresa));
+create policy ctr_naturezas_admin on public.ctr_naturezas for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
 
 drop policy if exists ctr_config_ver   on public.ctr_config;
 drop policy if exists ctr_config_admin on public.ctr_config;
@@ -416,3 +472,11 @@ create policy ctr_documentos_ver on public.ctr_documentos for select to authenti
 drop policy if exists ctr_historico_ver on public.ctr_historico;
 create policy ctr_historico_ver on public.ctr_historico for select to authenticated
   using (case when contrato is null then public.eh_admin() else public.ctr_nivel_contrato(contrato) >= 1 end);
+
+-- ════════ Millena Moveis: nome, "Filial" e cadastro pela natureza do Xadrex ════════
+-- (so cria se ainda nao existir; depois quem muda e o admin, em Identidade da empresa)
+insert into public.ctr_config (empresa, nome_exibicao, termo_unidade, termo_unidades, usa_natureza)
+select 'millena', 'Millena Móveis', 'Filial', 'Filiais', true
+ where exists (select 1 from public.empresas where slug = 'millena')
+on conflict (empresa) do nothing;
+

@@ -131,6 +131,13 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   e como a empresa chama as unidades (`termo_unidade`/`termo_unidades`, ex.: Filial/Filiais). Os usuários
   da empresa sempre veem a identidade dela; sem linha = Sinergia. Login e visão consolidada = Sinergia.
   Use `tU()`, `tUs()`, `tu()`, `tus()` em vez de escrever "Unidade" nas telas.
+- **Naturezas do ERP** (`ctr_naturezas`; a Millena Móveis usa o ERP **Xadrex**): o admin importa o cadastro de
+  naturezas (Admin → Naturezas do ERP; "#" no começo = desativada, opção ligada por padrão) e revisa a
+  sugestão automática (`sugerirCategoria`): quais têm contrato e a qual categoria cada uma se liga.
+  Com `ctr_config.usa_natureza`, a empresa cadastra pela natureza (form, filtros, planilha modelo com a coluna
+  "Natureza", painel por classe, pasta do SharePoint "702 - ALUGUEL DE IMOVEIS"); a categoria vem da
+  natureza (gatilho no banco) e continua dando as regras e a visão consolidada. Mudou a categoria de uma
+  natureza = os contratos dela acompanham. A planilha de naturezas do cliente **nunca** vai para o repositório.
 - **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
   ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
 - **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no
