@@ -179,8 +179,10 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   POST `/sites/{id}/permissions`). Segredos da Edge Function: `MS_TENANT_ID`, `MS_CLIENT_ID`,
   `MS_CLIENT_SECRET`, `SP_SITE_ID` (e opcional `SP_PASTA_RAIZ`). O segredo do Entra **vence**:
   anotar a data e renovar antes.
-- Teste local: Postgres 16 com stub de `auth.uid()` para o SQL; Playwright com Supabase simulado
-  (dados inventados) para as telas. O protótipo é o `index.html` com o Supabase simulado no lugar.
+- **Testes** (`tests/contratos/`, só dados inventados; ver o README de lá): `tests/contratos/rodar.sh /tmp/ctr-teste`
+  roda todos os testes de tela (computador, Android, iPhone) e gera o protótipo em `/tmp/ctr-teste/gestao-contratos.html`
+  (é o que vai para o claude.ai); `sudo tests/contratos/sql.sh` testa o banco (Postgres 16 local com stub do Supabase).
+  **Rode os dois depois de qualquer mudança.** Logo e planilha real de cliente só na pasta de trabalho, nunca no repositório.
 - **Reajuste e linha do tempo**: regra no contrato (`reajuste` = índice, `mes_reajuste`, `reajuste_teto`,
   `reajuste_negativo` mantém/reduz, `reajuste_percentual` para "Percentual fixo", `reajuste_substituto`).
   `proximoReajuste()` acha a data-base devida (12 meses depois do início, depois todo ano no mês do reajuste, no
