@@ -127,11 +127,12 @@ alter table public.ctr_config add column if not exists usa_natureza boolean not 
 alter table public.ctr_config add column if not exists menu_estilo text not null default 'escuro' check (menu_estilo in ('escuro','claro','marca'));
 alter table public.ctr_config add column if not exists tema text not null default 'auto' check (tema in ('auto','claro','escuro'));
 
--- tela de entrada personalizada (link .../contratos/?e=<empresa>): so nome, logo e cor, antes do login
+-- tela de entrada personalizada (link .../contratos/?e=<empresa>): so nome, logo, cor e tema, antes do login
+drop function if exists public.ctr_marca_publica(text);
 create or replace function public.ctr_marca_publica(p_empresa text)
-returns table (nome text, logo text, cor text, logo_fundo boolean)
+returns table (nome text, logo text, cor text, logo_fundo boolean, tema text)
 language sql stable security definer set search_path = public as $$
-  select coalesce(c.nome_exibicao, e.nome), c.logo, c.cor, c.logo_fundo
+  select coalesce(c.nome_exibicao, e.nome), c.logo, c.cor, c.logo_fundo, c.tema
     from ctr_config c join empresas e on e.slug = c.empresa
    where c.empresa = p_empresa and e.ativo;
 $$;
@@ -604,8 +605,9 @@ create policy ctr_historico_ver on public.ctr_historico for select to authentica
 
 -- ════════ Millena Moveis: nome, "Filial" e cadastro pela natureza do Xadrex ════════
 -- (so cria se ainda nao existir; depois quem muda e o admin, em Identidade da empresa)
-insert into public.ctr_config (empresa, nome_exibicao, termo_unidade, termo_unidades, usa_natureza)
-select 'millena', 'Millena Móveis', 'Filial', 'Filiais', true
+-- visual do site da Millena (fundo preto e amarelo-ouro da marca); a logo o admin envia em Personalizacao
+insert into public.ctr_config (empresa, nome_exibicao, termo_unidade, termo_unidades, usa_natureza, cor, menu_estilo, tema)
+select 'millena', 'Millena Móveis', 'Filial', 'Filiais', true, '#F8B900', 'escuro', 'escuro'
  where exists (select 1 from public.empresas where slug = 'millena')
 on conflict (empresa) do nothing;
 

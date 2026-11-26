@@ -268,10 +268,10 @@ tbody tr.link:hover td{background:color-mix(in srgb,var(--acc) 4%,var(--surface)
 .h i{background:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 /* login em duas metades */
 #v-login{padding:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);place-items:stretch}
-#v-login::before{content:"";background:radial-gradient(120% 80% at 0% 100%,rgba(209,47,51,.45),transparent 55%),radial-gradient(90% 60% at 100% 0%,rgba(209,47,51,.18),transparent 60%),var(--side);display:block}
+#v-login::before{content:"";background:radial-gradient(120% 80% at 0% 100%,color-mix(in srgb,var(--acc) 45%,transparent),transparent 55%),radial-gradient(90% 60% at 100% 0%,color-mix(in srgb,var(--acc) 18%,transparent),transparent 60%),var(--side);display:block}
 #v-login .login{align-self:center;justify-self:center;margin:32px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px));border-radius:18px;padding:32px}
 .login-hero{position:fixed;left:0;top:0;bottom:0;width:52.4%;display:flex;flex-direction:column;justify-content:flex-end;padding:56px;color:#fff;pointer-events:none}
-.login-hero b{font-family:var(--f-display);font-size:13px;letter-spacing:.3em;color:#f3a3a5}
+.login-hero b{font-family:var(--f-display);font-size:13px;letter-spacing:.3em;color:color-mix(in srgb,var(--acc) 70%,#fff)}
 .login-hero h2{font-size:2.6rem;line-height:1.05;margin:12px 0 14px;max-width:16ch;font-weight:700}
 .login-hero p{margin:0;color:#c3c6ce;max-width:46ch;font-size:15px}
 @media (max-width:900px){#v-login{grid-template-columns:1fr}#v-login::before,.login-hero{display:none}}
@@ -431,6 +431,12 @@ body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transpa
 .mudanca{display:grid;gap:10px;border:1px solid color-mix(in srgb,var(--acc) 35%,var(--border));background:color-mix(in srgb,var(--acc) 5%,var(--surface));border-radius:12px;padding:12px 14px}
 .tag.vig{border-color:var(--ok);color:var(--ok);margin-bottom:3px} .tag.ant{margin-bottom:3px}
 .doc .oque{font-size:12.5px;margin-top:2px;color:var(--fg)}
+
+/* so a logo no menu e na entrada; no cartao de entrada a logo tem fundo escuro (logos brancas) */
+.brand-so-logo{display:grid;gap:6px;justify-items:start;min-width:0}
+.brand-so-logo .brand-logo,.brand-so-logo .brand-logo img{height:auto;max-height:46px;max-width:170px}
+.login .brand-logo:not(.fundo){background:var(--side);padding:8px 12px;border-radius:10px}
+.login .brand-so-logo .brand-logo,.login .brand-so-logo .brand-logo img{max-height:52px}
 
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
@@ -794,7 +800,8 @@ function aplicarIdentidade(){
   const nome = consolidado() ? 'Todas as empresas' : ((cfg && cfg.nome_exibicao) || nomeEmpresa(EMP));
   const marca = cfg && cfg.logo ? `<div class="brand-logo ${cfg.logo_fundo ? 'fundo' : ''}"><img src="${esc(cfg.logo)}" alt="${esc(nome)}"></div>`
     : cfg ? `<div class="brand-mark">${esc(iniciais(nome).slice(0, 1))}</div>` : '<div class="brand-mark">S</div>';
-  $('#side-brand').innerHTML = cfg ? `${marca}<div style="min-width:0"><strong class="emp">${esc(nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`
+  $('#side-brand').innerHTML = cfg && cfg.logo ? `<div class="brand-so-logo">${marca}<small>Gestão de Contratos · Sinergia</small></div>`
+    : cfg ? `${marca}<div style="min-width:0"><strong class="emp">${esc(nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`
     : `${marca}<div><strong>SINERGIA</strong><small>Gestão de Contratos${EMP && !consolidado() && EMPRESAS.length > 1 ? ' · ' + esc(nomeEmpresa(EMP)) : consolidado() ? ' · todas as empresas' : ''}</small></div>`;
   document.title = `Contratos · ${consolidado() ? 'Sinergia' : nome}`;
   document.body.classList.toggle('menu-claro', !!cfg && cfg.menu_estilo === 'claro');
@@ -816,13 +823,14 @@ async function marcaDoLink(){
   try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
   const { data } = await sb.rpc('ctr_marca_publica', { p_empresa: slug }); const m = data && data[0]; if (!m) return;
   const marca = m.logo ? `<div class="brand-logo ${m.logo_fundo ? 'fundo' : ''}"><img src="${esc(m.logo)}" alt="${esc(m.nome)}"></div>` : `<div class="brand-mark">${esc(iniciais(m.nome).slice(0, 1))}</div>`;
-  $('#login-brand').innerHTML = `${marca}<div style="min-width:0"><strong class="emp">${esc(m.nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`;
+  $('#login-brand').innerHTML = m.logo ? `<div class="brand-so-logo">${marca}<small>Gestão de Contratos · Sinergia</small></div>` : `${marca}<div style="min-width:0"><strong class="emp">${esc(m.nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`;
+  if (!temaPessoa() && m.tema) aplicarTema({ tema: m.tema });
   $('#login-hero-marca').textContent = String(m.nome).toUpperCase();
   if (m.cor) { const r = document.documentElement.style; r.setProperty('--acc', m.cor); r.setProperty('--acc-fg', corLegivel(m.cor).fg); r.setProperty('--acc-soft', `color-mix(in srgb, ${m.cor} 14%, var(--surface))`); }
   if (m.logo) $('#favicon').href = m.logo;
   document.title = `Contratos · ${m.nome}`;
 }
-marcaDoLink(); aplicarTema(null);
+aplicarTema(null); marcaDoLink();
 
 // ═════════ Ver como usuário (admin confere o que cada pessoa da empresa enxerga) ═════════
 async function montarVerComo(){
