@@ -358,6 +358,11 @@ tr.inativa td{opacity:.55}
 table.nt select.in{min-width:200px}
 @media (max-width:820px){.kpis.kpis4{grid-template-columns:repeat(2,minmax(0,1fr))}table.nt select.in{min-width:160px}}
 
+.selo-admin{font-size:11.5px;line-height:1.4;color:#f3c98b;background:rgba(240,168,64,.12);border:1px solid rgba(240,168,64,.35);border-radius:10px;padding:8px 10px}
+.selo-admin b{color:#ffd9a3}
+table.matriz td.sim,table.matriz td.nao,table.matriz th:not(:first-child){text-align:center}
+table.matriz td.sim{color:var(--ok);font-weight:700} table.matriz td.nao{color:var(--muted)}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -390,6 +395,7 @@ table.nt select.in{min-width:200px}
 <div class="shell" id="v-app" hidden>
   <aside class="side" id="side">
     <div class="brand" id="side-brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
+    <div class="selo-admin" id="selo-admin" hidden>Você está como <b>Administrador Sinergia</b>. A empresa não vê o menu de administração.</div>
     <div class="side-sel"><label class="side-lbl" id="lbl-emp" for="sel-emp" hidden>Ver como empresa</label><select class="in" id="sel-emp" hidden></select></div>
     <div class="side-sel" id="box-ver" hidden><label class="side-lbl" for="sel-ver">Ver como usuário</label><select class="in" id="sel-ver"></select></div>
     <nav class="nav" id="nav"></nav>
@@ -613,7 +619,7 @@ async function iniciar(){
     sel.hidden = EMPRESAS.length < 2; $('#lbl-emp').hidden = sel.hidden;
     $('#sel-ver').onchange = () => verComo($('#sel-ver').value);
     sel.onchange = () => trocarEmpresa(sel.value);
-    $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdminReal() ? 'Administrador' : '';
+    $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdminReal() ? 'Administrador Sinergia' : '';
     await trocarEmpresa(e.slug);
   } catch (err) {
     carregado = false;
@@ -629,7 +635,7 @@ async function trocarEmpresa(slug){
   EMP = slug; SIM = null; try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
   const e = EMPRESAS.find(x => x.slug === slug); NIVEL_EMP = consolidado() ? 3 : (e ? e.nivel : 0);
   $('#sel-emp').value = slug;
-  $('#me-papel').textContent = ehAdminReal() ? 'Administrador' : LV[NIVEL_EMP];
+  $('#me-papel').textContent = ehAdminReal() ? 'Administrador Sinergia' : LV[NIVEL_EMP];
   $('#main').innerHTML = '<div class="loading">Carregando contratos…</div>';
   try { await recarregar(); aplicarIdentidade(); montarVerComo(); render(); }
   catch (err) { $('#main').innerHTML = `<div class="card"><div class="card-b"><div class="msg erro">${esc(erroTxt(err))}</div></div></div>`; }
@@ -707,7 +713,7 @@ async function verComo(uid){
   const a = USUARIOS_EMP.find(x => x.usuario === uid);
   SIM = a ? { usuario: a.usuario, nome: a.nome, nivel: a.nivel, unidades: a.unidades || [], grupos: a.grupos || [] } : null;
   NIVEL_EMP = SIM ? SIM.nivel : 3;
-  $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Administrador';
+  $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Administrador Sinergia';
   $('#main').innerHTML = '<div class="loading">Carregando…</div>';
   await recarregar(); if (SIM && !['painel', 'contratos', 'contrato'].includes((location.hash.slice(1) || 'painel').split(/[/?]/)[0])) location.hash = 'painel'; render();
 }
@@ -823,11 +829,12 @@ const optCategorias = (sel, manter, emp = EMP) => GRUPOS.map(g => { const cs = c
 // ═════════ Navegacao ═════════
 function nav(){
   const h = location.hash.slice(1) || 'painel';
+  const selo = $('#selo-admin'); if (selo) selo.hidden = !ehAdmin();
   const alertas = CONTRATOS.filter(c => ['vencido','aviso'].includes(situ(c).cod)).length;
   const it = (id, ic, t, extra = '') => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}${t}${extra}</a>`;
   let s = it('painel', 'dash', 'Painel', alertas ? `<span class="count">${alertas}</span>` : '') + it('contratos', 'list', 'Contratos');
   if (NIVEL_EMP >= 3 && !consolidado()) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
-  if (ehAdmin()) s += `<div class="grp">Administração</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('naturezas', 'list', 'Naturezas do ERP') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Identidade da empresa')) + it('sharepoint', 'cloud', 'SharePoint');
+  if (ehAdmin()) s += `<div class="grp">Administração · só Sinergia</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('naturezas', 'list', 'Naturezas do ERP') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Identidade da empresa')) + it('sharepoint', 'cloud', 'SharePoint');
   $('#nav').innerHTML = s;
   const tb = (id, ic, t) => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}<span>${t}</span></a>`;
   $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 && !consolidado() ? tb('novo', 'plus', 'Novo') : '')
@@ -1443,6 +1450,9 @@ function vAcessos(){
   depois(carregarAcessos);
   return topo('Acessos', `Quem pode usar os contratos de ${esc((EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP)} e o que cada um vê.`, `<button class="btn pri" id="b-novo-user">${icon.plus}Cadastrar pessoa</button>`)
     + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">${esc(tUs())}</th><th class="hide-m">Grupos</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><div class="card-h"><h2>O que cada nível pode fazer</h2><span class="muted small">quem libera é sempre a Sinergia</span></div><div class="tbl-wrap"><table class="matriz"><thead><tr><th>Função</th><th>Ver</th><th>Ver e baixar</th><th>Editar e enviar</th><th>Admin Sinergia</th></tr></thead><tbody>
+      ${[['Ver painel, contratos e vencimentos', 1, 1, 1, 1], ['Visualizar os arquivos na tela', 1, 1, 1, 1], ['Baixar os arquivos', 0, 1, 1, 1], ['Cadastrar e alterar contratos', 0, 0, 1, 1], ['Anexar arquivos e documentos', 0, 0, 1, 1], ['Importar a planilha modelo', 0, 0, 1, 1], ['Apagar contratos', 0, 0, 0, 1], ['Liberar acessos e cadastrar pessoas', 0, 0, 0, 1], ['Categorias, naturezas, ' + tus() + ' e identidade', 0, 0, 0, 1], ['Ver todas as empresas', 0, 0, 0, 1]].map(([f, ...v]) => `<tr><td>${esc(f)}</td>${v.map(x => `<td class="${x ? 'sim' : 'nao'}">${x ? '✓' : '—'}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div><div class="card-b note" style="margin:0;border-radius:0 0 var(--r) var(--r)">Cada pessoa da empresa vê só as ${esc(tus())} e os grupos marcados para ela. Contrato confidencial só aparece para quem for liberado.</div></div>
     <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>${esc(tUs())}</b> e <b>grupos</b> em branco = todos. Para conferir o que uma pessoa enxerga, use <b>Ver como usuário</b> no menu. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
 }
 async function carregarAcessos(){
