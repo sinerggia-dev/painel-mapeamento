@@ -17,7 +17,7 @@ fi
 python3 "$AQUI/build.py" "$W" >/dev/null
 export NODE_PATH=$(npm root -g)
 falhas=0
-for t in teste teste_perso teste_novo teste_pessoas teste_reaj teste_versao teste_tipo teste_fornecedor; do
+for t in teste teste_perso teste_novo teste_pessoas teste_reaj teste_versao teste_tipo teste_fornecedor teste_decisao; do
   echo "== $t"
   saida=$(timeout 400 node "$AQUI/$t.js" "$W" 2>&1) || true
   echo "$saida" | grep -v "^OK" | grep -v "^   " | tail -4

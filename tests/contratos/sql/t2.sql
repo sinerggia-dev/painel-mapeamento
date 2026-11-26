@@ -63,3 +63,17 @@ select cargo, trocar_senha from ctr_contatos;
 insert into ctr_alteracoes(contrato,tipo,vigencia,valor_depois) values (:c2,'aditivo_valor','2026-05-01',1);
 set test.uid = :D;
 select count(*) as fora_ve_contatos from ctr_contatos;
+
+\echo --- decisao no prazo de aviso: registra o ciclo, entra no historico e nao se apaga
+set test.uid = :A;
+insert into ctr_decisoes(contrato,decisao,responsavel,prazo,observacao) values (:c1,'renegociar',:B,'2026-12-10','Pedir 5% de desconto') returning decisao, ciclo_fim;
+select acao, detalhe from ctr_historico where contrato=:c1 and acao='decisão registrada';
+\echo esperado ERRO: alterar decisao
+update ctr_decisoes set decisao='renovar';
+\echo esperado ERRO: decisao invalida
+insert into ctr_decisoes(contrato,decisao) values (:c1,'talvez');
+set test.uid = :B;
+\echo gestor (nivel 3, contrato escolhido) registra decisao no contrato dele
+insert into ctr_decisoes(contrato,decisao) values (:c1,'em_analise') returning decisao;
+\echo esperado ERRO: nao registra em contrato que nao ve
+insert into ctr_decisoes(contrato,decisao) values (:c2,'renovar');

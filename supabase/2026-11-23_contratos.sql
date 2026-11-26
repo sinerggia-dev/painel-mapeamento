@@ -268,6 +268,21 @@ create table if not exists public.ctr_alteracoes (
 );
 create index if not exists ctr_alteracoes_contrato on public.ctr_alteracoes (contrato, vigencia);
 
+-- ── Decisao sobre o vencimento (renovar, renegociar, encerrar): quem cuida e ate quando ──
+-- So recebe linhas novas; vale a mais recente do mesmo ciclo (mesmo vencimento do contrato).
+create table if not exists public.ctr_decisoes (
+  id          bigint generated always as identity primary key,
+  contrato    bigint not null references public.ctr_contratos(id) on delete cascade,
+  decisao     text   not null check (decisao in ('em_analise','renovar','renegociar','encerrar')),
+  responsavel uuid references public.perfis(id) on delete set null,
+  prazo       date,                                 -- ate quando agir (avisar a outra parte, assinar etc.)
+  ciclo_fim   date,                                 -- vencimento do contrato quando a decisao foi tomada
+  observacao  text check (observacao is null or length(observacao) <= 1000),
+  criado_por  uuid references public.perfis(id) on delete set null,
+  criado_em   timestamptz not null default now()
+);
+create index if not exists ctr_decisoes_contrato on public.ctr_decisoes (contrato, criado_em desc);
+
 -- Historico: so recebe linhas novas; ninguem altera nem apaga
 create table if not exists public.ctr_historico (
   id       bigint generated always as identity primary key,
@@ -487,11 +502,40 @@ drop trigger if exists ctr_alteracoes_depois on public.ctr_alteracoes;
 create trigger ctr_alteracoes_depois after insert on public.ctr_alteracoes
   for each row execute function public._ctr_alteracoes_depois();
 
+-- decisao: quem registrou, o ciclo (vencimento atual) e o historico
+create or replace function public._ctr_decisoes_antes() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  new.criado_por := coalesce(auth.uid(), new.criado_por);
+  new.criado_em  := clock_timestamp();
+  select fim into new.ciclo_fim from ctr_contratos where id = new.contrato;
+  return new;
+end $$;
+drop trigger if exists ctr_decisoes_antes on public.ctr_decisoes;
+create trigger ctr_decisoes_antes before insert on public.ctr_decisoes
+  for each row execute function public._ctr_decisoes_antes();
+create or replace function public._ctr_decisoes_depois() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into ctr_historico (contrato, empresa, usuario, acao, detalhe)
+  select new.contrato, c.empresa, auth.uid(), 'decisão registrada',
+         concat_ws(' · ', case new.decisao when 'renovar' then 'Renovar' when 'renegociar' then 'Renegociar'
+                                           when 'encerrar' then 'Encerrar' else 'Em análise' end,
+                   (select 'responsável: ' || p.nome from perfis p where p.id = new.responsavel),
+                   case when new.prazo is not null then 'até ' || to_char(new.prazo, 'DD/MM/YYYY') end,
+                   new.observacao)
+    from ctr_contratos c where c.id = new.contrato;
+  return null;
+end $$;
+drop trigger if exists ctr_decisoes_depois on public.ctr_decisoes;
+create trigger ctr_decisoes_depois after insert on public.ctr_decisoes
+  for each row execute function public._ctr_decisoes_depois();
+
 -- historico e documentos nao podem ser alterados nem apagados (nem pela chave secreta)
 create or replace function public._ctr_imutavel() returns trigger
 language plpgsql as $$
 begin
-  if tg_op = 'DELETE' and tg_table_name in ('ctr_historico', 'ctr_alteracoes')
+  if tg_op = 'DELETE' and tg_table_name in ('ctr_historico', 'ctr_alteracoes', 'ctr_decisoes')
      and not exists (select 1 from public.ctr_contratos where id = old.contrato) then
     return old;   -- deixa apagar so quando o proprio contrato foi apagado (cascade)
   end if;
@@ -499,6 +543,9 @@ begin
 end $$;
 drop trigger if exists ctr_historico_imutavel on public.ctr_historico;
 create trigger ctr_historico_imutavel before update or delete on public.ctr_historico
+  for each row execute function public._ctr_imutavel();
+drop trigger if exists ctr_decisoes_imutavel on public.ctr_decisoes;
+create trigger ctr_decisoes_imutavel before update or delete on public.ctr_decisoes
   for each row execute function public._ctr_imutavel();
 drop trigger if exists ctr_alteracoes_imutavel on public.ctr_alteracoes;
 create trigger ctr_alteracoes_imutavel before update or delete on public.ctr_alteracoes
@@ -515,6 +562,7 @@ alter table public.ctr_config       enable row level security;
 alter table public.ctr_naturezas    enable row level security;
 alter table public.ctr_contatos     enable row level security;
 alter table public.ctr_alteracoes   enable row level security;
+alter table public.ctr_decisoes     enable row level security;
 alter table public.ctr_acessos      enable row level security;
 alter table public.ctr_contratos    enable row level security;
 alter table public.ctr_liberados    enable row level security;
@@ -522,13 +570,14 @@ alter table public.ctr_documentos   enable row level security;
 alter table public.ctr_historico    enable row level security;
 
 revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos, public.ctr_acessos,
-              public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico, public.ctr_alteracoes from anon;
+              public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico, public.ctr_alteracoes, public.ctr_decisoes from anon;
 grant select on public.ctr_grupos to authenticated;
 revoke insert, update, delete on public.ctr_grupos from authenticated;
 grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos,
               public.ctr_acessos, public.ctr_contratos, public.ctr_liberados to authenticated;
 grant select on public.ctr_documentos, public.ctr_historico to authenticated;
-grant select, insert on public.ctr_alteracoes to authenticated;
+grant select, insert on public.ctr_alteracoes, public.ctr_decisoes to authenticated;
+revoke update, delete on public.ctr_decisoes from authenticated;
 revoke update, delete on public.ctr_alteracoes from authenticated;
 grant select on public.ctr_alteracoes to service_role;
 revoke insert, update, delete on public.ctr_documentos, public.ctr_historico from authenticated;
@@ -600,6 +649,11 @@ drop policy if exists ctr_alteracoes_ver   on public.ctr_alteracoes;
 drop policy if exists ctr_alteracoes_criar on public.ctr_alteracoes;
 create policy ctr_alteracoes_ver   on public.ctr_alteracoes for select to authenticated using (public.ctr_nivel_contrato(contrato) >= 1);
 create policy ctr_alteracoes_criar on public.ctr_alteracoes for insert to authenticated with check (public.ctr_nivel_contrato(contrato) >= 3);
+
+drop policy if exists ctr_decisoes_ver   on public.ctr_decisoes;
+drop policy if exists ctr_decisoes_criar on public.ctr_decisoes;
+create policy ctr_decisoes_ver   on public.ctr_decisoes for select to authenticated using (public.ctr_nivel_contrato(contrato) >= 1);
+create policy ctr_decisoes_criar on public.ctr_decisoes for insert to authenticated with check (public.ctr_nivel_contrato(contrato) >= 3);
 
 drop policy if exists ctr_historico_ver on public.ctr_historico;
 create policy ctr_historico_ver on public.ctr_historico for select to authenticated

@@ -29,7 +29,7 @@ var DB={
   {usuario:'u-pri',cargo:'Supervisora de segurança',funcao:'Vigilância e limpeza',telefone:'5581999990002',trocar_senha:true}],
  ctr_unidades:['Matriz (exemplo)','Loja Centro (exemplo)','Loja Shopping (exemplo)','Loja Norte (exemplo)','Loja Sul (exemplo)','CD Logística (exemplo)','Loja Litoral (exemplo)','Loja Agreste (exemplo)']
   .map(function(n,i){return {empresa:'millena',codigo:String(i+1),nome:n}}),
- ctr_contratos:[], ctr_documentos:[], ctr_historico:[], ctr_liberados:[], ctr_alteracoes:[],
+ ctr_contratos:[], ctr_documentos:[], ctr_historico:[], ctr_liberados:[], ctr_alteracoes:[], ctr_decisoes:[],
  ctr_config:[{empresa:'millena',nome_exibicao:'Millena Móveis',cor:'#F8B900',logo:__LOGO__,logo_fundo:false,termo_unidade:'Filial',termo_unidades:'Filiais',usa_natureza:true,menu_estilo:'escuro',tema:'escuro'}],
  ctr_naturezas:[]
 };
@@ -93,6 +93,8 @@ C[1].tipo_contrato='renovacao';
 var cv=novoContrato({titulo:'Vigilância da loja Centro',fornecedor_nome:C[4].fornecedor_nome,fornecedor_doc:C[4].fornecedor_doc,fornecedor_codigo:C[4].fornecedor_codigo,unidade:'2',categoria:C[4].categoria,valor_mensal:9800,inicio:d(-100),fim:d(265),reajuste:'Convenção coletiva',aviso_dias:30,responsavel:'u-ges',criado_por:'u-ges',natureza_cliente:'721'});doc(cv,'contrato-assinado','pdf',900000);
 DB.ctr_alteracoes.push({id:altSeq++,contrato:C[5].id,tipo:'aditivo_prazo',vigencia:d(-40),valor_antes:C[5].valor_mensal,valor_depois:null,fim_antes:d(150),fim_depois:C[5].fim,observacao:'Inclusão da limpeza da loja Sul e prorrogação',criado_por:'u-ges',criado_em:new Date().toISOString()});
 doc(C[12],'distrato','pdf',150000);DB.ctr_alteracoes.push({id:altSeq++,contrato:C[12].id,tipo:'outro',vigencia:d(-10),valor_antes:C[12].valor_mensal,valor_depois:null,fim_antes:null,fim_depois:null,documento:docSeq-1,observacao:'Distrato: encerrado por acordo entre as partes',criado_por:'u-ges',criado_em:new Date().toISOString()});C[12].situacao='encerrado';
+(function(){var hoje=new Date();var av=C.filter(function(c){if(!c.fim||c.situacao==='encerrado')return false;var d=(new Date(c.fim+'T12:00')-hoje)/864e5;return d>=0&&d<=c.aviso_dias}).sort(function(a,b){return a.fim.localeCompare(b.fim)});
+ if(av[0])DB.ctr_decisoes.push({id:1,contrato:av[0].id,decisao:'renegociar',responsavel:'u-ges',prazo:av[0].fim,ciclo_fim:av[0].fim,observacao:'Pedir proposta de 2 concorrentes antes de renovar',criado_por:'u-ges',criado_em:new Date(Date.now()-3*864e5).toISOString()})})();
 (function(){var c=C[0],ini=new Date(c.inicio+'T12:00');var vig=new Date(ini.getFullYear()+1,ini.getMonth(),ini.getDate());var v=vig.getFullYear()+'-'+String(vig.getMonth()+1).padStart(2,'0')+'-'+String(vig.getDate()).padStart(2,'0');DB.ctr_alteracoes.push({id:altSeq++,contrato:c.id,tipo:'reajuste',vigencia:v,valor_antes:9405,valor_depois:9800,fim_antes:c.fim,indice:'IGP-M',percentual:4.2,acumulado:4.2,criado_por:'u-ges',criado_em:new Date().toISOString()})})();
 DB.ctr_historico.push({contrato:1,acao:'dados alterados',detalhe:'valor_mensal: 9200.00 → 9800.00; reajuste: — → IGP-M',usuario:'u-ges',em:new Date(Date.now()-86400000*3).toISOString()});
 // regras de acesso simuladas (no sistema real quem faz isso é o banco)
@@ -104,7 +106,7 @@ function nivel(c){if(U.papel==='admin')return 3;var a=acesso(c.empresa);if(!a)re
  if(c.confidencial&&c.criado_por!==U.id&&!DB.ctr_liberados.some(function(l){return l.contrato===c.id&&l.usuario===U.id}))return 0;return a.nivel}
 function visivel(t,r){if(U.papel==='admin')return true;
  if(t==='ctr_contratos')return nivel(r)>0;
- if(t==='ctr_documentos'||t==='ctr_historico'||t==='ctr_alteracoes'){var c=DB.ctr_contratos.find(function(x){return x.id===r.contrato});return c&&nivel(c)>0}
+ if(t==='ctr_documentos'||t==='ctr_historico'||t==='ctr_alteracoes'||t==='ctr_decisoes'){var c=DB.ctr_contratos.find(function(x){return x.id===r.contrato});return c&&nivel(c)>0}
  if(t==='ctr_acessos'||t==='ctr_liberados'||t==='ctr_contatos')return r.usuario===U.id;
  if(t==='perfis')return r.id===U.id;
  if(t==='ctr_config'||t==='ctr_unidades'||t==='ctr_naturezas')return !!acesso(r.empresa);return true}
@@ -129,6 +131,8 @@ Q.prototype.run=function(){var T=DB[this.t],s=this,rows;
   if(this.t==='ctr_contratos'){for(var i=0;i<arr.length;i++){var c0=Object.assign({criado_por:U.id},arr[i]);if(nivel(c0)<3)return erro('new row violates row-level security policy for table "ctr_contratos"');var ve=validarContrato(c0);if(ve)return erro(ve)}rows=arr.map(novoContrato)}
   else if(this.t==='ctr_alteracoes'){rows=arr.map(function(p){var c=DB.ctr_contratos.find(function(x){return x.id===p.contrato});if(!c||nivel(c)<3)return null;var n=Object.assign({id:altSeq++,valor_antes:c.valor_mensal,fim_antes:c.fim,criado_por:U.id,criado_em:new Date().toISOString()},p);T.push(n);
    if(p.valor_depois!=null)c.valor_mensal=p.valor_depois;if(p.fim_depois)c.fim=p.fim_depois;DB.ctr_historico.push({contrato:c.id,acao:p.tipo==='reajuste'?'reajuste registrado':'aditivo registrado',detalhe:'vale a partir de '+p.vigencia.split('-').reverse().join('/')+(p.percentual!=null?' · '+(p.indice||'')+' '+String(p.percentual).replace('.',',')+'%':'')+(p.valor_depois!=null?' · valor '+n.valor_antes+' → '+p.valor_depois:''),usuario:U.id,em:new Date().toISOString()});return n});if(rows.indexOf(null)>=0)return erro('new row violates row-level security policy for table "ctr_alteracoes"')}
+  else if(this.t==='ctr_decisoes'){rows=arr.map(function(p){var c=DB.ctr_contratos.find(function(x){return x.id===p.contrato});if(!c||nivel(c)<3)return null;var n=Object.assign({id:DB.ctr_decisoes.length+1,ciclo_fim:c.fim,criado_por:U.id,criado_em:new Date().toISOString()},p);T.push(n);
+   var nm=(DB.perfis.find(function(x){return x.id===p.responsavel})||{}).nome;DB.ctr_historico.push({contrato:c.id,acao:'decisão registrada',detalhe:[{renovar:'Renovar',renegociar:'Renegociar',encerrar:'Encerrar',em_analise:'Em análise'}[p.decisao],nm&&'responsável: '+nm,p.prazo&&'até '+p.prazo.split('-').reverse().join('/'),p.observacao].filter(Boolean).join(' · '),usuario:U.id,em:new Date().toISOString()});return n});if(rows.indexOf(null)>=0)return erro('new row violates row-level security policy for table "ctr_decisoes"')}
   else if(this.t==='ctr_categorias'){rows=arr.map(function(p){if(T.some(function(r){return (r.empresa||'')===(p.empresa||'')&&r.nome.toLowerCase()===p.nome.toLowerCase()}))return null;var n=Object.assign({id:catSeq++,ativo:true,documentos:[]},p);T.push(n);return n});if(rows.indexOf(null)>=0)return erro('duplicate key value violates unique constraint "ctr_categorias_nome"')}
   else{var keys=(this.o&&this.o.onConflict||'').split(',').filter(Boolean);
    if(this.t==='ctr_acessos')keys=['usuario','empresa'];if(this.t==='ctr_contatos')keys=['usuario'];

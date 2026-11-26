@@ -38,7 +38,7 @@ const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
   await pg.click('#rj-registrar'); await pg.click('#m-ok'); await pg.waitForTimeout(500);
   ok(brlNum(await pg.inputValue('#c-valor')) === novo, 'depois de registrar, o valor do contrato é o novo');
   const tl = await pg.textContent('#tlv'); ok((tl.match(/Reajuste IGP-M/g) || []).length === 2, 'linha do tempo com os 2 reajustes');
-  ok((await pg.textContent('#hist')).includes('reajuste registrado'), 'histórico: reajuste registrado');
+  ok(await pg.waitForFunction(() => /reajuste registrado/.test(document.querySelector('#hist').textContent), null, { timeout: 5000 }).then(() => true, () => false), 'histórico: reajuste registrado');
   await pg.screenshot({ path: SP + '/rj-contrato.png', fullPage: true });
   // teto: contrato 3 (CD) com teto de 0,5%
   await pg.goto(URL + '#contrato/3'); await pg.waitForSelector('#c-teto');

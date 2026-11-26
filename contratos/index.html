@@ -560,7 +560,7 @@ let PERFIL = null, EMPRESAS = [], EMP = null, NIVEL_EMP = 0;
 let CONTRATOS = [], CAT = new Map(), GRUPOS = [], UNI = new Map(), DOCS = new Map(), PESSOAS = [], MEU = null;
 // modos de visao do admin: TODAS = consolidado da Sinergia; SIM = "ver como" um usuario da empresa (so visualizacao)
 const TODAS = '*';
-let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [], NAT = new Map(), ALT = new Map();
+let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [], NAT = new Map(), ALT = new Map(), DEC = new Map();
 const consolidado = () => EMP === TODAS;
 const ADM = '__adm';
 let MODO_ADM = true;   // admin: true = administracao Sinergia; false = vendo como a empresa ve
@@ -776,7 +776,7 @@ async function recarregar(){
       && (!k.confidencial || k.criado_por === SIM.usuario || libs.has(k.id)));
   }
   // documentos e alteracoes (reajustes, aditivos) de cada contrato, so os que a pessoa pode ver
-  DOCS = new Map(); ALT = new Map();
+  DOCS = new Map(); ALT = new Map(); DEC = new Map();
   const ids = CONTRATOS.map(x => x.id);
   for (let i = 0; i < ids.length; i += 300) {
     const { data, error } = await db('ctr_documentos').select('contrato,categoria,validade,enviado_em').in('contrato', ids.slice(i, i + 300)).limit(20000);
@@ -784,7 +784,10 @@ async function recarregar(){
     for (const d of data || []) { const a = DOCS.get(d.contrato) || []; a.push(d); DOCS.set(d.contrato, a); }
     const al = await db('ctr_alteracoes').select('*').in('contrato', ids.slice(i, i + 300)).limit(20000);
     if (!al.error) for (const x of al.data || []) { const a = ALT.get(x.contrato) || []; a.push(x); ALT.set(x.contrato, a); }
+    const de = await db('ctr_decisoes').select('*').in('contrato', ids.slice(i, i + 300)).limit(20000);
+    if (!de.error) for (const x of de.data || []) { const a = DEC.get(x.contrato) || []; a.push(x); DEC.set(x.contrato, a); }
   }
+  for (const a of DEC.values()) a.sort((x, y) => String(x.criado_em).localeCompare(String(y.criado_em)));
   for (const a of ALT.values()) a.sort((x, y) => x.vigencia.localeCompare(y.vigencia) || String(x.criado_em).localeCompare(String(y.criado_em)));
 }
 
@@ -955,6 +958,13 @@ function situ(c){
   return { k:'ok', t:'Vigente', cod:'vigente' };
 }
 const pendente = c => docsComProblema(c).length > 0;
+// ── decisao sobre o vencimento: vale a mais recente do ciclo atual (mesmo vencimento); aditivo de prazo abre ciclo novo ──
+const DECISOES = { em_analise: ['Em análise', 'info'], renovar: ['Renovar', 'ok'], renegociar: ['Renegociar', 'warn'], encerrar: ['Encerrar', 'bad'] };
+const decisoesDe = c => DEC.get(c.id) || [];
+const decisaoAtual = c => decisoesDe(c).filter(x => (x.ciclo_fim || null) === (c.fim || null)).pop() || null;
+const pedeDecisao = c => c.situacao !== 'encerrado' && ['aviso', 'vencido', 'breve'].includes(situ(c).cod);
+const semDecisao = c => pedeDecisao(c) && situ(c).cod !== 'breve' && !decisaoAtual(c);
+const pillDecisao = c => { const d = decisaoAtual(c); return d ? `<span class="pill p-${DECISOES[d.decisao][1]}" title="Decisão registrada">${DECISOES[d.decisao][0]}</span>` : ''; };
 // o proprio acesso permite cadastrar nesta unidade / categoria? (o banco confere de novo)
 // com contratos escolhidos a pessoa nao cadastra contratos novos
 const podeCriar = () => NIVEL_EMP >= 3 && !consolidado() && !(MEU && MEU.contratos && MEU.contratos.length);
@@ -1083,6 +1093,7 @@ function vPainel(){
   const KI = { ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>', warn:'<path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9L2.6 17.3A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.7L13.7 3.9a2 2 0 0 0-3.4 0z"/>', bad:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', mut:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>', acc:'<path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.4 4.5 3.2-2 3-4.5 3-4.5-1.3-4.5-3"/>' };
   const kpi = (l, val, sub, cor, href) => { const t = /ok/.test(cor) ? 'ok' : /warn/.test(cor) ? 'warn' : /bad/.test(cor) ? 'bad' : /acc/.test(cor) ? 'acc' : 'mut';
     return `<a class="kpi" href="#${href}" style="--k:${cor}"><span class="kpi-top"><span class="lbl">${l}</span><span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KI[t]}</svg></span></span><span class="val">${val}</span><span class="sub">${sub}</span></a>`; };
+  const semDec = ativos.filter(semDecisao).length;
   const prox = S.filter(([, s]) => ['vencido','aviso','breve'].includes(s.cod)).sort((a, b) => dias(a[0]) - dias(b[0])).slice(0, 30);
   const reajustes = ativos.map(c => [c, proximoReajuste(c)]).filter(([, p]) => p && p.dias <= 30).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const vistosDoc = new Set();
@@ -1105,7 +1116,7 @@ function vPainel(){
   return topo('Painel de contratos', consolidado() ? `Todas as empresas · ${CONTRATOS.length} contratos` : `${esc(emp ? emp.nome : '')} · ${CONTRATOS.length} contratos que você pode ver`, NIVEL_EMP >= 3 && !consolidado() ? `<a class="btn pri" href="#novo">${icon.plus}Novo contrato</a>` : '')
   + `<div class="kpis">
       ${kpi('Vigentes', vig, 'com vencimento preenchido', 'var(--ok)', 'contratos?st=vigente')}
-      ${kpi('No prazo de aviso', aviso, 'decidir renovar ou cancelar', 'var(--warn)', 'contratos?st=aviso')}
+      ${kpi('No prazo de aviso', aviso, semDec ? `${semDec} sem decisão registrada` : 'decidir renovar ou cancelar', 'var(--warn)', semDec ? 'contratos?st=semdecisao' : 'contratos?st=aviso')}
       ${kpi('Vencidos', venc, 'sem renovação registrada', 'var(--bad)', 'contratos?st=vencido')}
       ${kpi('Documentos pendentes', pend, 'falta documento ou está vencido', 'var(--muted)', 'contratos?st=pendente')}
       ${kpi('Custo mensal', brl0(mensal), 'soma dos não vencidos', 'var(--acc)', 'contratos')}
@@ -1116,7 +1127,7 @@ function vPainel(){
         <div class="card"><div class="card-h"><h2>O que precisa de atenção</h2><span class="muted small">mais urgente primeiro</span></div>
           <div class="alerts">${prox.length ? prox.map(([c, s]) => { const d = dias(c); return `<div class="alert" data-go="contrato/${c.id}">
             <div class="days p-${s.k}">${Math.abs(d)}<small>${d < 0 ? 'dias atrás' : 'dias'}</small></div>
-            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(ondeC(c))} · vence ${fmt(c.fim)}</div></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(ondeC(c))} · vence ${fmt(c.fim)}</div>${(() => { const dc = decisaoAtual(c); return dc ? `<div class="small">Decisão: <b>${DECISOES[dc.decisao][0]}</b>${dc.responsavel ? ' · ' + esc(pessoa(dc.responsavel)) : ''}${dc.prazo ? ' · até ' + fmt(dc.prazo) : ''}</div>` : s.cod !== 'breve' ? '<div class="small" style="color:var(--warn)">Sem decisão registrada</div>' : ''; })()}</div>
             <span class="pill p-${s.k}">${s.t}</span></div>`; }).join('') : `<div class="empty">Nenhum contrato vencido ou perto de vencer.${comData < ativos.length ? ' Só entram aqui os contratos com vencimento preenchido.' : ''}</div>`}</div>
         </div>
         <div class="card"><div class="card-h"><h2>Reajustes</h2><span class="muted small">devidos ou nos próximos 30 dias</span></div>
@@ -1168,6 +1179,7 @@ function vLista(q){
       if (st === 'pendente') return pendente(c);
       if (st === 'semdoc') return c.situacao !== 'encerrado' && !temContrato(c);
       if (st === 'reajuste') return reajusteDevido(c);
+      if (st === 'semdecisao') return semDecisao(c);
       if (st && s.cod !== st) return false;
       if (!st && !tp && c.situacao === 'encerrado') return false;
       return true;
@@ -1201,7 +1213,7 @@ function vLista(q){
       <input class="in search" id="f-q" placeholder="Buscar por objeto, fornecedor, CNPJ, código ou número" aria-label="Buscar">
       <select class="in" id="f-gr" aria-label="Grupo ou categoria">${usaNat() ? `<option value="">Todas as naturezas</option>${[...new Set(CONTRATOS.map(c => (natDe(c) || {}).classe || 'Sem classe'))].sort((a, b) => numClasse(a) - numClasse(b)).map(k => `<option value="cl:${esc(k)}">${esc(k)}</option>${[...new Set(CONTRATOS.filter(c => ((natDe(c) || {}).classe || 'Sem classe') === k && c.natureza_cliente).map(c => c.natureza_cliente))].map(n => `<option value="nt:${esc(n)}">&nbsp;&nbsp;↳ ${esc(nomeNat(n))}</option>`).join('')}`).join('')}` : `<option value="">Todos os grupos</option>${grupos.map(g => `<option value="${esc(g.codigo)}">${esc(g.nome)}</option>${catsOrdenadas(false).filter(c => c.grupo === g.codigo && CONTRATOS.some(x => x.categoria === c.id)).map(c => `<option value="${c.id}">&nbsp;&nbsp;↳ ${esc(c.nome)}</option>`).join('')}`).join('')}`}</select>
       <select class="in" id="f-fi" aria-label="${consolidado() ? 'Empresa' : esc(tU())}"><option value="">${consolidado() ? 'Todas as empresas' : 'Todas as ' + esc(tus())}</option>${unidades.map(f => `<option value="${esc(f)}">${esc(consolidado() ? nomeEmpresa(f) : nomeUnidade(f))}</option>`).join('')}</select>
-      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="reajuste">Reajuste devido</option><option value="encerrado">Encerrados</option></select>
+      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="reajuste">Reajuste devido</option><option value="semdecisao">Sem decisão (aviso ou vencido)</option><option value="encerrado">Encerrados</option></select>
       <select class="in" id="f-tp" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.entries(TIPOS_CTR).map(([k, [t]]) => `<option value="${k}">${t} (${CONTRATOS.filter(c => tipoC(c) === k).length})</option>`).join('')}</select>
       <span class="muted small" style="align-self:center" id="cnt"></span>
     </div>
@@ -1412,6 +1424,7 @@ function vContrato(id){
       </div>
     </div>
     <div class="stack">
+      ${c.fim && c.situacao !== 'encerrado' ? `<div class="card" id="dec-card"><div class="card-h"><h2>Decisão sobre o vencimento</h2><span id="dec-pill"></span></div><div class="card-b" id="dec" style="display:grid;gap:10px"></div></div>` : ''}
       <div class="card"><div class="card-h"><h2>Reajuste</h2><span id="rj-pill"></span></div><div class="card-b" id="rj" style="display:grid;gap:10px"></div></div>
       <div class="card"><div class="card-h"><h2>Linha do tempo</h2>${n >= 3 ? '<button class="btn sm" id="b-aditivo">Registrar aditivo</button>' : ''}</div><div class="tlv" id="tlv"></div></div>
       <div class="card"><div class="card-h"><h2>Documentos obrigatórios</h2></div><div class="chk" id="chk"></div></div>
@@ -1484,6 +1497,41 @@ function desenharLinhaTempo(c){
   el.innerHTML = itens.reverse().map(x => `<div class="tl-i ${x.k}"><i></i><div><div class="tl-d">${x.data ? fmt(x.data) : 'sem data'}</div><div class="t">${esc(x.t)}</div>${x.d ? `<div class="s">${x.d}</div>` : ''}</div></div>`).join('')
     + (!alts.length ? '<div class="muted small" style="padding:4px 0 2px">Nenhum reajuste ou aditivo registrado ainda.</div>' : '');
 }
+function desenharDecisao(c, n){
+  const el = $('#dec'); if (!el) return;
+  const d = decisaoAtual(c), s = situ(c), avisar = new Date(parse(c.fim) - c.aviso_dias * 864e5);
+  const ant = decisoesDe(c).filter(x => x !== d).reverse();
+  $('#dec-pill').innerHTML = d ? pillDecisao(c) : pedeDecisao(c) && s.cod !== 'breve' ? '<span class="pill p-warn">Sem decisão</span>' : '';
+  el.innerHTML = `${d ? `<div class="small"><span class="muted">Decisão:</span> <b>${DECISOES[d.decisao][0]}</b></div>
+      ${d.responsavel ? `<div class="small"><span class="muted">Quem cuida:</span> ${esc(pessoa(d.responsavel))}</div>` : ''}
+      ${d.prazo ? `<div class="small"><span class="muted">Até:</span> <b>${fmt(d.prazo)}</b>${diasAte(d.prazo) < 0 ? ' <b style="color:var(--bad)">(prazo passou)</b>' : ` (em ${diasAte(d.prazo)} dias)`}</div>` : ''}
+      ${d.observacao ? `<div class="small" style="white-space:pre-wrap">${esc(d.observacao)}</div>` : ''}
+      <div class="muted small">Registrada por ${esc(pessoa(d.criado_por))} em ${fmtTs(d.criado_em)}</div>`
+    : `<p class="muted small" style="margin:0">${pedeDecisao(c) ? `O contrato vence em ${fmt(c.fim)}. ${c.aviso_dias ? `Para não renovar sem querer, a outra parte precisa ser avisada até <b>${avisar.toLocaleDateString('pt-BR')}</b>. ` : ''}Registre o que vai ser feito e quem cuida.` : `Vence em ${fmt(c.fim)}. Quando chegar perto, registre aqui se vai renovar, renegociar ou encerrar.`}</p>`}
+    ${n >= 3 ? `<div><button class="btn ${pedeDecisao(c) && !d ? 'pri' : ''} sm" id="b-decisao">${d ? 'Mudar a decisão' : 'Registrar decisão'}</button></div>` : ''}
+    ${ant.length ? `<details><summary class="small">Decisões anteriores (${ant.length})</summary><div style="display:grid;gap:6px;margin-top:6px">${ant.map(x => `<div class="small"><b>${DECISOES[x.decisao][0]}</b> · ${fmtTs(x.criado_em)} · ${esc(pessoa(x.criado_por))}${x.ciclo_fim && x.ciclo_fim !== c.fim ? ` · vencimento da época: ${fmt(x.ciclo_fim)}` : ''}${x.observacao ? `<div class="muted">${esc(x.observacao)}</div>` : ''}</div>`).join('')}</div></details>` : ''}`;
+  const b = $('#b-decisao'); if (b) b.onclick = () => modalDecisao(c);
+}
+function modalDecisao(c){
+  const d = decisaoAtual(c), avisar = ymd(new Date(parse(c.fim) - c.aviso_dias * 864e5));
+  const prazo = d && d.prazo ? d.prazo : avisar >= ymd(hojeD()) ? avisar : '';
+  abrirModal('Decisão sobre o vencimento', `
+    <p class="muted small" style="margin:0 0 4px">${esc(c.titulo)} · vence ${fmt(c.fim)}${c.aviso_dias ? ` · avisar a outra parte até ${fmt(avisar)}` : ''}</p>
+    <div class="grid2">
+      <div class="field"><label for="dc-dec" class="req">O que vai ser feito</label><select class="in" id="dc-dec">${Object.entries(DECISOES).map(([k, [t]]) => `<option value="${k}" ${(d ? d.decisao : 'em_analise') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label for="dc-resp">Quem cuida</label><select class="in" id="dc-resp"><option value="">—</option>${PESSOAS.map(p => `<option value="${p.id}" ${(d ? d.responsavel : c.responsavel) === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
+      <div class="field"><label for="dc-prazo">Até quando</label><input class="in" id="dc-prazo" type="date" value="${prazo}"><span class="hint">Ex.: data para avisar a outra parte ou assinar a renovação.</span></div>
+    </div>
+    <div class="field"><label for="dc-obs">Observação</label><textarea class="in" id="dc-obs" rows="2" maxlength="1000" placeholder="Ex.: pedir proposta de 2 concorrentes; negociar 5% de desconto"></textarea></div>
+    <div class="note" id="dc-nota"></div>
+    <div id="m-msg"></div>`, 'Registrar', async () => {
+      const r = await db('ctr_decisoes').insert({ contrato: c.id, decisao: $('#dc-dec').value, responsavel: $('#dc-resp').value || null, prazo: $('#dc-prazo').value || null, observacao: $('#dc-obs').value.trim() || null });
+      if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
+      await recarregar(); toast('Decisão registrada.'); render(); return true;
+    });
+  const nota = () => { $('#dc-nota').innerHTML = { renovar: 'Depois de assinada, anexe a renovação em "Arquivos" (ou registre o aditivo de prazo): o novo vencimento entra na linha do tempo.', renegociar: 'Quando fechar, anexe o contrato atualizado ou o aditivo dizendo o que mudou.', encerrar: 'Avise a outra parte por escrito dentro do prazo. Quando acabar, anexe o distrato ou a notificação.', em_analise: 'Use enquanto ainda não decidiu. A decisão anterior continua guardada.' }[$('#dc-dec').value]; };
+  $('#dc-dec').onchange = nota; nota();
+}
 function modalAditivo(c){
   const docs = docsDe(c).filter(d => d.id);
   abrirModal('Registrar aditivo', `
@@ -1514,7 +1562,7 @@ function desenharChecklist(c){
     + `<div class="muted small" style="padding:10px 18px 14px">Exigidos pela categoria <b>${esc(catDe(c).nome)}</b>. ${ehAdmin() ? 'Para mudar a regra, vá em Administração → Categorias.' : ''}</div>`;
 }
 async function carregarDetalhe(c, n){
-  ligarForm(false); desenharChecklist(c); desenharReajuste(c, n); desenharLinhaTempo(c);
+  ligarForm(false); desenharChecklist(c); desenharReajuste(c, n); desenharLinhaTempo(c); desenharDecisao(c, n);
   const ba = $('#b-aditivo'); if (ba) ba.onclick = () => modalAditivo(c);
   const b = $('#b-salvar');
   if (b) b.onclick = async () => {

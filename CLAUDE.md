@@ -196,5 +196,9 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   (imutável), e o gatilho atualiza valor/vencimento do contrato e o histórico. "Registrar aditivo": valor, prazo,
   renovação, com o documento ligado. Painel tem o cartão "Reajustes"; lista tem o filtro "Reajuste devido".
   **A consulta ao Banco Central não pôde ser testada daqui (rede bloqueada): conferir na instalação.**
+- **Decisão sobre o vencimento** (`ctr_decisoes`, só recebe linhas novas): renovar / renegociar / encerrar / em análise,
+  quem cuida e até quando. Vale a mais recente do ciclo (`ciclo_fim` = vencimento na hora; aditivo de prazo abre ciclo novo):
+  `decisaoAtual()`. Cartão no contrato, alerta do painel ("Sem decisão registrada"), cartão "No prazo de aviso" conta os
+  sem decisão e filtro da lista `st=semdecisao` (aviso ou vencido sem decisão).
 - Ainda não feito: e-mail de aviso de vencimento, backup diário do banco para o SharePoint,
   conferência contrato × pagamento.
