@@ -108,6 +108,19 @@ create table if not exists public.ctr_unidades (
   primary key (empresa, codigo)
 );
 
+-- ── Identidade de cada empresa (o que a empresa ve: logo, cor e como chama as unidades) ──
+-- Sem linha = identidade da Sinergia. A logo fica aqui mesmo (imagem pequena, ja reduzida pela tela).
+create table if not exists public.ctr_config (
+  empresa        text primary key references public.empresas(slug) on delete cascade on update cascade,
+  nome_exibicao  text check (nome_exibicao is null or length(nome_exibicao) <= 60),
+  cor            text check (cor is null or cor ~ '^#[0-9A-Fa-f]{6}$'),
+  logo           text check (logo is null or (logo like 'data:image/%' and length(logo) <= 400000)),
+  logo_fundo     boolean not null default false,       -- fundo branco atras da logo (logo escura)
+  termo_unidade  text not null default 'Unidade'  check (length(trim(termo_unidade)) between 2 and 30),
+  termo_unidades text not null default 'Unidades' check (length(trim(termo_unidades)) between 2 and 30),
+  alterado_em    timestamptz not null default now()
+);
+
 -- ── Quem pode usar os contratos de cada empresa ──
 create table if not exists public.ctr_acessos (
   usuario   uuid     not null references public.perfis(id) on delete cascade,
@@ -331,17 +344,18 @@ create trigger ctr_documentos_imutavel before update or delete on public.ctr_doc
 alter table public.ctr_grupos       enable row level security;
 alter table public.ctr_categorias   enable row level security;
 alter table public.ctr_unidades     enable row level security;
+alter table public.ctr_config       enable row level security;
 alter table public.ctr_acessos      enable row level security;
 alter table public.ctr_contratos    enable row level security;
 alter table public.ctr_liberados    enable row level security;
 alter table public.ctr_documentos   enable row level security;
 alter table public.ctr_historico    enable row level security;
 
-revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_acessos,
+revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_acessos,
               public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico from anon;
 grant select on public.ctr_grupos to authenticated;
 revoke insert, update, delete on public.ctr_grupos from authenticated;
-grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades,
+grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config,
               public.ctr_acessos, public.ctr_contratos, public.ctr_liberados to authenticated;
 grant select on public.ctr_documentos, public.ctr_historico to authenticated;
 revoke insert, update, delete on public.ctr_documentos, public.ctr_historico from authenticated;
@@ -365,6 +379,11 @@ drop policy if exists ctr_unidades_ver   on public.ctr_unidades;
 drop policy if exists ctr_unidades_admin on public.ctr_unidades;
 create policy ctr_unidades_ver   on public.ctr_unidades for select to authenticated using (public.ctr_usa_empresa(empresa));
 create policy ctr_unidades_admin on public.ctr_unidades for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
+
+drop policy if exists ctr_config_ver   on public.ctr_config;
+drop policy if exists ctr_config_admin on public.ctr_config;
+create policy ctr_config_ver   on public.ctr_config for select to authenticated using (public.ctr_usa_empresa(empresa));
+create policy ctr_config_admin on public.ctr_config for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
 
 drop policy if exists ctr_acessos_ver   on public.ctr_acessos;
 drop policy if exists ctr_acessos_admin on public.ctr_acessos;

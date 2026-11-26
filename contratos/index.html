@@ -205,7 +205,7 @@ td .s{font-size:12px;color:var(--muted)}
 
 /* ═════ Visual moderno (identidade Sinergia) ═════ */
 h1{font-size:1.9rem;font-weight:700;letter-spacing:-.01em} h2{font-size:1.15rem;font-weight:600;letter-spacing:0}
-.brand-mark{width:36px;height:36px;border-radius:10px;background:var(--acc);color:#fff;font-family:var(--f-display);font-size:19px;box-shadow:0 6px 16px rgba(209,47,51,.35)}
+.brand-mark{width:36px;height:36px;border-radius:10px;background:var(--acc);color:var(--acc-fg);font-family:var(--f-display);font-size:19px;box-shadow:0 6px 16px color-mix(in srgb,var(--acc) 38%,transparent)}
 .brand strong{font-family:var(--f-display);font-size:17px;letter-spacing:.18em;font-weight:700}
 .brand small{font-size:11.5px}
 /* barra lateral escura */
@@ -216,7 +216,7 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.01em} h2{font-size:1.15rem;
 .nav .grp{color:var(--side-muted);padding:16px 12px 6px;font-size:10.5px;letter-spacing:.14em}
 .nav a{color:#c9ccd4;padding:10px 12px;border-radius:10px;font-weight:500;position:relative}
 .nav a:hover{background:var(--side2);color:#fff}
-.nav a.on{background:linear-gradient(90deg,rgba(209,47,51,.22),rgba(209,47,51,.06));color:#fff}
+.nav a.on{background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 24%,transparent),color-mix(in srgb,var(--acc) 6%,transparent));color:#fff}
 .nav a.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--acc)}
 .nav a.on svg{color:var(--acc)}
 .nav .count{background:var(--acc)}
@@ -232,8 +232,8 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.01em} h2{font-size:1.15rem;
 .card-h{padding:16px 20px;border-bottom-color:var(--border)}
 .card-b{padding:20px}
 .btn{border-radius:10px;padding:9px 16px;transition:transform .12s,box-shadow .12s,border-color .12s}
-.btn.pri{box-shadow:0 6px 16px rgba(209,47,51,.28)}
-.btn.pri:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(209,47,51,.32)}
+.btn.pri{box-shadow:0 6px 16px color-mix(in srgb,var(--acc) 30%,transparent)}
+.btn.pri:hover{transform:translateY(-1px);box-shadow:0 10px 22px color-mix(in srgb,var(--acc) 34%,transparent)}
 .in{border-radius:10px;padding:9px 12px}
 /* KPIs */
 .kpis{gap:14px;margin-bottom:18px}
@@ -247,9 +247,9 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.01em} h2{font-size:1.15rem;
 .kpi .val{font-size:2.1rem;font-weight:700;line-height:1.05;margin-top:2px}
 /* barras e listas */
 .pbar .track,.bt .track{height:10px}
-.pbar .track i,.bt .track i{background:linear-gradient(90deg,var(--acc),#f06a5f)}
+.pbar .track i,.bt .track i{background:linear-gradient(90deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#fff))}
 .tl .bar{background:linear-gradient(180deg,var(--bar1),var(--bar2));opacity:1;border-radius:6px 6px 3px 3px}
-.tl .bar.hot{background:linear-gradient(180deg,#f06a5f,var(--acc))}
+.tl .bar.hot{background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 60%,#fff),var(--acc))}
 .days{border-radius:10px;padding:6px 0}
 .alert{padding:13px 20px}
 th{background:var(--surface2);border-bottom:none;font-size:11px}
@@ -328,6 +328,30 @@ tbody tr.link:hover td{background:color-mix(in srgb,var(--acc) 4%,var(--surface)
 .errtbl td:first-child{width:70px}
 details summary{cursor:pointer;color:var(--muted)}
 @media (max-width:480px){.bt3{grid-template-columns:1fr 70px}.bt3 .track{display:none}}
+/* ═════ Modos de visão e identidade da empresa ═════ */
+.side-sel{display:grid;gap:4px}
+.side-lbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted)}
+.side .side-sel .in{background:var(--side2);border-color:#2b2f38;color:var(--side-fg)}
+.brand .emp{letter-spacing:.02em;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.brand-logo{height:38px;max-width:120px;display:flex;align-items:center;flex:none;border-radius:8px}
+.brand-logo img{max-height:38px;max-width:120px;object-fit:contain;display:block}
+.brand-logo.fundo{background:#fff;padding:4px 8px}
+.modo-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--warn-soft);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);border-radius:12px;padding:10px 14px;margin-bottom:18px;font-size:13.5px}
+.modo-bar.info{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 30%,transparent)}
+input.cor{width:52px;height:42px;border:1px solid var(--border);border-radius:10px;padding:3px;background:var(--surface);flex:none;cursor:pointer}
+.prev{display:grid;grid-template-columns:150px 1fr;border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:150px}
+.prev-side{background:var(--side);color:var(--side-fg);padding:12px;display:grid;gap:8px;align-content:start}
+.prev-side .brand-mark{width:28px;height:28px;font-size:14px;box-shadow:none}
+.prev-side .brand-logo,.prev-side .brand-logo img{max-height:28px;max-width:70px}
+.prev-side .emp{font-size:13px}
+.prev-side small{font-size:9.5px;color:var(--side-muted)}
+.prev-item{font-size:12px;padding:6px 8px;border-radius:8px;color:#c9ccd4}
+.prev-item:first-of-type{background:color-mix(in srgb,var(--pc) 25%,transparent);color:#fff;box-shadow:inset 3px 0 0 var(--pc)}
+.prev-main{padding:14px;display:flex;flex-wrap:wrap;gap:8px;align-content:start;background:var(--bg)}
+.prev-btn{background:var(--pc);color:var(--pcf);border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:600}
+.prev-pill{border:1px solid var(--border);border-radius:99px;padding:6px 10px;font-size:12px;color:var(--muted);background:var(--surface)}
+@media (max-width:480px){.prev{grid-template-columns:110px 1fr}}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -359,8 +383,9 @@ details summary{cursor:pointer;color:var(--muted)}
 
 <div class="shell" id="v-app" hidden>
   <aside class="side" id="side">
-    <div class="brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos · <span id="side-emp"></span></small></div></div>
-    <select class="in" id="sel-emp" hidden aria-label="Empresa"></select>
+    <div class="brand" id="side-brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
+    <div class="side-sel"><label class="side-lbl" id="lbl-emp" for="sel-emp" hidden>Ver como empresa</label><select class="in" id="sel-emp" hidden></select></div>
+    <div class="side-sel" id="box-ver" hidden><label class="side-lbl" for="sel-ver">Ver como usuário</label><select class="in" id="sel-ver"></select></div>
     <nav class="nav" id="nav"></nav>
     <div class="me"><div class="avatar" id="me-av"></div><div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13px" id="me-nome"></div><div class="muted" style="font-size:12px" id="me-papel"></div></div><button class="btn sm" id="btn-sair">Sair</button></div>
   </aside>
@@ -430,6 +455,7 @@ const icon = {
   users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c2 .7 3.2 2.6 3.6 5.4"/></svg>',
   imp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>',
   tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  brush:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3.5-4 3.5h-2a2 2 0 0 0-1.5 3.3c.6.7.3 3.2-2.5 3.2z"/><circle cx="7.5" cy="10.5" r="1.2"/><circle cx="11" cy="7" r="1.2"/><circle cx="15.5" cy="8" r="1.2"/></svg>',
   pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>',
   cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/></svg>',
   menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
@@ -441,8 +467,19 @@ const icon = {
 // ═════════ Estado ═════════
 let PERFIL = null, EMPRESAS = [], EMP = null, NIVEL_EMP = 0;
 let CONTRATOS = [], CAT = new Map(), GRUPOS = [], UNI = new Map(), DOCS = new Map(), PESSOAS = [], MEU = null;
+// modos de visao do admin: TODAS = consolidado da Sinergia; SIM = "ver como" um usuario da empresa (so visualizacao)
+const TODAS = '*';
+let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [];
+const consolidado = () => EMP === TODAS;
+const nomeEmpresa = s => (EMPRESAS.find(x => x.slug === s) || {}).nome || s;
+const cfgDe = emp => CFGS.get(emp) || null;
+// como a empresa chama as unidades (Filial, Loja, Obra...)
+const tU = (emp = EMP) => (cfgDe(emp) || {}).termo_unidade || 'Unidade';
+const tUs = (emp = EMP) => (cfgDe(emp) || {}).termo_unidades || 'Unidades';
+const tu = emp => tU(emp).toLowerCase(), tus = emp => tUs(emp).toLowerCase();
 let carregado = false, recuperando = false;
-const ehAdmin = () => PERFIL && PERFIL.papel === 'admin';
+const ehAdminReal = () => PERFIL && PERFIL.papel === 'admin';
+const ehAdmin = () => ehAdminReal() && !SIM;   // no "ver como" o admin enxerga como o usuario escolhido
 
 function toast(t, ms = 3800){ const e = $('#toast'); e.textContent = t; e.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => e.hidden = true, ms); }
 function erroTxt(e){
@@ -464,8 +501,15 @@ function erroTxt(e){
 }
 function msgEm(sel, texto, tipo = 'erro'){ const el = $(sel); if (el) el.innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : ''; }
 
+const SO_LEITURA = 'Modo "ver como": é só visualização, nada é salvo. Volte para Administrador para alterar.';
+function db(t){
+  const q = sb.from(t); if (!SIM) return q;
+  const bloq = () => { const f = { then: (ok, er) => Promise.resolve({ data: null, error: { message: SO_LEITURA } }).then(ok, er) }; for (const m of ['select','eq','in','single','maybeSingle','order','limit']) f[m] = () => f; return f; };
+  return new Proxy(q, { get: (o, k) => ['insert','update','upsert','delete'].includes(k) ? bloq : (typeof o[k] === 'function' ? o[k].bind(o) : o[k]) });
+}
 // chama a funcao do servidor (SharePoint)
 async function fn(corpo){
+  if (SIM && (corpo.acao === 'iniciar' || corpo.acao === 'registrar')) throw new Error(SO_LEITURA);
   const { data: { session } } = await sb.auth.getSession();
   if (!session) throw new Error('Sua sessão expirou. Entre de novo.');
   let r;
@@ -542,27 +586,28 @@ async function iniciar(){
   $('#main').innerHTML = '<div class="loading">Carregando…</div>';
   try {
     const { data: { user } } = await sb.auth.getUser();
-    const { data: p, error } = await sb.from('perfis').select('id,nome,email,papel,ativo').eq('id', user.id).maybeSingle();
+    const { data: p, error } = await db('perfis').select('id,nome,email,papel,ativo').eq('id', user.id).maybeSingle();
     if (error) throw error;
     if (!p || !p.ativo) { telaSemAcesso('Seu usuário não está ativo. Fale com o administrador da Sinergia.'); return; }
     PERFIL = p;
-    if (ehAdmin()) {
-      const { data, error: e2 } = await sb.from('empresas').select('slug,nome').order('nome'); if (e2) throw e2;
+    if (ehAdminReal()) {
+      const { data, error: e2 } = await db('empresas').select('slug,nome').order('nome'); if (e2) throw e2;
       EMPRESAS = (data || []).map(e => ({ ...e, nivel: 3 }));
     } else {
-      const { data: ac, error: e3 } = await sb.from('ctr_acessos').select('empresa,nivel').eq('usuario', p.id); if (e3) throw e3;
-      const { data: em } = await sb.from('empresas').select('slug,nome');
+      const { data: ac, error: e3 } = await db('ctr_acessos').select('empresa,nivel').eq('usuario', p.id); if (e3) throw e3;
+      const { data: em } = await db('empresas').select('slug,nome');
       const nomes = new Map((em || []).map(e => [e.slug, e.nome]));
       EMPRESAS = (ac || []).map(a => ({ slug: a.empresa, nome: nomes.get(a.empresa) || a.empresa, nivel: a.nivel }));
     }
     if (!EMPRESAS.length) { telaSemAcesso('Seu usuário ainda não tem acesso a nenhuma empresa nos contratos. Fale com o administrador da Sinergia.'); return; }
     let guardada = null; try { guardada = localStorage.getItem('ctr-emp'); } catch (_) {}
-    const e = EMPRESAS.find(x => x.slug === guardada) || EMPRESAS.find(x => x.slug === 'millena') || EMPRESAS[0];
+    const e = (guardada === TODAS && ehAdminReal() && EMPRESAS.length > 1 ? { slug: TODAS } : null) || EMPRESAS.find(x => x.slug === guardada) || EMPRESAS.find(x => x.slug === 'millena') || EMPRESAS[0];
     const sel = $('#sel-emp');
-    sel.innerHTML = EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
-    sel.hidden = EMPRESAS.length < 2;
+    sel.innerHTML = (ehAdminReal() && EMPRESAS.length > 1 ? `<option value="${TODAS}">Todas as empresas (Sinergia)</option>` : '') + EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
+    sel.hidden = EMPRESAS.length < 2; $('#lbl-emp').hidden = sel.hidden;
+    $('#sel-ver').onchange = () => verComo($('#sel-ver').value);
     sel.onchange = () => trocarEmpresa(sel.value);
-    $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdmin() ? 'Administrador' : '';
+    $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdminReal() ? 'Administrador' : '';
     await trocarEmpresa(e.slug);
   } catch (err) {
     carregado = false;
@@ -570,47 +615,106 @@ async function iniciar(){
   }
 }
 function telaSemAcesso(t){
-  $('#nav').innerHTML = ''; $('#side-emp').textContent = '';
+  $('#nav').innerHTML = '';
   $('#main').innerHTML = `<div class="card"><div class="card-b" style="display:grid;gap:12px;justify-items:start"><h2>Sem acesso</h2><p class="muted" style="margin:0">${esc(t)}</p><button class="btn" id="b-sair2">Sair</button></div></div>`;
   $('#b-sair2').onclick = () => sb.auth.signOut();
 }
 async function trocarEmpresa(slug){
-  EMP = slug; try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
-  const e = EMPRESAS.find(x => x.slug === slug); NIVEL_EMP = e ? e.nivel : 0;
-  $('#sel-emp').value = slug; $('#side-emp').textContent = e ? e.nome : slug;
-  $('#me-papel').textContent = ehAdmin() ? 'Administrador' : LV[NIVEL_EMP];
+  EMP = slug; SIM = null; try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
+  const e = EMPRESAS.find(x => x.slug === slug); NIVEL_EMP = consolidado() ? 3 : (e ? e.nivel : 0);
+  $('#sel-emp').value = slug;
+  $('#me-papel').textContent = ehAdminReal() ? 'Administrador' : LV[NIVEL_EMP];
   $('#main').innerHTML = '<div class="loading">Carregando contratos…</div>';
-  try { await recarregar(); render(); }
+  try { await recarregar(); aplicarIdentidade(); montarVerComo(); render(); }
   catch (err) { $('#main').innerHTML = `<div class="card"><div class="card-b"><div class="msg erro">${esc(erroTxt(err))}</div></div></div>`; }
 }
 async function recarregar(){
-  const [c, ca, g, u, pe, ma] = await Promise.all([
-    sb.from('ctr_contratos').select('*').eq('empresa', EMP).order('fim', { ascending: true, nullsFirst: false }).limit(5000),
-    sb.from('ctr_categorias').select('*').or(`empresa.is.null,empresa.eq.${EMP}`).limit(2000),
-    sb.from('ctr_grupos').select('*').order('ordem'),
-    sb.from('ctr_unidades').select('codigo,nome').eq('empresa', EMP).limit(5000),
-    sb.rpc('ctr_pessoas', { p_empresa: EMP }),
-    ehAdmin() ? Promise.resolve({ data: null }) : sb.from('ctr_acessos').select('unidades,grupos,nivel').eq('usuario', PERFIL.id).eq('empresa', EMP).maybeSingle(),
+  const todas = consolidado();
+  const daEmp = q => todas ? q : q.eq('empresa', EMP);
+  const [c, ca, g, u, pe, ma, cf] = await Promise.all([
+    daEmp(db('ctr_contratos').select('*')).order('fim', { ascending: true, nullsFirst: false }).limit(20000),
+    todas ? db('ctr_categorias').select('*').limit(5000) : db('ctr_categorias').select('*').or(`empresa.is.null,empresa.eq.${EMP}`).limit(2000),
+    db('ctr_grupos').select('*').order('ordem'),
+    daEmp(db('ctr_unidades').select('empresa,codigo,nome')).limit(20000),
+    todas ? Promise.resolve({ data: [] }) : sb.rpc('ctr_pessoas', { p_empresa: EMP }),
+    ehAdminReal() ? Promise.resolve({ data: null }) : db('ctr_acessos').select('unidades,grupos,nivel').eq('usuario', PERFIL.id).eq('empresa', EMP).maybeSingle(),
+    daEmp(db('ctr_config').select('*')),
   ]);
   for (const r of [c, ca, g, u]) if (r.error) throw r.error;
-  MEU = ehAdmin() ? null : (ma && ma.data) || null;   // limites do proprio acesso (unidades e grupos)
+  MEU = SIM ? { unidades: SIM.unidades, grupos: SIM.grupos } : ehAdminReal() ? null : (ma && ma.data) || null;   // limites do acesso (unidades e grupos)
   CONTRATOS = c.data || [];
   CAT = new Map((ca.data || []).map(x => [x.id, x]));
   GRUPOS = (g.data || []).sort((a, b) => a.ordem - b.ordem);
-  UNI = new Map((u.data || []).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true })).map(x => [x.codigo, x.nome]));
+  UNIS = new Map();
+  for (const x of (u.data || []).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true }))) { const e = x.empresa || EMP; if (!UNIS.has(e)) UNIS.set(e, new Map()); UNIS.get(e).set(x.codigo, x.nome); }
+  UNI = todas ? new Map() : (UNIS.get(EMP) || new Map());
+  CFGS = new Map(((cf && !cf.error && cf.data) || []).map(x => [x.empresa, x]));
   PESSOAS = pe.error ? [] : (pe.data || []);
+  // "ver como": o admin recebe tudo do banco; aqui fica so o que o usuario escolhido veria (mesma regra do banco)
+  if (SIM) {
+    const { data: lib } = await db('ctr_liberados').select('contrato,usuario').eq('usuario', SIM.usuario);
+    const libs = new Set((lib || []).map(x => x.contrato));
+    CONTRATOS = CONTRATOS.filter(k => (!SIM.unidades.length || SIM.unidades.includes(k.unidade))
+      && (!SIM.grupos.length || (CAT.get(k.categoria) && SIM.grupos.includes(CAT.get(k.categoria).grupo)))
+      && (!k.confidencial || k.criado_por === SIM.usuario || libs.has(k.id)));
+  }
   // documentos de cada contrato (so os que a pessoa pode ver): tipo e validade
   DOCS = new Map();
   const ids = CONTRATOS.map(x => x.id);
   for (let i = 0; i < ids.length; i += 300) {
-    const { data, error } = await sb.from('ctr_documentos').select('contrato,categoria,validade,enviado_em').in('contrato', ids.slice(i, i + 300)).limit(20000);
+    const { data, error } = await db('ctr_documentos').select('contrato,categoria,validade,enviado_em').in('contrato', ids.slice(i, i + 300)).limit(20000);
     if (error) throw error;
     for (const d of data || []) { const a = DOCS.get(d.contrato) || []; a.push(d); DOCS.set(d.contrato, a); }
   }
 }
 
+// ═════════ Identidade da empresa (logo, cor, nomes) ═════════
+function corLegivel(hex){   // texto branco ou escuro sobre a cor? (luminancia relativa)
+  const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
+  const L = .2126 * v[0] + .7152 * v[1] + .0722 * v[2];
+  return { fg: L > .45 ? '#111418' : '#ffffff', contrasteBranco: 1.05 / (L + .05) };
+}
+function aplicarIdentidade(){
+  const root = document.documentElement.style, cfg = consolidado() ? null : cfgDe(EMP);
+  ['--acc', '--acc-fg', '--acc-soft'].forEach(k => root.removeProperty(k));
+  if (cfg && cfg.cor) { root.setProperty('--acc', cfg.cor); root.setProperty('--acc-fg', corLegivel(cfg.cor).fg); root.setProperty('--acc-soft', `color-mix(in srgb, ${cfg.cor} 14%, var(--surface))`); }
+  const nome = consolidado() ? 'Todas as empresas' : ((cfg && cfg.nome_exibicao) || nomeEmpresa(EMP));
+  const marca = cfg && cfg.logo ? `<div class="brand-logo ${cfg.logo_fundo ? 'fundo' : ''}"><img src="${esc(cfg.logo)}" alt="${esc(nome)}"></div>`
+    : cfg ? `<div class="brand-mark">${esc(iniciais(nome).slice(0, 1))}</div>` : '<div class="brand-mark">S</div>';
+  $('#side-brand').innerHTML = cfg ? `${marca}<div style="min-width:0"><strong class="emp">${esc(nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`
+    : `${marca}<div><strong>SINERGIA</strong><small>Gestão de Contratos${EMP && !consolidado() && EMPRESAS.length > 1 ? ' · ' + esc(nomeEmpresa(EMP)) : consolidado() ? ' · todas as empresas' : ''}</small></div>`;
+  document.title = `Contratos · ${consolidado() ? 'Sinergia' : nome}`;
+}
+// ═════════ Ver como usuário (admin confere o que cada pessoa da empresa enxerga) ═════════
+async function montarVerComo(){
+  const box = $('#box-ver'), sel = $('#sel-ver');
+  if (!ehAdminReal() || consolidado()) { box.hidden = true; return; }
+  const [{ data: ac }, { data: pf }] = await Promise.all([db('ctr_acessos').select('*').eq('empresa', EMP), db('perfis').select('id,nome,papel,ativo').order('nome')]);
+  const nomes = new Map((pf || []).map(p => [p.id, p]));
+  USUARIOS_EMP = (ac || []).filter(a => nomes.get(a.usuario) && nomes.get(a.usuario).ativo && nomes.get(a.usuario).papel !== 'admin').map(a => ({ ...a, nome: nomes.get(a.usuario).nome }));
+  sel.innerHTML = `<option value="">Administrador (vê tudo)</option>` + USUARIOS_EMP.map(a => `<option value="${esc(a.usuario)}" ${SIM && SIM.usuario === a.usuario ? 'selected' : ''}>${esc(a.nome)} · ${LV[a.nivel]}</option>`).join('');
+  box.hidden = false;
+}
+async function verComo(uid){
+  const a = USUARIOS_EMP.find(x => x.usuario === uid);
+  SIM = a ? { usuario: a.usuario, nome: a.nome, nivel: a.nivel, unidades: a.unidades || [], grupos: a.grupos || [] } : null;
+  NIVEL_EMP = SIM ? SIM.nivel : 3;
+  $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Administrador';
+  $('#main').innerHTML = '<div class="loading">Carregando…</div>';
+  await recarregar(); if (SIM && !['painel', 'contratos', 'contrato'].includes((location.hash.slice(1) || 'painel').split(/[/?]/)[0])) location.hash = 'painel'; render();
+}
+function barraModo(){
+  if (SIM) { const lim = [SIM.unidades.length ? `${tus()}: ${SIM.unidades.join(', ')}` : `todas as ${tus()}`, SIM.grupos.length ? 'grupos: ' + SIM.grupos.map(nomeGrupo).join(', ') : 'todos os grupos'].join(' · ');
+    return `<div class="modo-bar"><div>Você está vendo o sistema como <b>${esc(SIM.nome)}</b> (${LV[SIM.nivel]} · ${esc(lim)}). <span class="muted">Só visualização: nada é salvo.</span></div><button class="btn sm" data-act="sair-sim">Voltar para administrador</button></div>`; }
+  if (consolidado()) return `<div class="modo-bar info"><div><b>Visão Sinergia:</b> contratos de todas as empresas juntos. Para cadastrar, importar ou configurar, escolha uma empresa no menu.</div></div>`;
+  return '';
+}
+function escolhaEmpresa(t){ return topo(t, '') + `<div class="card"><div class="card-b"><p class="muted" style="margin:0">Na visão de todas as empresas não dá para ${t === 'Novo contrato' ? 'cadastrar' : 'fazer isso'}: escolha uma empresa em <b>Ver como empresa</b>, no menu.</p></div></div>`; }
+
 // ═════════ Regras de exibicao ═════════
-const nomeUnidade = u => u == null || u === '' ? '—' : (UNI.get(u) && UNI.get(u) !== u ? `${u} · ${UNI.get(u)}` : String(u));
+const unidadesDe = emp => UNIS.get(emp) || new Map();
+const nomeUnidade = (u, emp = EMP) => { if (u == null || u === '') return '—'; const n = unidadesDe(emp).get(u); return n && n !== u ? `${u} · ${n}` : String(u); };
+const ondeC = c => (consolidado() ? nomeEmpresa(c.empresa) + ' · ' : '') + nomeUnidade(c.unidade, c.empresa);
 const catDe = c => CAT.get(c.categoria) || { nome: 'Sem categoria', grupo: 'outros', documentos: [] };
 const nomeGrupo = g => (GRUPOS.find(x => x.codigo === g) || {}).nome || g || '—';
 const grupoDe = c => nomeGrupo(catDe(c).grupo);
@@ -651,7 +755,7 @@ function proxReajuste(c){
   const h = hojeD(); let a = h.getFullYear(); if (c.mes_reajuste - 1 < h.getMonth()) a++;
   return `${MESES[c.mes_reajuste - 1]} de ${a}`;
 }
-const optCategorias = (sel, manter) => GRUPOS.map(g => { const cs = catsOrdenadas(true, manter).filter(c => c.grupo === g.codigo && (podeCategoria(c.id) || c.id === manter)); return cs.length ? `<optgroup label="${esc(g.nome)}">${cs.map(c => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>` : ''; }).join('');
+const optCategorias = (sel, manter, emp = EMP) => GRUPOS.map(g => { const cs = catsOrdenadas(true, manter).filter(c => c.grupo === g.codigo && (!c.empresa || c.empresa === emp) && (podeCategoria(c.id) || c.id === manter)); return cs.length ? `<optgroup label="${esc(g.nome)}">${cs.map(c => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>` : ''; }).join('');
 
 // ═════════ Navegacao ═════════
 function nav(){
@@ -659,11 +763,11 @@ function nav(){
   const alertas = CONTRATOS.filter(c => ['vencido','aviso'].includes(situ(c).cod)).length;
   const it = (id, ic, t, extra = '') => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}${t}${extra}</a>`;
   let s = it('painel', 'dash', 'Painel', alertas ? `<span class="count">${alertas}</span>` : '') + it('contratos', 'list', 'Contratos');
-  if (NIVEL_EMP >= 3) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
-  if (ehAdmin()) s += `<div class="grp">Administração</div>` + it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('unidades', 'pin', 'Unidades') + it('sharepoint', 'cloud', 'SharePoint');
+  if (NIVEL_EMP >= 3 && !consolidado()) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
+  if (ehAdmin()) s += `<div class="grp">Administração</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Identidade da empresa')) + it('sharepoint', 'cloud', 'SharePoint');
   $('#nav').innerHTML = s;
   const tb = (id, ic, t) => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}<span>${t}</span></a>`;
-  $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 ? tb('novo', 'plus', 'Novo') : '')
+  $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 && !consolidado() ? tb('novo', 'plus', 'Novo') : '')
     + `<button type="button" data-act="menu">${icon.menu}<span>Menu</span></button>`;
 }
 function topo(t, sub, acoes = '', crumb = ''){
@@ -676,8 +780,9 @@ function render(){
   const raw = location.hash.slice(1) || 'painel';
   const [path, q] = raw.split('?'); const [r, arg] = path.split('/');
   const telas = { painel: vPainel, contratos: () => vLista(q), contrato: () => vContrato(Number(arg)), novo: vNovo, importar: vImportar,
-    acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, sharepoint: vSharePoint };
-  $('#main').innerHTML = (telas[r] || vPainel)();
+    acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, identidade: vIdentidade, sharepoint: vSharePoint };
+  const soEmpresa = { novo: 'Novo contrato', importar: 'Importar planilha', acessos: 'Acessos', categorias: 'Categorias', unidades: tUs(), identidade: 'Identidade da empresa' };
+  $('#main').innerHTML = barraModo() + (consolidado() && soEmpresa[r] ? escolhaEmpresa(soEmpresa[r]) : (telas[r] || vPainel)());
   nav(); $('#side').classList.remove('open'); document.body.classList.remove('menu-aberto');
   const depois = render._depois; render._depois = null; if (depois) depois();
 }
@@ -701,15 +806,18 @@ function vPainel(){
   const docAlertas = ativos.flatMap(c => docsObrigatorios(c).filter(x => x.st === 'vencido' || x.st === 'vence').map(x => [c, x])).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const meses = [...Array(12)].map((_, i) => { const d = new Date(hojeD().getFullYear(), hojeD().getMonth() + i, 1); return { d, n: ativos.filter(c => { const f = parse(c.fim); return f && f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth(); }).length }; });
   const mx = Math.max(1, ...meses.map(m => m.n));
-  const porGrupo = [...ativos.reduce((m, c) => { const g = grupoDe(c); const x = m.get(g) || { n: 0, v: 0 }; x.n++; x.v += Number(c.valor_mensal || 0); return m.set(g, x); }, new Map())].sort((a, b) => b[1].v - a[1].v || b[1].n - a[1].n);
+  const porGrupo = [...ativos.reduce((m, c) => { const g = grupoDe(c); const x = m.get(g) || { n: 0, v: 0 }; x.n++; if (situ(c).cod !== 'vencido') x.v += Number(c.valor_mensal || 0); return m.set(g, x); }, new Map())].sort((a, b) => b[1].v - a[1].v || b[1].n - a[1].n);
   const mxG = Math.max(1, ...porGrupo.map(x => x[1].v));
   const emp = EMPRESAS.find(x => x.slug === EMP);
   if (!CONTRATOS.length) {
     return topo('Painel de contratos', esc(emp ? emp.nome : '')) + `<div class="card"><div class="card-b" style="display:grid;gap:12px;justify-items:start"><h2>Nenhum contrato ainda</h2>
-      <p class="muted" style="margin:0;max-width:62ch">${NIVEL_EMP >= 3 ? 'Baixe a planilha modelo, preencha com os contratos que vocês já têm e envie de volta. Os contratos novos do dia a dia são cadastrados um a um.' : 'Quando houver contratos que você pode ver, eles aparecem aqui.'}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${NIVEL_EMP >= 3 ? `<a class="btn pri" href="#importar">${icon.imp}Importar planilha</a><a class="btn" href="#novo">${icon.plus}Novo contrato</a>` : ''}</div></div></div>`;
+      <p class="muted" style="margin:0;max-width:62ch">${consolidado() ? 'Nenhuma empresa tem contratos cadastrados ainda.' : NIVEL_EMP >= 3 ? 'Baixe a planilha modelo, preencha com os contratos que vocês já têm e envie de volta. Os contratos novos do dia a dia são cadastrados um a um.' : 'Quando houver contratos que você pode ver, eles aparecem aqui.'}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${NIVEL_EMP >= 3 && !consolidado() ? `<a class="btn pri" href="#importar">${icon.imp}Importar planilha</a><a class="btn" href="#novo">${icon.plus}Novo contrato</a>` : ''}</div></div></div>`;
   }
-  return topo('Painel de contratos', `${esc(emp ? emp.nome : '')} · ${CONTRATOS.length} contratos que você pode ver`, NIVEL_EMP >= 3 ? `<a class="btn pri" href="#novo">${icon.plus}Novo contrato</a>` : '')
+  const porEmp = consolidado() ? [...ativos.reduce((m, c) => { const x = m.get(c.empresa) || { n: 0, v: 0, venc: 0, pend: 0 }; x.n++; if (situ(c).cod !== 'vencido') x.v += Number(c.valor_mensal || 0); if (situ(c).cod === 'vencido') x.venc++; if (pendente(c)) x.pend++; return m.set(c.empresa, x); }, new Map())].sort((a, b) => b[1].v - a[1].v) : [];
+  const cardEmp = consolidado() ? `<div class="card"><div class="card-h"><h2>Por empresa</h2><span class="muted small">clique para abrir a empresa</span></div><div class="tbl-wrap"><table><thead><tr><th>Empresa</th><th class="num">Contratos</th><th class="num hide-m">Vencidos</th><th class="num hide-m">Doc. pendentes</th><th class="num">Custo/mês (não vencidos)</th></tr></thead><tbody>
+    ${porEmp.map(([e, x]) => `<tr class="link" data-emp="${esc(e)}"><td class="t">${esc(nomeEmpresa(e))}</td><td class="num">${x.n}</td><td class="num hide-m">${x.venc}</td><td class="num hide-m">${x.pend}</td><td class="num">${brl0(x.v)}</td></tr>`).join('')}</tbody></table></div></div>` : '';
+  return topo('Painel de contratos', consolidado() ? `Todas as empresas · ${CONTRATOS.length} contratos` : `${esc(emp ? emp.nome : '')} · ${CONTRATOS.length} contratos que você pode ver`, NIVEL_EMP >= 3 && !consolidado() ? `<a class="btn pri" href="#novo">${icon.plus}Novo contrato</a>` : '')
   + `<div class="kpis">
       ${kpi('Vigentes', vig, 'com vencimento preenchido', 'var(--ok)', 'contratos?st=vigente')}
       ${kpi('No prazo de aviso', aviso, 'decidir renovar ou cancelar', 'var(--warn)', 'contratos?st=aviso')}
@@ -717,18 +825,19 @@ function vPainel(){
       ${kpi('Documentos pendentes', pend, 'falta documento ou está vencido', 'var(--muted)', 'contratos?st=pendente')}
       ${kpi('Custo mensal', brl0(mensal), 'soma dos não vencidos', 'var(--acc)', 'contratos')}
     </div>
+    ${cardEmp ? `<div style="margin-bottom:16px">${cardEmp}</div>` : ''}
     <div class="dash">
       <div class="stack">
         <div class="card"><div class="card-h"><h2>O que precisa de atenção</h2><span class="muted small">mais urgente primeiro</span></div>
           <div class="alerts">${prox.length ? prox.map(([c, s]) => { const d = dias(c); return `<div class="alert" data-go="contrato/${c.id}">
             <div class="days p-${s.k}">${Math.abs(d)}<small>${d < 0 ? 'dias atrás' : 'dias'}</small></div>
-            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(nomeUnidade(c.unidade))} · vence ${fmt(c.fim)}</div></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(ondeC(c))} · vence ${fmt(c.fim)}</div></div>
             <span class="pill p-${s.k}">${s.t}</span></div>`; }).join('') : `<div class="empty">Nenhum contrato vencido ou perto de vencer.${comData < ativos.length ? ' Só entram aqui os contratos com vencimento preenchido.' : ''}</div>`}</div>
         </div>
         <div class="card"><div class="card-h"><h2>Documentos com validade</h2><span class="muted small">certidões, alvarás, seguros: vencidos ou vencendo em até ${AVISAR_DOC} dias</span></div>
           <div class="alerts">${docAlertas.length ? docAlertas.map(([c, x]) => `<div class="alert" data-go="contrato/${c.id}">
             <div class="days p-${x.st === 'vencido' ? 'bad' : 'warn'}">${Math.abs(x.dias)}<small>${x.dias < 0 ? 'dias atrás' : 'dias'}</small></div>
-            <div style="min-width:0"><div style="font-weight:600">${esc(tipoDoc(x.t))}</div><div class="muted small">${esc(c.titulo)} · ${esc(c.fornecedor_nome)} · validade ${fmt(x.validade)}</div></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(tipoDoc(x.t))}</div><div class="muted small">${consolidado() ? esc(nomeEmpresa(c.empresa)) + ' · ' : ''}${esc(c.titulo)} · ${esc(c.fornecedor_nome)} · validade ${fmt(x.validade)}</div></div>
             <span class="pill p-${x.st === 'vencido' ? 'bad' : 'warn'}">${x.st === 'vencido' ? 'Vencido' : 'Vence logo'}</span></div>`).join('') : '<div class="empty">Nenhum documento vencido ou vencendo.</div>'}</div>
         </div>
       </div>
@@ -741,7 +850,7 @@ function vPainel(){
         <div class="card"><div class="card-h"><h2>Vencimentos nos próximos 12 meses</h2></div><div class="card-b">
           <div class="tl">${meses.map((m, i) => `<div class="col" title="${m.n} contrato(s)"><span class="n">${m.n || ''}</span><div class="bar ${i < 3 && m.n ? 'hot' : ''}" style="height:${m.n / mx * 100}%"></div><span class="m">${m.d.toLocaleDateString('pt-BR', { month:'short' }).replace('.', '')}</span></div>`).join('')}</div>
         </div></div>
-        <div class="card"><div class="card-h"><h2>Custo mensal por grupo</h2></div><div class="card-b bytype">
+        <div class="card"><div class="card-h"><h2>Custo mensal por grupo</h2><span class="muted small">não vencidos</span></div><div class="card-b bytype">
           ${porGrupo.map(([k, x]) => `<div class="bt bt3"><span>${esc(k)}<small class="muted"> · ${x.n}</small></span><span class="track"><i style="width:${x.v / mxG * 100}%"></i></span><b class="num">${brl0(x.v)}</b></div>`).join('')}
         </div></div>
       </div>
@@ -751,7 +860,8 @@ function vPainel(){
 // ═════════ Lista ═════════
 function vLista(q){
   const p = new URLSearchParams(q || '');
-  const unidades = [...new Set(CONTRATOS.map(c => c.unidade).filter(x => x != null))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+  const unidades = consolidado() ? [...new Set(CONTRATOS.map(c => c.empresa))].sort((a, b) => nomeEmpresa(a).localeCompare(nomeEmpresa(b), 'pt-BR'))
+    : [...new Set(CONTRATOS.map(c => c.unidade).filter(x => x != null))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
   const grupos = GRUPOS.filter(g => CONTRATOS.some(c => catDe(c).grupo === g.codigo));
   let limite = 200;
   const filtrar = () => {
@@ -760,7 +870,7 @@ function vLista(q){
       const s = situ(c);
       if (t && !norm(`${c.titulo} ${c.fornecedor_nome} ${c.fornecedor_doc || ''} ${fmtDoc(c.fornecedor_doc)} ${c.fornecedor_codigo || ''} ${c.numero} ${catDe(c).nome} ${c.natureza_cliente || ''}`).includes(t)) return false;
       if (gr && catDe(c).grupo !== gr && String(c.categoria) !== gr) return false;
-      if (fi && c.unidade !== fi) return false;
+      if (fi && (consolidado() ? c.empresa : c.unidade) !== fi) return false;
       if (st === 'pendente') return pendente(c);
       if (st === 'semdoc') return c.situacao !== 'encerrado' && !temContrato(c);
       if (st && s.cod !== st) return false;
@@ -773,7 +883,7 @@ function vLista(q){
     $('#tb').innerHTML = r.length ? r.slice(0, limite).map(c => { const s = situ(c), d = dias(c), pr = docsComProblema(c); return `<tr class="link" data-go="contrato/${c.id}">
       <td><div class="t">${esc(c.titulo)} ${c.confidencial ? `<span class="lock" title="Confidencial">${icon.lock}</span>` : ''}</div><div class="s"><span class="mono">${esc(c.numero)}</span>${pr.length ? ` · <span class="tag semdoc" title="${esc(pr.map(x => tipoDoc(x.t) + (x.st === 'falta' ? ': falta' : ': vencido/vencendo')).join('\n'))}">${pr.length} doc. pendente${pr.length > 1 ? 's' : ''}</span>` : ''}</div></td>
       <td>${esc(c.fornecedor_nome)}<div class="s mono">${esc(fmtDoc(c.fornecedor_doc) || c.fornecedor_codigo || '')}</div></td>
-      <td class="hide-m">${esc(nomeUnidade(c.unidade))}</td>
+      <td class="hide-m">${esc(ondeC(c))}</td>
       <td class="hide-m"><span class="tag" title="${esc(grupoDe(c))}">${esc(catDe(c).nome)}</span></td>
       <td class="num">${fmt(c.fim)}${d !== null ? `<div class="s">${d < 0 ? `há ${-d} dias` : `em ${d} dias`}</div>` : ''}</td>
       <td class="num hide-m">${brl(c.valor_mensal)}</td><td><span class="pill p-${s.k}">${s.t}</span></td></tr>`; }).join('')
@@ -792,36 +902,37 @@ function vLista(q){
   + `<div class="card"><div class="filters">
       <input class="in search" id="f-q" placeholder="Buscar por objeto, fornecedor, CNPJ, código ou número" aria-label="Buscar">
       <select class="in" id="f-gr" aria-label="Grupo ou categoria"><option value="">Todos os grupos</option>${grupos.map(g => `<option value="${esc(g.codigo)}">${esc(g.nome)}</option>${catsOrdenadas(false).filter(c => c.grupo === g.codigo && CONTRATOS.some(x => x.categoria === c.id)).map(c => `<option value="${c.id}">&nbsp;&nbsp;↳ ${esc(c.nome)}</option>`).join('')}`).join('')}</select>
-      <select class="in" id="f-fi" aria-label="Unidade"><option value="">Todas as unidades</option>${unidades.map(f => `<option value="${esc(f)}">${esc(nomeUnidade(f))}</option>`).join('')}</select>
+      <select class="in" id="f-fi" aria-label="${consolidado() ? 'Empresa' : esc(tU())}"><option value="">${consolidado() ? 'Todas as empresas' : 'Todas as ' + esc(tus())}</option>${unidades.map(f => `<option value="${esc(f)}">${esc(consolidado() ? nomeEmpresa(f) : nomeUnidade(f))}</option>`).join('')}</select>
       <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="encerrado">Encerrados</option></select>
       <span class="muted small" style="align-self:center" id="cnt"></span>
     </div>
-    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">Unidade</th><th class="hide-m">Categoria</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">${consolidado() ? 'Empresa · ' + esc(tU()) : esc(tU())}</th><th class="hide-m">Categoria</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
 }
 function exportar(lista){
   if (!window.XLSX) { toast('A ferramenta de Excel ainda está carregando. Tente de novo em 2 segundos.'); return; }
-  const linhas = lista.map(c => ({ 'Número': c.numero, 'Objeto do contrato': c.titulo, 'Fornecedor': c.fornecedor_nome, 'CPF/CNPJ': fmtDoc(c.fornecedor_doc),
-    'Código do fornecedor no sistema': c.fornecedor_codigo || '', 'Unidade': c.unidade || '', 'Nome da unidade': UNI.get(c.unidade) || '',
+  const linhas = lista.map(c => ({ 'Empresa': nomeEmpresa(c.empresa), 'Número': c.numero, 'Objeto do contrato': c.titulo, 'Fornecedor': c.fornecedor_nome, 'CPF/CNPJ': fmtDoc(c.fornecedor_doc),
+    'Código do fornecedor no sistema': c.fornecedor_codigo || '', [tU(c.empresa)]: c.unidade || '', ['Nome da ' + tu(c.empresa)]: unidadesDe(c.empresa).get(c.unidade) || '',
     'Grupo': grupoDe(c), 'Categoria': catDe(c).nome, 'Código da natureza no sistema': c.natureza_cliente || '',
     'Valor mensal': c.valor_mensal == null ? '' : Number(c.valor_mensal), 'Início': fmt(c.inicio), 'Vencimento': fmt(c.fim), 'Aviso prévio (dias)': c.aviso_dias,
     'Índice de reajuste': c.reajuste || '', 'Mês do reajuste': c.mes_reajuste ? MESES[c.mes_reajuste - 1] : '', 'Renovação automática': c.renovacao_automatica ? 'Sim' : 'Não',
     'Situação': situ(c).t, 'Documentos pendentes': docsComProblema(c).map(x => tipoDoc(x.t)).join('; '), 'Arquivos': docsDe(c).length }));
   const ws = XLSX.utils.json_to_sheet(linhas); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Contratos');
-  XLSX.writeFile(wb, `Contratos_${EMP}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `Contratos_${consolidado() ? 'todas' : EMP}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ═════════ Formulario do contrato (novo e edicao) ═════════
 function formContrato(c, pode){
   const dis = pode ? '' : 'disabled';
+  const empF = c ? c.empresa : EMP;
   const v = k => esc(c ? (c[k] ?? '') : '');
   const fornecedores = [...new Map(CONTRATOS.map(x => [norm(x.fornecedor_nome), x.fornecedor_nome])).values()].sort().slice(0, 3000);
   return `<div class="grid2">
-      <div class="field"><label for="c-cat" class="req">Categoria</label><select class="in" id="c-cat" ${dis}><option value="">Escolha…</option>${optCategorias(c ? c.categoria : null, c ? c.categoria : null)}</select></div>
+      <div class="field"><label for="c-cat" class="req">Categoria</label><select class="in" id="c-cat" ${dis}><option value="">Escolha…</option>${optCategorias(c ? c.categoria : null, c ? c.categoria : null, empF)}</select></div>
       <div class="field"><label for="c-titulo" class="req">Objeto do contrato</label><input class="in" id="c-titulo" value="${v('titulo')}" ${dis} placeholder="Ex.: Aluguel da loja Centro"></div>
       <div class="dica" id="c-dica" hidden style="grid-column:1/-1"></div>
       <div class="field"><label for="c-forn" class="req">Fornecedor / contraparte</label><input class="in" id="c-forn" list="dl-forn" value="${v('fornecedor_nome')}" ${dis} placeholder="Nome ou razão social"></div>
       <div class="field"><label for="c-doc">CPF ou CNPJ do fornecedor</label><input class="in" id="c-doc" value="${esc(c ? fmtDoc(c.fornecedor_doc) : '')}" ${dis} placeholder="Recomendado"></div>
-      <div class="field"><label for="c-uni">Unidade</label><select class="in" id="c-uni" ${dis}><option value="">—</option>${[...UNI].filter(([k]) => podeUnidade(k) || (c && c.unidade === k)).map(([k, n]) => `<option value="${esc(k)}" ${c && c.unidade === k ? 'selected' : ''}>${esc(nomeUnidade(k))}</option>`).join('')}</select>${UNI.size ? '' : `<span class="hint">Nenhuma unidade cadastrada${ehAdmin() ? ': cadastre em Administração → Unidades' : ''}.</span>`}</div>
+      <div class="field"><label for="c-uni">${esc(tU(empF))}</label><select class="in" id="c-uni" ${dis}><option value="">—</option>${[...unidadesDe(empF)].filter(([k]) => podeUnidade(k) || (c && c.unidade === k)).map(([k, n]) => `<option value="${esc(k)}" ${c && c.unidade === k ? 'selected' : ''}>${esc(nomeUnidade(k, empF))}</option>`).join('')}</select>${unidadesDe(empF).size ? '' : `<span class="hint">Nenhuma ${esc(tu(empF))} cadastrada${ehAdmin() ? ': cadastre em Administração → ' + esc(tUs(empF)) : ''}.</span>`}</div>
       <div class="field"><label for="c-resp">Responsável</label><select class="in" id="c-resp" ${dis}><option value="">—</option>${PESSOAS.map(p => `<option value="${p.id}" ${c && c.responsavel === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
     </div>
     <div class="grid3">
@@ -896,7 +1007,7 @@ function vNovo(){
     $('#b-salvar').onclick = async () => {
       const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
       $('#b-salvar').disabled = true;
-      const { data, error } = await sb.from('ctr_contratos').insert({ ...dados, empresa: EMP }).select('*').single();
+      const { data, error } = await db('ctr_contratos').insert({ ...dados, empresa: EMP }).select('*').single();
       $('#b-salvar').disabled = false;
       if (error) { msgEm('#c-msg', erroTxt(error)); return; }
       CONTRATOS.push(data); toast(`Contrato ${data.numero} cadastrado. Agora anexe o contrato assinado.`);
@@ -938,7 +1049,8 @@ function vContrato(id){
     <div class="stack">
       <div class="card"><div class="card-h"><h2>Documentos obrigatórios</h2></div><div class="chk" id="chk"></div></div>
       <div class="card"><div class="card-h"><h2>Resumo</h2></div><div class="card-b" style="display:grid;gap:8px;font-size:13.5px">
-        <div><span class="muted">Unidade:</span> ${esc(nomeUnidade(c.unidade))}</div>
+        ${consolidado() ? `<div><span class="muted">Empresa:</span> ${esc(nomeEmpresa(c.empresa))}</div>` : ''}
+        <div><span class="muted">${esc(tU(c.empresa))}:</span> ${esc(nomeUnidade(c.unidade, c.empresa))}</div>
         <div><span class="muted">CPF/CNPJ:</span> ${esc(fmtDoc(c.fornecedor_doc) || '—')}</div>
         <div><span class="muted">Vencimento:</span> ${c.fim ? fmt(c.fim) + ` (${dias(c) < 0 ? 'há ' + -dias(c) : 'em ' + dias(c)} dias)` : 'prazo indeterminado'}</div>
         ${c.fim ? `<div><span class="muted">Avisar a contraparte até:</span> <b>${new Date(parse(c.fim) - c.aviso_dias * 864e5).toLocaleDateString('pt-BR')}</b></div>` : ''}
@@ -963,14 +1075,14 @@ async function carregarDetalhe(c, n){
   if (b) b.onclick = async () => {
     const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
     b.disabled = true;
-    const { data, error } = await sb.from('ctr_contratos').update(dados).eq('id', c.id).select('*').maybeSingle();
+    const { data, error } = await db('ctr_contratos').update(dados).eq('id', c.id).select('*').maybeSingle();
     b.disabled = false;
-    if (error || !data) { msgEm('#c-msg', error ? erroTxt(error) : 'Não foi possível salvar: confira se o seu acesso permite esta unidade/grupo.'); return; }
+    if (error || !data) { msgEm('#c-msg', error ? erroTxt(error) : `Não foi possível salvar: confira se o seu acesso permite esta ${tu()} e este grupo.`); return; }
     Object.assign(c, data); toast('Alterações salvas.'); render();
   };
   const ap = $('#b-apagar');
   if (ap) ap.onclick = () => confirmar('Apagar contrato', `Apagar ${esc(c.numero)} – ${esc(c.titulo)}? Só é possível quando não há arquivos anexados. Para contratos que acabaram, prefira marcar "Encerrado".`, 'Apagar', async () => {
-    const { data, error } = await sb.from('ctr_contratos').delete().eq('id', c.id).select('id');
+    const { data, error } = await db('ctr_contratos').delete().eq('id', c.id).select('id');
     if (error || !data || !data.length) { toast(error ? erroTxt(error) : 'Não foi possível apagar: o contrato tem arquivos. Marque como "Encerrado".'); return; }
     CONTRATOS = CONTRATOS.filter(x => x.id !== c.id); toast('Contrato apagado.'); location.hash = 'contratos';
   });
@@ -978,7 +1090,7 @@ async function carregarDetalhe(c, n){
   await Promise.all([listarDocs(c, n), listarHist(c), ehAdmin() && c.confidencial ? listarLiberados(c) : null]);
 }
 async function listarDocs(c, n){
-  const { data, error } = await sb.from('ctr_documentos').select('id,contrato,categoria,validade,nome,nome_original,tamanho,versao,enviado_por,enviado_em').eq('contrato', c.id).order('enviado_em', { ascending: false });
+  const { data, error } = await db('ctr_documentos').select('id,contrato,categoria,validade,nome,nome_original,tamanho,versao,enviado_por,enviado_em').eq('contrato', c.id).order('enviado_em', { ascending: false });
   const el = $('#d-lista'); if (!el) return;
   if (error) { el.innerHTML = `<div class="empty">${esc(erroTxt(error))}</div>`; return; }
   DOCS.set(c.id, data || []); desenharChecklist(c);
@@ -1001,7 +1113,7 @@ async function listarDocs(c, n){
   };
 }
 async function listarHist(c){
-  const { data, error } = await sb.from('ctr_historico').select('acao,detalhe,usuario,em').eq('contrato', c.id).order('em', { ascending: false }).limit(200);
+  const { data, error } = await db('ctr_historico').select('acao,detalhe,usuario,em').eq('contrato', c.id).order('em', { ascending: false }).limit(200);
   const el = $('#hist'); if (!el) return;
   if (error) { el.innerHTML = `<div class="muted">${esc(erroTxt(error))}</div>`; return; }
   el.innerHTML = (data || []).map(h => `<div class="h"><i></i><div><b>${esc(h.acao)}</b>${h.detalhe ? `<div class="d">${esc(h.detalhe)}</div>` : ''}<div class="w">${esc(pessoa(h.usuario))} · ${fmtTs(h.em)}</div></div></div>`).join('') || '<div class="muted" style="padding:8px 0">Sem registros.</div>';
@@ -1009,16 +1121,16 @@ async function listarHist(c){
 async function listarLiberados(c){
   const el = $('#lib'); if (!el) return;
   const [{ data: lib }, { data: ac }, { data: pf }] = await Promise.all([
-    sb.from('ctr_liberados').select('usuario').eq('contrato', c.id),
-    sb.from('ctr_acessos').select('usuario').eq('empresa', EMP),
-    sb.from('perfis').select('id,nome,papel,ativo').order('nome'),
+    db('ctr_liberados').select('usuario').eq('contrato', c.id),
+    db('ctr_acessos').select('usuario').eq('empresa', EMP),
+    db('perfis').select('id,nome,papel,ativo').order('nome'),
   ]);
   const sim = new Set((lib || []).map(x => x.usuario)), comAcesso = new Set((ac || []).map(x => x.usuario));
   const lista = (pf || []).filter(p => p.ativo && p.papel !== 'admin' && comAcesso.has(p.id));
   el.innerHTML = `<p class="muted small" style="margin:0 0 8px">Admins sempre veem. Marque quem mais pode ver este contrato.</p>` + (lista.length ? `<div style="display:grid;gap:6px">${lista.map(p => `<label class="check"><input type="checkbox" data-lib="${p.id}" ${sim.has(p.id) ? 'checked' : ''}> ${esc(p.nome)}</label>`).join('')}</div>` : '<div class="muted small">Ninguém além dos admins tem acesso a esta empresa.</div>');
   el.onchange = async ev => {
     const cb = ev.target.closest('[data-lib]'); if (!cb) return;
-    const r = cb.checked ? await sb.from('ctr_liberados').insert({ contrato: c.id, usuario: cb.dataset.lib }) : await sb.from('ctr_liberados').delete().eq('contrato', c.id).eq('usuario', cb.dataset.lib);
+    const r = cb.checked ? await db('ctr_liberados').insert({ contrato: c.id, usuario: cb.dataset.lib }) : await db('ctr_liberados').delete().eq('contrato', c.id).eq('usuario', cb.dataset.lib);
     if (r.error) { cb.checked = !cb.checked; toast(erroTxt(r.error)); } else toast('Salvo.');
   };
 }
@@ -1096,6 +1208,8 @@ const COLS = [
   { k:'renov',     h:'Renovação automática',                    ex:'Não', d:'Sim ou Não.' },
   { k:'obs',       h:'Observações',                             ex:'', d:'Livre.' },
 ];
+// colunas com o nome da unidade que a empresa usa (Filial, Loja...); a leitura aceita os dois
+const colsAtuais = () => COLS.map(c => c.k === 'unidade' ? { ...c, h: `${tU()} *`, d: `Código ou nome da ${tu()}, como está na aba "${tUs()}".` } : c);
 function vImportar(){
   if (NIVEL_EMP < 3) return semPermissao();
   depois(() => {
@@ -1105,13 +1219,14 @@ function vImportar(){
   return topo('Importar planilha', 'Para cadastrar de uma vez os contratos que a empresa já tem. A planilha é lida no seu navegador e nada passa pelo GitHub.')
     + `<div class="stack">
       <div class="card"><div class="card-h"><h2>1. Baixe a planilha modelo</h2><button class="btn" id="b-modelo">${icon.dl}Baixar planilha modelo</button></div>
-        <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">Uma linha por contrato. A planilha já vem com as instruções, a lista de categorias e as unidades desta empresa.</p>
-        <div class="small"><span class="muted">Obrigatórias:</span> Unidade, Fornecedor, Categoria e Objeto do contrato. <span class="muted">Muito recomendadas:</span> CPF/CNPJ, Valor mensal, Início e Vencimento.</div></div></div>
+        <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">Uma linha por contrato. A planilha já vem com as instruções, a lista de categorias e as ${esc(tus())} desta empresa.</p>
+        <div class="small"><span class="muted">Obrigatórias:</span> ${esc(tU())}, Fornecedor, Categoria e Objeto do contrato. <span class="muted">Muito recomendadas:</span> CPF/CNPJ, Valor mensal, Início e Vencimento.</div></div></div>
       <div class="card"><div class="card-h"><h2>2. Envie a planilha preenchida</h2><label class="btn pri">${icon.up}Escolher planilha<input type="file" id="imp-file" accept=".xlsx,.xls,.csv" hidden></label></div>
         <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">O sistema confere todas as linhas <b>antes</b> de gravar. Se houver erro, nada é gravado: corrija na planilha e envie de novo.</p><div id="imp-res"></div></div></div>
     </div>`;
 }
 function baixarModelo(){
+  const COLS = colsAtuais();
   if (!window.XLSX) { toast('A ferramenta de Excel ainda está carregando. Tente de novo em 2 segundos.'); return; }
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([COLS.map(c => c.h)]);
@@ -1125,8 +1240,8 @@ function baixarModelo(){
   const cats = XLSX.utils.aoa_to_sheet([['Categoria', 'Grupo', 'Aviso prévio padrão (dias)', 'Reajuste padrão', 'Documentos exigidos'], ...catsOrdenadas().sort((a, b) => (GRUPOS.findIndex(g => g.codigo === a.grupo) - GRUPOS.findIndex(g => g.codigo === b.grupo)) || a.nome.localeCompare(b.nome, 'pt-BR')).map(c => [c.nome, nomeGrupo(c.grupo), c.aviso_dias, c.reajuste || '', ['Contrato assinado', ...(c.documentos || []).map(tipoDoc)].join('; ')])]);
   cats['!cols'] = [{ wch: 40 }, { wch: 32 }, { wch: 14 }, { wch: 18 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(wb, cats, 'Categorias');
-  const un = XLSX.utils.aoa_to_sheet([['Unidade (código)', 'Nome'], ...[...UNI].map(([k, n]) => [k, n])]); un['!cols'] = [{ wch: 18 }, { wch: 40 }];
-  XLSX.utils.book_append_sheet(wb, un, 'Unidades');
+  const un = XLSX.utils.aoa_to_sheet([[`${tU()} (código)`, 'Nome'], ...[...UNI].map(([k, n]) => [k, n])]); un['!cols'] = [{ wch: 18 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, un, tUs().slice(0, 30));
   const emp = (EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP;
   XLSX.writeFile(wb, `Planilha modelo de contratos - ${emp}.xlsx`);
 }
@@ -1151,7 +1266,8 @@ async function lerImport(arquivo){
     if (ih < 0) throw new Error('Não encontrei a linha de títulos. Use a planilha modelo, sem mudar os títulos das colunas.');
     const cab = L[ih].map(v => norm(v).replace(/[*]/g, '').trim());
     const idx = {}; for (const c of COLS) idx[c.k] = cab.indexOf(norm(c.h).replace(/[*]/g, '').trim());
-    const faltam = COLS.filter(c => c.req && idx[c.k] < 0).map(c => c.h.replace(' *', ''));
+    if (idx.unidade < 0) idx.unidade = cab.indexOf(norm(tU()));
+    const faltam = colsAtuais().filter(c => c.req && idx[c.k] < 0).map(c => c.h.replace(' *', ''));
     if (faltam.length) throw new Error('Faltam colunas obrigatórias: ' + faltam.join(', ') + '. Use a planilha modelo.');
     const g = (r, k) => idx[k] >= 0 ? r[idx[k]] : null;
     const catPorNome = new Map(catsOrdenadas().map(c => [norm(c.nome), c]));
@@ -1163,11 +1279,11 @@ async function lerImport(arquivo){
       const n = i + 1, E = t => erros.push([n, t]), A = t => avisos.push([n, t]);
       // unidade
       let uniTxt = cel(g(r, 'unidade')).replace(/\.0+$/, ''), unidade = null;
-      if (!uniTxt) E('Unidade em branco.');
+      if (!uniTxt) E(`${tU()} em branco.`);
       else if (uniPor.has(norm(uniTxt))) unidade = uniPor.get(norm(uniTxt));
       else if (ehAdmin()) { unidade = uniTxt.slice(0, 30); novasUni.set(unidade, uniTxt); }
-      else E(`Unidade "${uniTxt}" não está cadastrada. Peça ao administrador para cadastrar.`);
-      if (unidade && !podeUnidade(unidade)) E(`Seu acesso não permite cadastrar na unidade "${uniTxt}".`);
+      else E(`${tU()} "${uniTxt}" não está cadastrada. Peça ao administrador para cadastrar.`);
+      if (unidade && !podeUnidade(unidade)) E(`Seu acesso não permite cadastrar na ${tu()} "${uniTxt}".`);
       const forn = cel(g(r, 'forn')).replace(/\s+/g, ' '); if (!forn) E('Fornecedor em branco.');
       const titulo = cel(g(r, 'titulo')); if (!titulo) E('Objeto do contrato em branco.');
       const catTxt = cel(g(r, 'cat')), cat = catPorNome.get(norm(catTxt));
@@ -1208,16 +1324,16 @@ async function lerImport(arquivo){
     const semVenc = linhas.filter(l => !l.fim).length, semDoc = linhas.filter(l => !l.fornecedor_doc).length;
     res.innerHTML = `<div style="display:grid;gap:10px">
       <div class="msg ok"><b>Tudo certo: ${linhas.length} contrato(s) prontos para gravar.</b></div>
-      ${novasUni.size ? `<div class="note">${novasUni.size} unidade(s) nova(s) serão cadastradas: ${esc([...novasUni.keys()].join(', '))}. Depois dê um nome a elas em Administração → Unidades.</div>` : ''}
+      ${novasUni.size ? `<div class="note">${novasUni.size} ${esc(tu())}(s) nova(s) serão cadastradas: ${esc([...novasUni.keys()].join(', '))}. Depois dê um nome a elas em Administração → ${esc(tUs())}.</div>` : ''}
       ${avisos.length ? `<div class="msg" style="background:var(--warn-soft);color:var(--warn)">${avisos.length} aviso(s), que não impedem a importação${semVenc ? ` · ${semVenc} sem vencimento` : ''}${semDoc ? ` · ${semDoc} sem CPF/CNPJ` : ''}.</div><details><summary class="small">Ver avisos</summary>${tabela(avisos, 'warn')}</details>` : ''}
       <div><button class="btn pri" id="imp-ok">Gravar ${linhas.length} contrato(s)</button> <button class="btn" id="imp-cancel">Cancelar</button></div></div>`;
     $('#imp-cancel').onclick = () => res.innerHTML = '';
     $('#imp-ok').onclick = async ev => {
       ev.target.disabled = true; let gravados = 0;
       try {
-        if (novasUni.size) { const r = await sb.from('ctr_unidades').upsert([...novasUni].map(([k, n]) => ({ empresa: EMP, codigo: k, nome: n })), { onConflict: 'empresa,codigo' }); if (r.error) throw r.error; }
+        if (novasUni.size) { const r = await db('ctr_unidades').upsert([...novasUni].map(([k, n]) => ({ empresa: EMP, codigo: k, nome: n })), { onConflict: 'empresa,codigo' }); if (r.error) throw r.error; }
         for (let i = 0; i < linhas.length; i += 200) {
-          const r = await sb.from('ctr_contratos').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error;
+          const r = await db('ctr_contratos').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error;
           gravados = Math.min(i + 200, linhas.length);
           res.innerHTML = `<div class="muted">Gravando… ${gravados} de ${linhas.length}</div>`;
         }
@@ -1236,13 +1352,13 @@ function vAcessos(){
   if (!ehAdmin()) return semPermissao();
   depois(carregarAcessos);
   return topo('Acessos', `Quem pode usar os contratos de ${esc((EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP)} e o que cada um vê.`, `<button class="btn pri" id="b-novo-user">${icon.plus}Cadastrar pessoa</button>`)
-    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">Unidades</th><th class="hide-m">Grupos</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
-    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>Unidades</b> e <b>grupos</b> em branco = todos. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
+    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">${esc(tUs())}</th><th class="hide-m">Grupos</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
+    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>${esc(tUs())}</b> e <b>grupos</b> em branco = todos. Para conferir o que uma pessoa enxerga, use <b>Ver como usuário</b> no menu. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
 }
 async function carregarAcessos(){
   const [{ data: pf, error }, { data: ac }] = await Promise.all([
-    sb.from('perfis').select('id,nome,email,papel,ativo').order('nome'),
-    sb.from('ctr_acessos').select('*').eq('empresa', EMP),
+    db('perfis').select('id,nome,email,papel,ativo').order('nome'),
+    db('ctr_acessos').select('*').eq('empresa', EMP),
   ]);
   const tb = $('#ac-tb'); if (!tb) return;
   if (error) { tb.innerHTML = `<tr><td colspan="5" class="empty">${esc(erroTxt(error))}</td></tr>`; return; }
@@ -1260,16 +1376,16 @@ function modalAcesso(p, a){
   abrirModal(`Acesso de ${esc(p.nome)}`, `
     <div class="field"><label for="m-nivel">O que pode fazer</label><select class="in" id="m-nivel">${LV.map((t, i) => `<option value="${i}" ${(a ? a.nivel : 0) === i ? 'selected' : ''}>${t}</option>`).join('')}</select>
       <span class="hint">Ver: só olha. Ver e baixar: também baixa os arquivos. Editar e enviar: cadastra, importa, altera e anexa.</span></div>
-    <div class="field"><label>Unidades</label><div class="chips" style="max-height:180px;overflow:auto">${UNI.size ? [...UNI].map(([k]) => `<label><input type="checkbox" data-un="${esc(k)}" ${a && a.unidades.includes(k) ? 'checked' : ''}> ${esc(nomeUnidade(k))}</label>`).join('') : '<span class="muted small">Cadastre as unidades em Administração → Unidades.</span>'}</div><span class="hint">Nenhuma marcada = todas.</span></div>
+    <div class="field"><label>${esc(tUs())}</label><div class="chips" style="max-height:180px;overflow:auto">${UNI.size ? [...UNI].map(([k]) => `<label><input type="checkbox" data-un="${esc(k)}" ${a && a.unidades.includes(k) ? 'checked' : ''}> ${esc(nomeUnidade(k))}</label>`).join('') : `<span class="muted small">Cadastre em Administração → ${esc(tUs())}.</span>`}</div><span class="hint">Nenhuma marcada = todas.</span></div>
     <div class="field"><label>Grupos de contratos</label><div class="chips">${GRUPOS.map(g => `<label><input type="checkbox" data-gr="${esc(g.codigo)}" ${a && a.grupos.includes(g.codigo) ? 'checked' : ''}> ${esc(g.nome)}</label>`).join('')}</div><span class="hint">Nenhum marcado = todos. Ex.: o setor de manutenção vê só "Manutenção e serviços prediais".</span></div>
     <div id="m-msg"></div>`, 'Salvar', async () => {
       const nivel = Number($('#m-nivel').value);
       const unidades = $$('[data-un]').filter(x => x.checked).map(x => x.dataset.un);
       const grupos = $$('[data-gr]').filter(x => x.checked).map(x => x.dataset.gr);
-      const r = nivel === 0 ? await sb.from('ctr_acessos').delete().eq('usuario', p.id).eq('empresa', EMP)
-        : await sb.from('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel, unidades, grupos });
+      const r = nivel === 0 ? await db('ctr_acessos').delete().eq('usuario', p.id).eq('empresa', EMP)
+        : await db('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel, unidades, grupos });
       if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
-      toast('Acesso salvo.'); carregarAcessos(); return true;
+      toast('Acesso salvo.'); carregarAcessos(); montarVerComo(); return true;
     });
 }
 function senhaTemp(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; const r = crypto.getRandomValues(new Uint32Array(10)); let s = ''; for (let i = 0; i < 10; i++) s += a[r[i] % a.length]; return s.slice(0, 5) + '-' + s.slice(5); }
@@ -1287,8 +1403,8 @@ function modalNovoUsuario(){
       if (error) { msgEm('#m-msg', erroTxt(error)); return false; }
       const uid = data.user && data.user.id;
       if (!uid || (data.user.identities && data.user.identities.length === 0)) { msgEm('#m-msg', 'Este e-mail já tem cadastro. Procure a pessoa na lista e clique em Editar.'); return false; }
-      let r = await sb.from('perfis').insert({ id: uid, nome, email, papel: 'visualizador' });
-      if (!r.error) r = await sb.from('ctr_acessos').insert({ usuario: uid, empresa: EMP, nivel: Number($('#nu-nivel').value) });
+      let r = await db('perfis').insert({ id: uid, nome, email, papel: 'visualizador' });
+      if (!r.error) r = await db('ctr_acessos').insert({ usuario: uid, empresa: EMP, nivel: Number($('#nu-nivel').value) });
       if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
       const link = location.origin + location.pathname;
       const texto = `Olá, ${nome.split(' ')[0]}. Seu acesso à Gestão de Contratos da Sinergia está liberado.\n\nAcesse: ${link}\nE-mail: ${email}\nSenha temporária: ${senha}\n\nNo primeiro acesso, clique em "Esqueci minha senha" para criar a sua.`;
@@ -1341,14 +1457,14 @@ function modalCategoria(c){
       if (!Number.isInteger(dados.aviso_dias) || dados.aviso_dias < 0) { msgEm('#m-msg', 'Aviso prévio inválido.'); return false; }
       const parecida = [...CAT.values()].find(x => x.id !== (c && c.id) && norm(x.nome) === norm(dados.nome));
       if (parecida) { msgEm('#m-msg', `Já existe "${parecida.nome}".`); return false; }
-      const r = c ? await sb.from('ctr_categorias').update(dados).eq('id', c.id).select('*').maybeSingle()
-                  : await sb.from('ctr_categorias').insert({ ...dados, empresa: EMP }).select('*').single();
+      const r = c ? await db('ctr_categorias').update(dados).eq('id', c.id).select('*').maybeSingle()
+                  : await db('ctr_categorias').insert({ ...dados, empresa: EMP }).select('*').single();
       if (r.error || !r.data) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível salvar.'); return false; }
       CAT.set(r.data.id, r.data); toast('Categoria salva.'); render(); return true;
     });
   const ap = $('#k-apagar');
   if (ap) ap.onclick = async () => {
-    const r = await sb.from('ctr_categorias').delete().eq('id', c.id).select('id');
+    const r = await db('ctr_categorias').delete().eq('id', c.id).select('id');
     if (r.error || !r.data || !r.data.length) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível apagar.'); return; }
     CAT.delete(c.id); fecharModal(); toast('Categoria apagada.'); render();
   };
@@ -1361,33 +1477,102 @@ function vUnidades(){
     $('#b-nova-uni').onclick = () => modalUnidade(null);
     $('#uni-tb').onclick = ev => { const b = ev.target.closest('[data-uni]'); if (b) modalUnidade(b.dataset.uni); };
   });
-  return topo('Unidades', 'Lojas, filiais, CDs e escritórios desta empresa. Servem para separar os contratos e para liberar o acesso por unidade.', `<button class="btn pri" id="b-nova-uni">${icon.plus}Nova unidade</button>`)
+  return topo(esc(tUs()), `Lojas, filiais, CDs e escritórios desta empresa (aqui chamados de "${esc(tus())}"). Servem para separar os contratos e para liberar o acesso. O nome vem de Identidade da empresa.`, `<button class="btn pri" id="b-nova-uni">${icon.plus}Nova ${esc(tu())}</button>`)
     + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nome</th><th>Contratos</th><th></th></tr></thead><tbody id="uni-tb">
-      ${[...UNI].map(([k, n]) => `<tr><td class="mono">${esc(k)}</td><td>${esc(n)}</td><td class="num">${CONTRATOS.filter(c => c.unidade === k).length}</td><td style="text-align:right"><button class="btn sm" data-uni="${esc(k)}">Editar</button></td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nenhuma unidade ainda. Cadastre aqui ou deixe a planilha modelo criar na importação.</td></tr>'}
+      ${[...UNI].map(([k, n]) => `<tr><td class="mono">${esc(k)}</td><td>${esc(n)}</td><td class="num">${CONTRATOS.filter(c => c.unidade === k).length}</td><td style="text-align:right"><button class="btn sm" data-uni="${esc(k)}">Editar</button></td></tr>`).join('') || `<tr><td colspan="4" class="empty">Nenhuma ${esc(tu())} ainda. Cadastre aqui ou deixe a planilha modelo criar na importação.</td></tr>`}
     </tbody></table></div></div>
     <div class="note" style="margin-top:14px">Use como código o mesmo número ou sigla que a empresa já usa no sistema dela (ex.: o número da filial). Isso facilita a conferência dos pagamentos.</div>`;
 }
 function modalUnidade(cod){
   const usada = cod != null && CONTRATOS.some(c => c.unidade === cod);
-  abrirModal(cod != null ? 'Editar unidade' : 'Nova unidade', `
+  abrirModal(cod != null ? `Editar ${tu()}` : `Nova ${tu()}`, `
     <div class="grid2"><div class="field"><label for="un-cod" class="req">Código</label><input class="in" id="un-cod" value="${esc(cod ?? '')}" maxlength="30" ${cod != null ? 'disabled' : ''} placeholder="Ex.: 12"></div>
     <div class="field"><label for="un-nome" class="req">Nome</label><input class="in" id="un-nome" value="${esc(cod != null ? UNI.get(cod) : '')}" placeholder="Ex.: Loja Centro"></div></div>
-    ${cod != null && !usada ? `<button class="btn sm danger" type="button" id="un-apagar" style="justify-self:start">Apagar unidade</button>` : ''}
+    ${cod != null && !usada ? `<button class="btn sm danger" type="button" id="un-apagar" style="justify-self:start">Apagar ${esc(tu())}</button>` : ''}
     <div id="m-msg"></div>`, 'Salvar', async () => {
       const codigo = cod ?? $('#un-cod').value.trim(), nome = $('#un-nome').value.trim();
       if (!codigo || !nome) { msgEm('#m-msg', 'Preencha código e nome.'); return false; }
-      if (cod == null && UNI.has(codigo)) { msgEm('#m-msg', 'Já existe uma unidade com esse código.'); return false; }
-      const r = await sb.from('ctr_unidades').upsert({ empresa: EMP, codigo, nome }, { onConflict: 'empresa,codigo' });
+      if (cod == null && UNI.has(codigo)) { msgEm('#m-msg', `Já existe uma ${tu()} com esse código.`); return false; }
+      const r = await db('ctr_unidades').upsert({ empresa: EMP, codigo, nome }, { onConflict: 'empresa,codigo' });
       if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
       UNI.set(codigo, nome); UNI = new Map([...UNI].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR', { numeric: true })));
-      toast('Unidade salva.'); render(); return true;
+      toast(`${tU()} salva.`); render(); return true;
     });
   const ap = $('#un-apagar');
   if (ap) ap.onclick = async () => {
-    const r = await sb.from('ctr_unidades').delete().eq('empresa', EMP).eq('codigo', cod).select('codigo');
+    const r = await db('ctr_unidades').delete().eq('empresa', EMP).eq('codigo', cod).select('codigo');
     if (r.error || !r.data || !r.data.length) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível apagar.'); return; }
-    UNI.delete(cod); fecharModal(); toast('Unidade apagada.'); render();
+    UNI.delete(cod); fecharModal(); toast(`${tU()} apagada.`); render();
   };
+}
+
+// ═════════ Admin: identidade da empresa ═════════
+const TERMOS = [['Unidade', 'Unidades'], ['Filial', 'Filiais'], ['Loja', 'Lojas'], ['Obra', 'Obras'], ['Escritório', 'Escritórios'], ['Fazenda', 'Fazendas']];
+function vIdentidade(){
+  if (!ehAdmin()) return semPermissao();
+  const cfg = cfgDe(EMP) || {};
+  let logo = cfg.logo || null;
+  const preview = () => {
+    const cor = $('#id-cor').value, nome = $('#id-nome').value.trim() || nomeEmpresa(EMP), lg = corLegivel(cor);
+    $('#id-hex').value = cor;
+    $('#id-prev').style.setProperty('--pc', cor); $('#id-prev').style.setProperty('--pcf', lg.fg);
+    $('#id-prev-marca').innerHTML = logo ? `<div class="brand-logo ${$('#id-fundo').checked ? 'fundo' : ''}"><img src="${esc(logo)}" alt=""></div>` : `<div class="brand-mark" style="background:${cor};color:${lg.fg}">${esc(iniciais(nome).slice(0, 1))}</div>`;
+    $('#id-prev-nome').textContent = nome;
+    $('#id-aviso').innerHTML = lg.contrasteBranco < 3 ? '<div class="msg" style="background:var(--warn-soft);color:var(--warn)">Cor clara demais: textos e links nessa cor ficam difíceis de ler sobre o fundo branco. Prefira um tom mais escuro.</div>' : '';
+    const t1 = $('#id-termo').value; if (t1 !== 'outro') { const [a, b] = t1.split('|'); $('#id-t1').value = a; $('#id-t2').value = b; }
+    $('#id-outro').hidden = t1 !== 'outro';
+  };
+  depois(() => {
+    ['#id-cor', '#id-nome', '#id-fundo', '#id-termo'].forEach(s => $(s).addEventListener('input', preview));
+    $('#id-hex').addEventListener('change', () => { if (/^#[0-9a-f]{6}$/i.test($('#id-hex').value)) { $('#id-cor').value = $('#id-hex').value; preview(); } });
+    $('#id-logo').addEventListener('change', async () => {
+      const f = $('#id-logo').files[0]; $('#id-logo').value = ''; if (!f) return;
+      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { toast('Use uma imagem PNG, JPG ou WEBP.'); return; }
+      try { logo = await reduzirImagem(f, 360, 120); preview(); } catch (_) { toast('Não foi possível ler a imagem.'); }
+    });
+    $('#id-tirar').onclick = () => { logo = null; preview(); };
+    $('#id-padrao').onclick = () => confirmar('Voltar ao padrão', 'A empresa volta a ver a identidade da Sinergia e o nome "Unidade". Continuar?', 'Voltar ao padrão', async () => {
+      const r = await db('ctr_config').delete().eq('empresa', EMP); if (r.error) { toast(erroTxt(r.error)); return false; }
+      CFGS.delete(EMP); aplicarIdentidade(); render(); toast('Identidade da Sinergia restaurada.'); return true; });
+    $('#id-salvar').onclick = async () => {
+      const t1 = $('#id-t1').value.trim(), t2 = $('#id-t2').value.trim();
+      if (t1.length < 2 || t2.length < 2) { msgEm('#id-msg', 'Preencha como a empresa chama a unidade (singular e plural).'); return; }
+      const dados = { empresa: EMP, nome_exibicao: $('#id-nome').value.trim() || null, cor: $('#id-cor').value, logo, logo_fundo: $('#id-fundo').checked, termo_unidade: t1, termo_unidades: t2, alterado_em: new Date().toISOString() };
+      $('#id-salvar').disabled = true;
+      const r = await db('ctr_config').upsert(dados, { onConflict: 'empresa' });
+      $('#id-salvar').disabled = false;
+      if (r.error) { msgEm('#id-msg', erroTxt(r.error)); return; }
+      CFGS.set(EMP, dados); aplicarIdentidade(); render(); toast('Identidade salva. É assim que a empresa vê o sistema.');
+    };
+    preview();
+  });
+  const termoAtual = `${cfg.termo_unidade || 'Unidade'}|${cfg.termo_unidades || 'Unidades'}`, ehPreset = TERMOS.some(x => x.join('|') === termoAtual);
+  return topo('Identidade da empresa', `Como ${esc(nomeEmpresa(EMP))} vê o sistema: logo, cor e os nomes que ela usa. A gestão continua sendo da Sinergia.`)
+    + `<div class="detail"><div class="card"><div class="card-b" style="display:grid;gap:14px">
+      <div class="grid2">
+        <div class="field"><label for="id-nome">Nome que aparece</label><input class="in" id="id-nome" value="${esc(cfg.nome_exibicao || '')}" maxlength="60" placeholder="${esc(nomeEmpresa(EMP))}"></div>
+        <div class="field"><label for="id-cor">Cor principal</label><div style="display:flex;gap:8px"><input type="color" id="id-cor" value="${esc(cfg.cor || '#d12f33')}" class="cor"><input class="in mono" id="id-hex" maxlength="7"></div><span class="hint">Use a cor da marca da empresa. Botões e destaques mudam para ela.</span></div>
+      </div>
+      <div class="field"><label>Logo</label><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="btn">${icon.up}Escolher imagem<input type="file" id="id-logo" accept="image/png,image/jpeg,image/webp" hidden></label><button class="btn ghost" type="button" id="id-tirar">Tirar logo</button></div>
+        <span class="hint">PNG, JPG ou WEBP. A imagem é reduzida antes de salvar. Sem logo, aparece a inicial do nome na cor escolhida.</span>
+        <label class="check"><input type="checkbox" id="id-fundo" ${cfg.logo_fundo ? 'checked' : ''}> Fundo branco atrás da logo (para logo escura, porque o menu é escuro)</label></div>
+      <div class="field"><label for="id-termo">Como a empresa chama as unidades</label><select class="in" id="id-termo">${TERMOS.map(x => `<option value="${esc(x.join('|'))}" ${x.join('|') === termoAtual ? 'selected' : ''}>${esc(x[0])} / ${esc(x[1])}</option>`).join('')}<option value="outro" ${ehPreset ? '' : 'selected'}>Outro nome…</option></select>
+        <div class="grid2" id="id-outro" hidden><input class="in" id="id-t1" value="${esc(cfg.termo_unidade || 'Unidade')}" placeholder="Singular (ex.: Filial)" maxlength="30"><input class="in" id="id-t2" value="${esc(cfg.termo_unidades || 'Unidades')}" placeholder="Plural (ex.: Filiais)" maxlength="30"></div>
+        <span class="hint">Aparece no menu, nos filtros, nos acessos e na planilha modelo.</span></div>
+      <div id="id-aviso"></div><div id="id-msg"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="id-salvar">Salvar identidade</button>${cfgDe(EMP) ? '<button class="btn" id="id-padrao">Voltar ao padrão Sinergia</button>' : '<span id="id-padrao" hidden></span>'}</div>
+    </div></div>
+    <div class="stack"><div class="card"><div class="card-h"><h2>Prévia</h2></div><div class="card-b"><div class="prev" id="id-prev">
+      <div class="prev-side"><div class="brand"><span id="id-prev-marca"></span><div style="min-width:0"><strong class="emp" id="id-prev-nome"></strong><small>Gestão de Contratos · Sinergia</small></div></div><div class="prev-item">Painel</div><div class="prev-item">Contratos</div></div>
+      <div class="prev-main"><span class="prev-btn">+ Novo contrato</span><span class="prev-pill">Prazo de aviso</span></div>
+    </div></div></div>
+    <div class="note">A tela de entrada continua com a marca da Sinergia, porque antes do login o sistema ainda não sabe de qual empresa é a pessoa. Na visão <b>Todas as empresas</b> também vale a identidade da Sinergia.</div></div></div>`;
+}
+function reduzirImagem(f, maxW, maxH){
+  return new Promise((ok, falha) => { const img = new Image(), url = URL.createObjectURL(f);
+    img.onload = () => { const s = Math.min(1, maxW / img.width, maxH / img.height), cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url); ok(cv.toDataURL('image/png')); };
+    img.onerror = () => { URL.revokeObjectURL(url); falha(); }; img.src = url; });
 }
 
 // ═════════ Admin: SharePoint ═════════
@@ -1422,7 +1607,9 @@ function confirmar(titulo, texto, botao, acao){ abrirModal(titulo, `<p style="ma
 function fecharModal(){ $('#modal-root').innerHTML = ''; }
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fechar]'); if (f && (e.target === f || f.tagName === 'BUTTON')) { fecharModal(); return; }
+  const em = e.target.closest('[data-emp]'); if (em) { trocarEmpresa(em.dataset.emp); return; }
   const go = e.target.closest('[data-go]'); if (go && !e.target.closest('button,a,input,select,label')) { location.hash = go.dataset.go; return; }
+  if (e.target.closest('[data-act="sair-sim"]')) { $('#sel-ver').value = ''; verComo(''); return; }
   const a = e.target.closest('[data-act="menu"]'); if (a) document.body.classList.toggle('menu-aberto', $('#side').classList.toggle('open'));
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });

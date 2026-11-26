@@ -113,7 +113,7 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
 
 | Arquivo | Para que serve |
 |---|---|
-| `contratos/index.html` | Telas: painel, lista, contrato (dados, documentos obrigatórios, arquivos, histórico), novo, importar (planilha modelo), Admin (acessos, categorias, unidades, SharePoint). |
+| `contratos/index.html` | Telas: painel, lista, contrato (dados, documentos obrigatórios, arquivos, histórico), novo, importar (planilha modelo), Admin (acessos, categorias, unidades, identidade da empresa, SharePoint). |
 | `supabase/2026-11-23_contratos.sql` | Tabelas `ctr_*`, lista padrão de grupos e categorias, função `ctr_nivel`, gatilhos (número CTR, categoria válida, histórico automático, histórico e documentos imutáveis). |
 | `supabase/functions/ctr-arquivos/index.ts` | Edge Function (ações iniciar, registrar, ver, baixar, testar). |
 
@@ -122,6 +122,15 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   por SQL; com `empresa` = criada pelo admin) > contrato. Cada categoria traz `aviso_dias`, `reajuste`
   e `documentos` obrigatórios (além do contrato assinado) e uma `dica`. Os tipos de documento estão em
   `TIPOS_DOC` (telas) e `CATEGORIAS`/`COM_VALIDADE` (Edge Function): **manter os dois iguais**.
+- **Modos de visão (admin)**, no menu lateral: **Ver como empresa** = uma empresa ou "Todas as empresas
+  (Sinergia)" (`EMP = '*'`: painel consolidado com quadro por empresa; cadastro, importação e configuração
+  pedem uma empresa). **Ver como usuário** = o admin vê só o que aquela pessoa da empresa vê (filtra no
+  navegador com a mesma regra de `ctr_nivel`); é só visualização: `db()` bloqueia gravações e `fn()`
+  bloqueia envio de arquivo. Toda leitura/gravação passa por `db(tabela)`, não por `sb.from`.
+- **Identidade da empresa** (`ctr_config`): nome, cor, logo (imagem reduzida, guardada na própria tabela)
+  e como a empresa chama as unidades (`termo_unidade`/`termo_unidades`, ex.: Filial/Filiais). Os usuários
+  da empresa sempre veem a identidade dela; sem linha = Sinergia. Login e visão consolidada = Sinergia.
+  Use `tU()`, `tUs()`, `tu()`, `tus()` em vez de escrever "Unidade" nas telas.
 - **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
   ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
 - **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no
