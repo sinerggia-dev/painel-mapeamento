@@ -147,6 +147,11 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   "Natureza", painel por classe, pasta do SharePoint "702 - ALUGUEL DE IMOVEIS"); a categoria vem da
   natureza (gatilho no banco) e continua dando as regras e a visão consolidada. Mudou a categoria de uma
   natureza = os contratos dela acompanham. A planilha de naturezas do cliente **nunca** vai para o repositório.
+- **Anexar documento**: tipos agrupados (O contrato / Documentos com validade / Outros). "Contrato atualizado
+  (nova versão)", aditivo, renovação e distrato são **mudanças** (`ehMudanca`): pedem "o que mudou em relação ao
+  anterior" (obrigatório), vigência e, se houver, novo valor/vencimento; viram uma linha em `ctr_alteracoes` ligada
+  ao arquivo. A lista marca "versão vigente" e "versão anterior · guardada". Nenhum arquivo pode ser apagado.
+  **O SharePoint só aparece para o admin da Sinergia** (`ehAdmin()`): nunca para a empresa, nem com acesso completo.
 - **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
   ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
 - **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no

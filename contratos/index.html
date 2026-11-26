@@ -424,6 +424,14 @@ body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transpa
 .tl-i.reajuste i{background:var(--acc)} .tl-i.aditivo_valor i,.tl-i.aditivo_prazo i,.tl-i.renovacao i{background:var(--info)} .tl-i.ini i{background:var(--ok)}
 .tl-d{font-size:12px;color:var(--muted)} .tl-i .t{font-weight:600;font-size:13.5px} .tl-i .s{font-size:12.5px;color:var(--muted)}
 
+/* anexar documento e versoes */
+.anexar{border-top:1px solid var(--border);display:grid;gap:12px}
+.anexar h3{font-size:1.02rem}
+.u-expl{color:var(--fg);opacity:.8}
+.mudanca{display:grid;gap:10px;border:1px solid color-mix(in srgb,var(--acc) 35%,var(--border));background:color-mix(in srgb,var(--acc) 5%,var(--surface));border-radius:12px;padding:12px 14px}
+.tag.vig{border-color:var(--ok);color:var(--ok);margin-bottom:3px} .tag.ant{margin-bottom:3px}
+.doc .oque{font-size:12.5px;margin-top:2px;color:var(--fg)}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -1313,13 +1321,13 @@ function vNovo(){
       $('#b-salvar').disabled = false;
       if (error) { msgEm('#c-msg', erroTxt(error)); return; }
       CONTRATOS.push(data);
-      if (arquivos.length) { ENVIO_PENDENTE = { contrato: data.id, arquivos, cat, validade }; toast(`Contrato ${data.numero} cadastrado. Enviando ${arquivos.length === 1 ? 'o arquivo' : arquivos.length + ' arquivos'} para o SharePoint…`); }
+      if (arquivos.length) { ENVIO_PENDENTE = { contrato: data.id, arquivos, cat, validade }; toast(`Contrato ${data.numero} cadastrado. Enviando ${arquivos.length === 1 ? 'o arquivo' : arquivos.length + ' arquivos'}…`); }
       else toast(`Contrato ${data.numero} cadastrado. Lembre de anexar o contrato assinado.`);
       location.hash = 'contrato/' + data.id;
     };
   });
   const tipos = Object.entries(TIPOS_DOC);
-  return topo('Novo contrato', 'Preencha os dados e anexe o contrato assinado, se já tiver. Os arquivos vão para o SharePoint quando você salvar.', '', '<a href="#contratos">Contratos</a> / Novo')
+  return topo('Novo contrato', 'Preencha os dados e anexe o contrato assinado, se já tiver. Os arquivos são enviados quando você salvar.', '', '<a href="#contratos">Contratos</a> / Novo')
     + `<div class="card"><div class="card-b" style="display:grid;gap:14px">${formContrato(null, true)}
       <div class="anexo-novo">
         <h3>Arquivo do contrato</h3>
@@ -1351,16 +1359,24 @@ function vContrato(id){
         </div></div>
       <div class="card"><div class="card-h"><h2>Arquivos</h2><span class="muted small" id="d-cnt"></span></div>
         <div class="docs" id="d-lista"><div class="empty">Carregando…</div></div>
-        ${n >= 3 ? `<div class="card-b" style="border-top:1px solid var(--border);display:grid;gap:10px">
-          <div class="grid2">
-            <div class="field"><label for="u-cat" class="req">O que é o arquivo</label><select class="in" id="u-cat">${tipos.map(([k, t]) => `<option value="${k}" ${falta && falta.t === k ? 'selected' : ''}>${esc(t.t)}</option>`).join('')}</select></div>
-            <div class="field" id="u-val-f"><label for="u-val" class="req">Válido até</label><input class="in" id="u-val" type="date"><span class="hint">Data de validade que está no documento.</span></div>
+        ${n >= 3 ? `<div class="card-b anexar">
+          <h3>Anexar documento</h3>
+          <div class="field"><label for="u-cat" class="req">O que você está enviando?</label><select class="in" id="u-cat">${optTiposEnvio(c, falta ? falta.t : (temContrato(c) ? 'aditivo' : 'contrato-assinado'))}</select><span class="hint u-expl" id="u-expl"></span></div>
+          <div class="mudanca" id="u-mud" hidden>
+            <div class="field"><label for="u-oque" class="req">O que mudou em relação ao anterior</label><textarea class="in" id="u-oque" rows="2" maxlength="1000" placeholder="Ex.: valor passou de R$ 9.800 para R$ 10.500; prazo prorrogado até 2029; incluída a sala 2"></textarea></div>
+            <div class="grid3">
+              <div class="field"><label for="u-vig">Vale a partir de</label><input class="in" id="u-vig" type="date" value="${ymd(hojeD())}"></div>
+              <div class="field"><label for="u-novoval">Novo valor mensal</label><input class="in" id="u-novoval" inputmode="decimal" placeholder="Atual: ${esc(brl(c.valor_mensal))}"><span class="hint">Em branco = não mudou.</span></div>
+              <div class="field"><label for="u-novofim">Novo vencimento</label><input class="in" id="u-novofim" type="date"><span class="hint">Em branco = não mudou.</span></div>
+            </div>
+            <div class="note">A versão anterior continua guardada e <b>não pode ser apagada</b> por ninguém. A mudança entra na linha do tempo do contrato.</div>
           </div>
+          <div class="field" id="u-val-f"><label for="u-val" class="req">Válido até</label><input class="in" id="u-val" type="date"><span class="hint">Data de validade que está no documento.</span></div>
           <div class="drop" id="dz" tabindex="0" role="button" aria-label="Escolher arquivos">${icon.up}<b>Arraste os arquivos aqui ou clique para escolher</b><span class="muted small">PDF, Word, Excel, imagem, e-mail (.msg) · até 250 MB cada</span></div>
           <input type="file" id="u-file" multiple hidden>
           <div class="files" id="fila"></div>
         </div>` : ''}
-        <div class="card-b" style="padding-top:0"><div class="sp">${icon.cloud}<div>Os arquivos ficam no SharePoint da Sinergia, na pasta do contrato, com nome padronizado.</div></div></div>
+        ${ehAdmin() ? `<div class="card-b" style="padding-top:0"><div class="sp">${icon.cloud}<div>Só a Sinergia vê esta nota: os arquivos ficam no SharePoint da Sinergia, na pasta do contrato, com nome padronizado.</div></div></div>` : ''}
       </div>
     </div>
     <div class="stack">
@@ -1497,8 +1513,12 @@ async function listarDocs(c, n){
   if (error) { el.innerHTML = `<div class="empty">${esc(erroTxt(error))}</div>`; return; }
   DOCS.set(c.id, data || []); desenharChecklist(c);
   $('#d-cnt').textContent = data.length ? `${data.length} arquivo(s)` : '';
-  el.innerHTML = data.length ? data.map(d => { const e = (d.nome.split('.').pop() || '').toLowerCase(); const nv = diasAte(d.validade); return `<div class="doc"><div class="ext ${esc(e)}">${esc(e.toUpperCase().slice(0, 4))}</div>
-      <div style="min-width:0"><div class="mono" style="word-break:break-all;font-size:12.5px">${esc(d.nome)}</div><div class="muted" style="font-size:12px">${esc(tipoDoc(d.categoria))}${d.validade ? ` · <span style="color:var(--${nv < 0 ? 'bad' : nv <= AVISAR_DOC ? 'warn' : 'muted'})">válido até ${fmt(d.validade)}</span>` : ''} · ${tam(d.tamanho)} · ${fmtTs(d.enviado_em)} · ${esc(pessoa(d.enviado_por))}</div></div>
+  const assinados = data.filter(d => d.categoria === 'contrato-assinado'), vigente = assinados[0];   // lista ja vem do mais novo ao mais antigo
+  const mudouDe = id => (altsDe(c).find(x => x.documento === id) || {}).observacao;
+  el.innerHTML = data.length ? data.map(d => { const e = (d.nome.split('.').pop() || '').toLowerCase(); const nv = diasAte(d.validade);
+    const selo = d.categoria === 'contrato-assinado' && assinados.length > 1 ? (d === vigente ? '<span class="tag vig">versão vigente</span>' : '<span class="tag ant">versão anterior · guardada</span>') : '';
+    const oq = mudouDe(d.id); return `<div class="doc"><div class="ext ${esc(e)}">${esc(e.toUpperCase().slice(0, 4))}</div>
+      <div style="min-width:0">${selo}<div class="mono" style="word-break:break-all;font-size:12.5px">${esc(d.nome)}</div>${oq ? `<div class="oque">${esc(oq)}</div>` : ''}<div class="muted" style="font-size:12px">${esc(tipoDoc(d.categoria))}${d.validade ? ` · <span style="color:var(--${nv < 0 ? 'bad' : nv <= AVISAR_DOC ? 'warn' : 'muted'})">válido até ${fmt(d.validade)}</span>` : ''} · ${tam(d.tamanho)} · ${fmtTs(d.enviado_em)} · ${esc(pessoa(d.enviado_por))}</div></div>
       <div style="display:flex;gap:4px"><button class="btn sm ghost" data-ver="${d.id}" title="Visualizar" aria-label="Visualizar">${icon.eye}</button>${n >= 2 ? `<button class="btn sm ghost" data-baixar="${d.id}" title="Baixar" aria-label="Baixar">${icon.dl}</button>` : ''}</div></div>`; }).join('')
     : `<div class="empty">Nenhum arquivo ainda.${n >= 3 ? ' Comece pelo contrato assinado.' : ''}</div>`;
   el.onclick = async ev => {
@@ -1537,14 +1557,36 @@ async function listarLiberados(c){
   };
 }
 
+// tipos de envio agrupados; "mudanca" = atualiza o contrato (pede o que mudou e vai para a linha do tempo)
+const ehMudanca = (c, k) => ['aditivo', 'renovacao', 'distrato'].includes(k) || (k === 'contrato-assinado' && temContrato(c));
+function optTiposEnvio(c, sel){
+  const o = (k, rot) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${esc(rot || tipoDoc(k))}</option>`;
+  return `<optgroup label="O contrato">${o('contrato-assinado', temContrato(c) ? 'Contrato atualizado (nova versão do contrato assinado)' : 'Contrato assinado (primeira versão)')}${o('aditivo', 'Aditivo (alteração do contrato)')}${o('renovacao')}${o('distrato')}${o('minuta', 'Minuta (ainda não assinada)')}</optgroup>
+    <optgroup label="Documentos com validade">${Object.entries(TIPOS_DOC).filter(([, x]) => x.v).map(([k]) => o(k)).join('')}</optgroup>
+    <optgroup label="Outros">${o('anexo')}${o('correspondencia')}</optgroup>`;
+}
+const EXPLICA = {
+  'contrato-assinado-novo': 'É a primeira versão assinada do contrato.',
+  'contrato-assinado': 'Este arquivo passa a ser a versão vigente do contrato. A versão atual fica guardada como "versão anterior".',
+  aditivo: 'Documento que altera o contrato (valor, prazo, escopo). O contrato original continua valendo junto com ele.',
+  renovacao: 'Documento que renova o contrato por mais um período.',
+  distrato: 'Documento que encerra o contrato antes do fim. Depois marque o contrato como "Encerrado".',
+  minuta: 'Versão ainda não assinada, só para consulta.',
+};
 // ═════════ Envio de arquivos (direto do navegador para o SharePoint, em partes) ═════════
 function ligarUpload(c){
   const dz = $('#dz'), inp = $('#u-file'); if (!dz) return;
-  const mostrarValidade = () => { $('#u-val-f').hidden = !(TIPOS_DOC[$('#u-cat').value] || {}).v; };
-  $('#u-cat').addEventListener('change', mostrarValidade); mostrarValidade();
+  const mostrar = () => { const k = $('#u-cat').value; $('#u-val-f').hidden = !(TIPOS_DOC[k] || {}).v; $('#u-mud').hidden = !ehMudanca(c, k);
+    $('#u-expl').textContent = (TIPOS_DOC[k] || {}).v ? 'Documento com data de validade: o sistema avisa quando estiver perto de vencer.' : EXPLICA[k === 'contrato-assinado' && !temContrato(c) ? 'contrato-assinado-novo' : k] || ''; };
+  $('#u-cat').addEventListener('change', mostrar); mostrar();
   const conferir = () => {
-    const precisa = (TIPOS_DOC[$('#u-cat').value] || {}).v;
-    if (precisa && !$('#u-val').value) { toast('Preencha a data de validade do documento antes de enviar.'); $('#u-val').focus(); return false; }
+    const k = $('#u-cat').value;
+    if ((TIPOS_DOC[k] || {}).v && !$('#u-val').value) { toast('Preencha a data de validade do documento antes de enviar.'); $('#u-val').focus(); return false; }
+    if (ehMudanca(c, k)) {
+      if (!$('#u-oque').value.trim()) { toast('Escreva o que mudou em relação ao anterior antes de enviar.'); $('#u-oque').focus(); return false; }
+      const v = lerValor($('#u-novoval').value); if (v !== null && (!isFinite(v) || v < 0)) { toast('O novo valor não é um número válido.'); $('#u-novoval').focus(); return false; }
+      if (!$('#u-vig').value) { toast('Informe a partir de quando vale.'); $('#u-vig').focus(); return false; }
+    }
     return true;
   };
   dz.onclick = () => { if (conferir()) inp.click(); };
@@ -1552,12 +1594,13 @@ function ligarUpload(c){
   ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
   dz.addEventListener('drop', e => { if (conferir()) enviarVarios(c, [...e.dataTransfer.files]); });
-  inp.onchange = () => { enviarVarios(c, [...inp.files]); inp.value = ''; };
+  inp.onchange = () => { if (conferir()) enviarVarios(c, [...inp.files]); inp.value = ''; };
 }
 async function enviarVarios(c, files){
   const cat = $('#u-cat').value;
   const validade = (TIPOS_DOC[cat] || {}).v ? $('#u-val').value || null : null;
-  const fila = $('#fila');
+  const mud = $('#u-mud') && ehMudanca(c, cat) ? { oque: $('#u-oque').value.trim(), vig: $('#u-vig').value, valor: lerValor($('#u-novoval').value), fim: $('#u-novofim').value || null } : null;
+  const fila = $('#fila'), salvos = [];
   for (const f of files) {
     const row = document.createElement('div'); row.className = 'file';
     row.innerHTML = `<div style="min-width:0"><div style="font-size:13px;font-weight:500;word-break:break-all">${esc(f.name)}</div><div class="muted small" data-st>Preparando…</div><div class="prog"><i></i></div></div><span></span>`;
@@ -1583,11 +1626,19 @@ async function enviarVarios(c, files){
         if (r.status === 200 || r.status === 201) item = await r.json();
         pos = fim; bar.style.width = (pos / f.size * 100) + '%';
       }
-      if (!item || !item.id) throw new Error('O SharePoint não confirmou o arquivo.');
+      if (!item || !item.id) throw new Error('O envio não foi confirmado. Tente de novo.');
       st.textContent = 'Registrando…';
       const reg = await fn({ acao: 'registrar', contrato: c.id, categoria: cat, validade, item_id: item.id, nome_original: f.name });
-      st.innerHTML = `<span style="color:var(--ok)">Salvo no SharePoint:</span> <span class="mono">${esc(reg.caminho)}</span>`;
+      salvos.push(reg.id);
+      st.innerHTML = ehAdmin() ? `<span style="color:var(--ok)">Salvo no SharePoint:</span> <span class="mono">${esc(reg.caminho)}</span>` : '<span style="color:var(--ok)">Arquivo salvo.</span>';
     } catch (e) { st.innerHTML = `<span style="color:var(--bad)">${esc(erroTxt(e))}</span>`; bar.style.background = 'var(--bad)'; }
+  }
+  if (mud && salvos.length) {
+    const tipo = cat === 'renovacao' ? 'renovacao' : mud.valor !== null ? 'aditivo_valor' : mud.fim ? 'aditivo_prazo' : 'outro';
+    const pre = cat === 'contrato-assinado' ? 'Nova versão do contrato: ' : cat === 'distrato' ? 'Distrato: ' : '';
+    const r = await db('ctr_alteracoes').insert({ contrato: c.id, tipo, vigencia: mud.vig, valor_depois: mud.valor, fim_depois: mud.fim, documento: salvos[0], observacao: (pre + mud.oque).slice(0, 1000) });
+    if (r.error) { toast('O arquivo foi salvo, mas a mudança não entrou na linha do tempo: ' + erroTxt(r.error)); }
+    else { await recarregar(); toast('Atualização registrada. A versão anterior continua guardada.'); render(); return; }
   }
   await Promise.all([listarDocs(c, nivelC(c)), listarHist(c)]);
 }
