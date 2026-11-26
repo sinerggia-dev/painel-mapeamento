@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Contratos">
 <link rel="apple-touch-icon" href="../icone-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="../favicon.svg">
+<link rel="icon" id="favicon" href="../favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
@@ -26,12 +26,18 @@
   --f-display:"Barlow Semi Condensed","Inter",system-ui,sans-serif; --f-body:"Inter",system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
   --r:14px; --shadow:0 1px 2px rgba(16,18,24,.05),0 8px 24px rgba(16,18,24,.06);
 }
-@media (prefers-color-scheme: dark){:root{
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0d0f13; --surface:#16191f; --surface2:#1e222a; --border:#2a2f39;
   --fg:#eceef2; --muted:#9aa0ad; --acc:#ef4a4e; --acc-soft:#3a1719; --acc-fg:#ffffff;
   --ok:#34c78f; --ok-soft:#12302a; --warn:#f0a840; --warn-soft:#352914; --bad:#ff6b7d; --bad-soft:#3a1820; --info:#6ea2ff; --info-soft:#162640;
   --side:#08090c; --side2:#15181e; --side-fg:#e9eaee; --side-muted:#80858f; --bar1:#8a909c; --bar2:#4a4f5a;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0f13; --surface:#16191f; --surface2:#1e222a; --border:#2a2f39;
+  --fg:#eceef2; --muted:#9aa0ad; --acc:#ef4a4e; --acc-soft:#3a1719; --acc-fg:#ffffff;
+  --ok:#34c78f; --ok-soft:#12302a; --warn:#f0a840; --warn-soft:#352914; --bad:#ff6b7d; --bad-soft:#3a1820; --info:#6ea2ff; --info-soft:#162640;
+  --side:#08090c; --side2:#15181e; --side-fg:#e9eaee; --side-muted:#80858f; --bar1:#8a909c; --bar2:#4a4f5a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}
@@ -363,6 +369,31 @@ table.nt select.in{min-width:200px}
 table.matriz td.sim,table.matriz td.nao,table.matriz th:not(:first-child){text-align:center}
 table.matriz td.sim{color:var(--ok);font-weight:700} table.matriz td.nao{color:var(--muted)}
 
+/* personalizacao: menu claro ou na cor da marca */
+.me-link{display:flex;gap:10px;align-items:center;min-width:0;flex:1;color:inherit;text-decoration:none;border-radius:10px;padding:2px}
+.me-link:hover{background:var(--side2)}
+.avatar-lg{width:52px;height:52px;font-size:18px;background:var(--acc-soft);color:var(--acc)}
+body.menu-claro{--side:#ffffff;--side2:#f1f2f5;--side-fg:#16181d;--side-muted:#6a6f7b}
+body.menu-claro .side{border-right:1px solid var(--border)}
+body.menu-claro .nav a{color:#3b3f48} body.menu-claro .nav a:hover,body.menu-claro .nav a.on{color:#16181d}
+body.menu-claro .nav a.on{background:color-mix(in srgb,var(--acc) 12%,transparent)}
+body.menu-claro .side .side-sel .in,body.menu-claro .side .btn{border-color:var(--border)}
+body.menu-claro .me{border-top-color:var(--border)} body.menu-claro .me .avatar{color:#16181d}
+body.menu-marca{--side:var(--acc);--side2:color-mix(in srgb,#000 18%,var(--acc));--side-fg:var(--acc-fg);--side-muted:color-mix(in srgb,var(--acc-fg) 70%,transparent)}
+body.menu-marca .nav a{color:color-mix(in srgb,var(--acc-fg) 85%,transparent)}
+body.menu-marca .nav a:hover,body.menu-marca .nav a.on{color:var(--acc-fg);background:color-mix(in srgb,#000 20%,transparent)}
+body.menu-marca .nav a.on::before{background:var(--acc-fg)} body.menu-marca .nav a.on svg{color:var(--acc-fg)}
+body.menu-marca .brand-mark{background:var(--acc-fg);color:var(--acc)}
+body.menu-marca .nav .count{background:var(--acc-fg);color:var(--acc)}
+body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transparent)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body.menu-claro{--side:#16191f;--side2:#1e222a;--side-fg:#eceef2;--side-muted:#9aa0ad}:root:not([data-theme="light"]) body.menu-claro .nav a{color:#c9ccd4}}
+:root[data-theme="dark"] body.menu-claro{--side:#16191f;--side2:#1e222a;--side-fg:#eceef2;--side-muted:#9aa0ad}
+.prev[data-menu="claro"] .prev-side{background:#fff;color:#16181d;border-right:1px solid var(--border)}
+.prev[data-menu="claro"] .prev-item{color:#3b3f48}
+.prev[data-menu="marca"] .prev-side{background:var(--pc);color:var(--pcf)}
+.prev[data-menu="marca"] .prev-item{color:var(--pcf)}
+.prev[data-menu="marca"] .prev-side small{color:var(--pcf);opacity:.75}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -373,9 +404,9 @@ table.matriz td.sim{color:var(--ok);font-weight:700} table.matriz td.nao{color:v
 <body>
 
 <section id="v-login" hidden>
-  <div class="login-hero" aria-hidden="true"><b>SINERGIA</b><h2>Contratos organizados. Documentos em dia.</h2><p>Todos os contratos da empresa num só lugar, com os vencimentos, os documentos e quem pode ver cada um.</p></div>
+  <div class="login-hero" aria-hidden="true"><b id="login-hero-marca">SINERGIA</b><h2>Contratos organizados. Documentos em dia.</h2><p>Todos os contratos da empresa num só lugar, com os vencimentos, os documentos e quem pode ver cada um.</p></div>
   <form class="login" id="f-login">
-    <div class="brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
+    <div class="brand" id="login-brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
     <div id="login-titulo"><h2>Entrar</h2><p class="muted" style="margin:4px 0 0">Use o mesmo e-mail e senha do portal da Sinergia.</p></div>
     <div id="bloco-login" style="display:grid;gap:14px">
       <div class="field"><label for="l-email">E-mail</label><input class="in" id="l-email" type="email" autocomplete="username" required></div>
@@ -400,7 +431,7 @@ table.matriz td.sim{color:var(--ok);font-weight:700} table.matriz td.nao{color:v
     <div class="side-sel" id="box-adm" hidden><label class="side-lbl" for="sel-adm">Empresa em gestão</label><select class="in" id="sel-adm"></select></div>
     <div class="side-sel" id="box-ver" hidden><label class="side-lbl" for="sel-ver">Usuário da empresa</label><select class="in" id="sel-ver"></select></div>
     <nav class="nav" id="nav"></nav>
-    <div class="me"><div class="avatar" id="me-av"></div><div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13px" id="me-nome"></div><div class="muted" style="font-size:12px" id="me-papel"></div></div><button class="btn sm" id="btn-sair">Sair</button></div>
+    <div class="me"><a class="me-link" href="#perfil" title="Meu perfil"><div class="avatar" id="me-av"></div><div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13px" id="me-nome"></div><div class="muted" style="font-size:12px" id="me-papel"></div></div></a><button class="btn sm" id="btn-sair">Sair</button></div>
   </aside>
   <main class="main" id="main"><div class="loading">Carregando…</div></main>
   <div class="scrim" id="scrim" data-act="menu"></div>
@@ -632,7 +663,10 @@ async function iniciar(){
     $('#sel-ver').onchange = () => verComo($('#sel-ver').value);
     sel.onchange = () => { if (!ehAdminReal()) return trocarEmpresa(sel.value);
       if (sel.value === ADM) { MODO_ADM = true; return trocarEmpresa(EMP && EMP !== TODAS ? EMP : $('#sel-adm').value || TODAS); }
-      MODO_ADM = false; trocarEmpresa(sel.value); };
+      MODO_ADM = false;
+      // a empresa nao tem as telas de administracao: vai para o painel
+      if (['acessos', 'categorias', 'naturezas', 'unidades', 'identidade', 'sharepoint'].includes((location.hash.slice(1) || 'painel').split(/[/?]/)[0])) history.replaceState(null, '', '#painel');
+      trocarEmpresa(sel.value); };
     $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdminReal() ? 'Administrador Sinergia' : '';
     await trocarEmpresa(e.slug);
   } catch (err) {
@@ -714,7 +748,33 @@ function aplicarIdentidade(){
   $('#side-brand').innerHTML = cfg ? `${marca}<div style="min-width:0"><strong class="emp">${esc(nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`
     : `${marca}<div><strong>SINERGIA</strong><small>Gestão de Contratos${EMP && !consolidado() && EMPRESAS.length > 1 ? ' · ' + esc(nomeEmpresa(EMP)) : consolidado() ? ' · todas as empresas' : ''}</small></div>`;
   document.title = `Contratos · ${consolidado() ? 'Sinergia' : nome}`;
+  document.body.classList.toggle('menu-claro', !!cfg && cfg.menu_estilo === 'claro');
+  document.body.classList.toggle('menu-marca', !!cfg && cfg.menu_estilo === 'marca' && !!cfg.cor);
+  $('#favicon').href = cfg && cfg.logo ? cfg.logo : '../favicon.svg';
+  aplicarTema(cfg);
 }
+// tema: o que a pessoa escolheu em Meu perfil vale mais que o padrao da empresa
+function temaPessoa(){ try { return localStorage.getItem('ctr-tema') || ''; } catch (_) { return ''; } }
+function aplicarTema(cfg){
+  const t = temaPessoa() || (cfg && cfg.tema) || 'auto';
+  if (t === 'claro') document.documentElement.setAttribute('data-theme', 'light');
+  else if (t === 'escuro') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+}
+// link proprio da empresa (?e=millena): tela de entrada com nome, logo e cor dela
+async function marcaDoLink(){
+  const slug = new URLSearchParams(location.search).get('e'); if (!slug) return;
+  try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
+  const { data } = await sb.rpc('ctr_marca_publica', { p_empresa: slug }); const m = data && data[0]; if (!m) return;
+  const marca = m.logo ? `<div class="brand-logo ${m.logo_fundo ? 'fundo' : ''}"><img src="${esc(m.logo)}" alt="${esc(m.nome)}"></div>` : `<div class="brand-mark">${esc(iniciais(m.nome).slice(0, 1))}</div>`;
+  $('#login-brand').innerHTML = `${marca}<div style="min-width:0"><strong class="emp">${esc(m.nome)}</strong><small>Gestão de Contratos · Sinergia</small></div>`;
+  $('#login-hero-marca').textContent = String(m.nome).toUpperCase();
+  if (m.cor) { const r = document.documentElement.style; r.setProperty('--acc', m.cor); r.setProperty('--acc-fg', corLegivel(m.cor).fg); r.setProperty('--acc-soft', `color-mix(in srgb, ${m.cor} 14%, var(--surface))`); }
+  if (m.logo) $('#favicon').href = m.logo;
+  document.title = `Contratos · ${m.nome}`;
+}
+marcaDoLink(); aplicarTema(null);
+
 // ═════════ Ver como usuário (admin confere o que cada pessoa da empresa enxerga) ═════════
 async function montarVerComo(){
   const box = $('#box-ver'), sel = $('#sel-ver');
@@ -850,7 +910,7 @@ function nav(){
   const it = (id, ic, t, extra = '') => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}${t}${extra}</a>`;
   let s = it('painel', 'dash', 'Painel', alertas ? `<span class="count">${alertas}</span>` : '') + it('contratos', 'list', 'Contratos');
   if (NIVEL_EMP >= 3 && !consolidado()) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
-  if (ehAdmin()) s += `<div class="grp">Administração · só Sinergia</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('naturezas', 'list', 'Naturezas do ERP') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Identidade da empresa')) + it('sharepoint', 'cloud', 'SharePoint');
+  if (ehAdmin()) s += `<div class="grp">Administração · só Sinergia</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('naturezas', 'list', 'Naturezas do ERP') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Personalização')) + it('sharepoint', 'cloud', 'SharePoint');
   $('#nav').innerHTML = s;
   const tb = (id, ic, t) => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}<span>${t}</span></a>`;
   $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 && !consolidado() ? tb('novo', 'plus', 'Novo') : '')
@@ -866,8 +926,8 @@ function render(){
   const raw = location.hash.slice(1) || 'painel';
   const [path, q] = raw.split('?'); const [r, arg] = path.split('/');
   const telas = { painel: vPainel, contratos: () => vLista(q), contrato: () => vContrato(Number(arg)), novo: vNovo, importar: vImportar,
-    acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, identidade: vIdentidade, naturezas: vNaturezas, sharepoint: vSharePoint };
-  const soEmpresa = { novo: 'Novo contrato', importar: 'Importar planilha', acessos: 'Acessos', categorias: 'Categorias', naturezas: 'Naturezas do ERP', unidades: tUs(), identidade: 'Identidade da empresa' };
+    acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, identidade: vIdentidade, naturezas: vNaturezas, sharepoint: vSharePoint, perfil: vPerfil };
+  const soEmpresa = { novo: 'Novo contrato', importar: 'Importar planilha', acessos: 'Acessos', categorias: 'Categorias', naturezas: 'Naturezas do ERP', unidades: tUs(), identidade: 'Personalização' };
   $('#main').innerHTML = barraModo() + (consolidado() && soEmpresa[r] ? escolhaEmpresa(soEmpresa[r]) : (telas[r] || vPainel)());
   nav(); $('#side').classList.remove('open'); document.body.classList.remove('menu-aberto');
   const depois = render._depois; render._depois = null; if (depois) depois();
@@ -1733,6 +1793,7 @@ function vIdentidade(){
     const cor = $('#id-cor').value, nome = $('#id-nome').value.trim() || nomeEmpresa(EMP), lg = corLegivel(cor);
     $('#id-hex').value = cor;
     $('#id-prev').style.setProperty('--pc', cor); $('#id-prev').style.setProperty('--pcf', lg.fg);
+    $('#id-prev').dataset.menu = ($('[name=id-menu]:checked') || {}).value || 'escuro';
     $('#id-prev-marca').innerHTML = logo ? `<div class="brand-logo ${$('#id-fundo').checked ? 'fundo' : ''}"><img src="${esc(logo)}" alt=""></div>` : `<div class="brand-mark" style="background:${cor};color:${lg.fg}">${esc(iniciais(nome).slice(0, 1))}</div>`;
     $('#id-prev-nome').textContent = nome;
     $('#id-aviso').innerHTML = lg.contrasteBranco < 3 ? '<div class="msg" style="background:var(--warn-soft);color:var(--warn)">Cor clara demais: textos e links nessa cor ficam difíceis de ler sobre o fundo branco. Prefira um tom mais escuro.</div>' : '';
@@ -1741,6 +1802,8 @@ function vIdentidade(){
   };
   depois(() => {
     ['#id-cor', '#id-nome', '#id-fundo', '#id-termo'].forEach(s => $(s).addEventListener('input', preview));
+    $$('[name=id-menu]').forEach(x => x.addEventListener('change', preview));
+    $('#id-copiar').onclick = async () => { try { await navigator.clipboard.writeText($('#id-link').value); toast('Link copiado.'); } catch (_) { $('#id-link').select(); toast('Selecionei o link: aperte Ctrl+C.'); } };
     $('#id-hex').addEventListener('change', () => { if (/^#[0-9a-f]{6}$/i.test($('#id-hex').value)) { $('#id-cor').value = $('#id-hex').value; preview(); } });
     $('#id-logo').addEventListener('change', async () => {
       const f = $('#id-logo').files[0]; $('#id-logo').value = ''; if (!f) return;
@@ -1754,17 +1817,19 @@ function vIdentidade(){
     $('#id-salvar').onclick = async () => {
       const t1 = $('#id-t1').value.trim(), t2 = $('#id-t2').value.trim();
       if (t1.length < 2 || t2.length < 2) { msgEm('#id-msg', 'Preencha como a empresa chama a unidade (singular e plural).'); return; }
-      const dados = { empresa: EMP, nome_exibicao: $('#id-nome').value.trim() || null, cor: $('#id-cor').value, logo, logo_fundo: $('#id-fundo').checked, termo_unidade: t1, termo_unidades: t2, alterado_em: new Date().toISOString() };
+      const dados = { ...(cfgDe(EMP) || {}), empresa: EMP, nome_exibicao: $('#id-nome').value.trim() || null, cor: $('#id-cor').value, logo, logo_fundo: $('#id-fundo').checked, termo_unidade: t1, termo_unidades: t2,
+        menu_estilo: $('[name=id-menu]:checked').value, tema: $('#id-tema').value, alterado_em: new Date().toISOString() };
       $('#id-salvar').disabled = true;
       const r = await db('ctr_config').upsert(dados, { onConflict: 'empresa' });
       $('#id-salvar').disabled = false;
       if (r.error) { msgEm('#id-msg', erroTxt(r.error)); return; }
-      CFGS.set(EMP, dados); aplicarIdentidade(); render(); toast('Identidade salva. É assim que a empresa vê o sistema.');
+      CFGS.set(EMP, dados); aplicarIdentidade(); render(); toast('Personalização salva. É assim que a empresa vê o sistema.');
     };
     preview();
   });
   const termoAtual = `${cfg.termo_unidade || 'Unidade'}|${cfg.termo_unidades || 'Unidades'}`, ehPreset = TERMOS.some(x => x.join('|') === termoAtual);
-  return topo('Identidade da empresa', `Como ${esc(nomeEmpresa(EMP))} vê o sistema: logo, cor e os nomes que ela usa. A gestão continua sendo da Sinergia.`)
+  const menuAtual = cfg.menu_estilo || 'escuro', link = location.origin + location.pathname + '?e=' + encodeURIComponent(EMP);
+  return topo('Personalização', `Como ${esc(nomeEmpresa(EMP))} vê o sistema: logo, cores, menu, tema e os nomes que ela usa. Quem altera é sempre a Sinergia.`)
     + `<div class="detail"><div class="card"><div class="card-b" style="display:grid;gap:14px">
       <div class="grid2">
         <div class="field"><label for="id-nome">Nome que aparece</label><input class="in" id="id-nome" value="${esc(cfg.nome_exibicao || '')}" maxlength="60" placeholder="${esc(nomeEmpresa(EMP))}"></div>
@@ -1776,14 +1841,48 @@ function vIdentidade(){
       <div class="field"><label for="id-termo">Como a empresa chama as unidades</label><select class="in" id="id-termo">${TERMOS.map(x => `<option value="${esc(x.join('|'))}" ${x.join('|') === termoAtual ? 'selected' : ''}>${esc(x[0])} / ${esc(x[1])}</option>`).join('')}<option value="outro" ${ehPreset ? '' : 'selected'}>Outro nome…</option></select>
         <div class="grid2" id="id-outro" hidden><input class="in" id="id-t1" value="${esc(cfg.termo_unidade || 'Unidade')}" placeholder="Singular (ex.: Filial)" maxlength="30"><input class="in" id="id-t2" value="${esc(cfg.termo_unidades || 'Unidades')}" placeholder="Plural (ex.: Filiais)" maxlength="30"></div>
         <span class="hint">Aparece no menu, nos filtros, nos acessos e na planilha modelo.</span></div>
+      <div class="field"><label>Cor do menu lateral</label><div class="chips">${[['escuro', 'Escuro (padrão)'], ['claro', 'Claro'], ['marca', 'Na cor da marca']].map(([v, l]) => `<label><input type="radio" name="id-menu" value="${v}" ${menuAtual === v ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+        <span class="hint">Com menu claro, prefira logo escura. Com menu na cor da marca, prefira logo branca.</span></div>
+      <div class="field"><label for="id-tema">Tema padrão</label><select class="in" id="id-tema">${[['auto', 'Automático (segue o celular ou computador)'], ['claro', 'Sempre claro'], ['escuro', 'Sempre escuro']].map(([v, l]) => `<option value="${v}" ${(cfg.tema || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <span class="hint">Cada pessoa pode trocar só para ela em Meu perfil (clicando no próprio nome, no menu).</span></div>
+      <div class="field"><label for="id-link">Link de entrada da empresa</label><div style="display:flex;gap:8px"><input class="in mono" id="id-link" value="${esc(link)}" readonly><button class="btn" type="button" id="id-copiar">Copiar</button></div>
+        <span class="hint">Mande este link para a equipe da empresa: a tela de entrada já abre com a logo e a cor dela.</span></div>
       <div id="id-aviso"></div><div id="id-msg"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="id-salvar">Salvar identidade</button>${cfgDe(EMP) ? '<button class="btn" id="id-padrao">Voltar ao padrão Sinergia</button>' : '<span id="id-padrao" hidden></span>'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="id-salvar">Salvar personalização</button>${cfgDe(EMP) ? '<button class="btn" id="id-padrao">Voltar ao padrão Sinergia</button>' : '<span id="id-padrao" hidden></span>'}</div>
     </div></div>
     <div class="stack"><div class="card"><div class="card-h"><h2>Prévia</h2></div><div class="card-b"><div class="prev" id="id-prev">
       <div class="prev-side"><div class="brand"><span id="id-prev-marca"></span><div style="min-width:0"><strong class="emp" id="id-prev-nome"></strong><small>Gestão de Contratos · Sinergia</small></div></div><div class="prev-item">Painel</div><div class="prev-item">Contratos</div></div>
       <div class="prev-main"><span class="prev-btn">+ Novo contrato</span><span class="prev-pill">Prazo de aviso</span></div>
     </div></div></div>
-    <div class="note">A tela de entrada continua com a marca da Sinergia, porque antes do login o sistema ainda não sabe de qual empresa é a pessoa. Na visão <b>Todas as empresas</b> também vale a identidade da Sinergia.</div></div></div>`;
+    <div class="note">A logo também vira o ícone da aba do navegador e do atalho no celular. Pelo endereço normal (sem o link da empresa), a tela de entrada fica com a marca da Sinergia. Na administração e em <b>Todas as empresas</b> vale sempre a identidade da Sinergia.</div></div></div>`;
+}
+// ═════════ Meu perfil (cada pessoa) ═════════
+function vPerfil(){
+  depois(() => {
+    $('#pf-tema').onchange = () => { try { localStorage.setItem('ctr-tema', $('#pf-tema').value); } catch (_) {} aplicarTema(consolidado() || (ehAdminReal() && MODO_ADM) ? null : cfgDe(EMP)); toast('Tema alterado neste aparelho.'); };
+    $('#pf-senha').onclick = async () => {
+      const a = $('#pf-s1').value, b = $('#pf-s2').value;
+      if (a.length < 8) { msgEm('#pf-msg', 'A senha precisa ter pelo menos 8 caracteres.'); return; }
+      if (a !== b) { msgEm('#pf-msg', 'As duas senhas não são iguais.'); return; }
+      $('#pf-senha').disabled = true; const { error } = await sb.auth.updateUser({ password: a }); $('#pf-senha').disabled = false;
+      if (error) { msgEm('#pf-msg', erroTxt(error)); return; }
+      $('#pf-s1').value = $('#pf-s2').value = ''; msgEm('#pf-msg', 'Senha alterada.', 'ok');
+    };
+  });
+  const papel = ehAdminReal() ? 'Administrador Sinergia' : LV[NIVEL_EMP];
+  return topo('Meu perfil', 'O que você pode ajustar só para você.')
+    + `<div class="detail"><div class="stack">
+      <div class="card"><div class="card-b" style="display:flex;gap:14px;align-items:center"><div class="avatar avatar-lg">${esc(iniciais(PERFIL.nome))}</div><div style="min-width:0"><div class="t" style="font-size:16px">${esc(PERFIL.nome)}</div><div class="muted small">${esc(PERFIL.email)} · ${esc(papel)}</div></div></div></div>
+      <div class="card"><div class="card-h"><h2>Aparência</h2></div><div class="card-b" style="display:grid;gap:10px">
+        <div class="field"><label for="pf-tema">Tema</label><select class="in" id="pf-tema">${[['', 'Padrão da empresa'], ['auto', 'Automático (segue o aparelho)'], ['claro', 'Sempre claro'], ['escuro', 'Sempre escuro']].map(([v, l]) => `<option value="${v}" ${temaPessoa() === v ? 'selected' : ''}>${l}</option>`).join('')}</select><span class="hint">Vale só neste aparelho.</span></div>
+      </div></div>
+      <div class="card"><div class="card-h"><h2>Trocar senha</h2></div><div class="card-b" style="display:grid;gap:10px">
+        <div class="grid2"><div class="field"><label for="pf-s1">Nova senha</label><input class="in" id="pf-s1" type="password" minlength="8" autocomplete="new-password"></div>
+        <div class="field"><label for="pf-s2">Repita a nova senha</label><input class="in" id="pf-s2" type="password" minlength="8" autocomplete="new-password"></div></div>
+        <div><button class="btn pri" id="pf-senha">Salvar nova senha</button></div><div id="pf-msg"></div>
+        <span class="hint">É a mesma senha do portal da Sinergia.</span></div></div>
+    </div>
+    <div class="stack"><div class="note">Logo, cores e nomes da empresa são definidos pela Sinergia${ehAdmin() ? ', em <a href="#identidade">Personalização</a>' : ''}. Para mudar seu nome ou e-mail, fale com o administrador da Sinergia.</div></div></div>`;
 }
 function reduzirImagem(f, maxW, maxH){
   return new Promise((ok, falha) => { const img = new Image(), url = URL.createObjectURL(f);

@@ -135,6 +135,11 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   e como a empresa chama as unidades (`termo_unidade`/`termo_unidades`, ex.: Filial/Filiais). Os usuários
   da empresa sempre veem a identidade dela; sem linha = Sinergia. Login e visão consolidada = Sinergia.
   Use `tU()`, `tUs()`, `tu()`, `tus()` em vez de escrever "Unidade" nas telas.
+  Tela **Personalização** (admin): também cor do menu (`menu_estilo`: escuro, claro, marca), tema padrão
+  (`tema`: auto, claro, escuro) e o **link de entrada da empresa** `.../contratos/?e=<slug>`, que mostra nome,
+  logo e cor na tela de login (função pública `ctr_marca_publica`, só esses três dados). A logo vira o ícone da
+  aba. **Meu perfil** (`#perfil`, clicando no próprio nome): tema só para a pessoa (localStorage `ctr-tema`,
+  vale mais que o da empresa) e troca de senha.
 - **Naturezas do ERP** (`ctr_naturezas`; a Millena Móveis usa o ERP **Xadrex**): o admin importa o cadastro de
   naturezas (Admin → Naturezas do ERP; "#" no começo = desativada, opção ligada por padrão) e revisa a
   sugestão automática (`sugerirCategoria`): quais têm contrato e a qual categoria cada uma se liga.

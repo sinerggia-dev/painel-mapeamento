@@ -119,9 +119,24 @@ create table if not exists public.ctr_config (
   termo_unidade  text not null default 'Unidade'  check (length(trim(termo_unidade)) between 2 and 30),
   termo_unidades text not null default 'Unidades' check (length(trim(termo_unidades)) between 2 and 30),
   usa_natureza   boolean not null default false,       -- cadastro pela natureza do ERP da empresa (ver ctr_naturezas)
+  menu_estilo    text not null default 'escuro' check (menu_estilo in ('escuro','claro','marca')),
+  tema           text not null default 'auto'   check (tema in ('auto','claro','escuro')),
   alterado_em    timestamptz not null default now()
 );
 alter table public.ctr_config add column if not exists usa_natureza boolean not null default false;
+alter table public.ctr_config add column if not exists menu_estilo text not null default 'escuro' check (menu_estilo in ('escuro','claro','marca'));
+alter table public.ctr_config add column if not exists tema text not null default 'auto' check (tema in ('auto','claro','escuro'));
+
+-- tela de entrada personalizada (link .../contratos/?e=<empresa>): so nome, logo e cor, antes do login
+create or replace function public.ctr_marca_publica(p_empresa text)
+returns table (nome text, logo text, cor text, logo_fundo boolean)
+language sql stable security definer set search_path = public as $$
+  select coalesce(c.nome_exibicao, e.nome), c.logo, c.cor, c.logo_fundo
+    from ctr_config c join empresas e on e.slug = c.empresa
+   where c.empresa = p_empresa and e.ativo;
+$$;
+revoke all on function public.ctr_marca_publica(text) from public;
+grant execute on function public.ctr_marca_publica(text) to anon, authenticated;
 
 -- ── Naturezas do ERP da empresa (ex.: Xadrex da Millena Moveis), importadas pelo admin ──
 -- A empresa cadastra pela natureza (o padrao dela); cada natureza fica ligada a uma categoria da
