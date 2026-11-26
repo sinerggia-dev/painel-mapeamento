@@ -172,5 +172,14 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   anotar a data e renovar antes.
 - Teste local: Postgres 16 com stub de `auth.uid()` para o SQL; Playwright com Supabase simulado
   (dados inventados) para as telas. O protótipo é o `index.html` com o Supabase simulado no lugar.
+- **Reajuste e linha do tempo**: regra no contrato (`reajuste` = índice, `mes_reajuste`, `reajuste_teto`,
+  `reajuste_negativo` mantém/reduz, `reajuste_percentual` para "Percentual fixo", `reajuste_substituto`).
+  `proximoReajuste()` acha a data-base devida (12 meses depois do início, depois todo ano no mês do reajuste, no
+  dia do início). `calcularReajuste()` usa os 12 meses de índice ANTES do mês da data-base (Edge Function, ação
+  `indice`: Banco Central SGS 433 IPCA, 189 IGP-M, 188 INPC), aplica regra do negativo e teto e mostra o % com
+  4 casas (o mesmo usado na conta). Convenção coletiva/Outro: % digitado. Registrar grava em `ctr_alteracoes`
+  (imutável), e o gatilho atualiza valor/vencimento do contrato e o histórico. "Registrar aditivo": valor, prazo,
+  renovação, com o documento ligado. Painel tem o cartão "Reajustes"; lista tem o filtro "Reajuste devido".
+  **A consulta ao Banco Central não pôde ser testada daqui (rede bloqueada): conferir na instalação.**
 - Ainda não feito: e-mail de aviso de vencimento, backup diário do banco para o SharePoint,
-  reajuste calculado pelo IPCA/IGP-M do Banco Central, conferência contrato × pagamento.
+  conferência contrato × pagamento.

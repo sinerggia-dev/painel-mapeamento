@@ -51,7 +51,7 @@ create table if not exists public.ctr_categorias (
   grupo      text not null references public.ctr_grupos(codigo) on update cascade,
   nome       text not null check (length(trim(nome)) between 2 and 80),
   aviso_dias integer not null default 30 check (aviso_dias between 0 and 3650),
-  reajuste   text check (reajuste in ('IPCA','IGP-M','INPC','Convenção coletiva','Fixo','Outro')),
+  reajuste   text check (reajuste in ('IPCA','IGP-M','INPC','Percentual fixo','Convenção coletiva','Fixo','Outro')),
   documentos text[] not null default '{}',
   dica       text,
   ativo      boolean not null default true
@@ -193,8 +193,12 @@ create table if not exists public.ctr_contratos (
   inicio               date,
   fim                  date,                             -- vazio = prazo indeterminado
   aviso_dias           integer not null default 30 check (aviso_dias between 0 and 3650),
-  reajuste             text check (reajuste in ('IPCA','IGP-M','INPC','Convenção coletiva','Fixo','Outro')),
+  reajuste             text check (reajuste in ('IPCA','IGP-M','INPC','Percentual fixo','Convenção coletiva','Fixo','Outro')),
   mes_reajuste         smallint check (mes_reajuste between 1 and 12),
+  reajuste_teto        numeric(6,2) check (reajuste_teto is null or reajuste_teto >= 0),          -- % maximo por reajuste
+  reajuste_negativo    text not null default 'mantem' check (reajuste_negativo in ('mantem','reduz')), -- indice negativo
+  reajuste_percentual  numeric(6,2) check (reajuste_percentual is null or reajuste_percentual >= 0), -- "Percentual fixo"
+  reajuste_substituto  text check (reajuste_substituto in ('IPCA','IGP-M','INPC')),            -- se o indice acabar
   renovacao_automatica boolean not null default false,
   responsavel          uuid references public.perfis(id) on delete set null,
   confidencial         boolean not null default false,
@@ -208,6 +212,11 @@ create table if not exists public.ctr_contratos (
   foreign key (empresa, unidade) references public.ctr_unidades(empresa, codigo) on update cascade
 );
 create index if not exists ctr_contratos_empresa on public.ctr_contratos (empresa, fim);
+alter table public.ctr_contratos add column if not exists reajuste_teto numeric(6,2);
+alter table public.ctr_contratos add column if not exists reajuste_negativo text not null default 'mantem';
+alter table public.ctr_contratos add column if not exists reajuste_percentual numeric(6,2);
+alter table public.ctr_contratos add column if not exists reajuste_substituto text;
+
 create index if not exists ctr_contratos_categoria on public.ctr_contratos (categoria);
 
 create table if not exists public.ctr_liberados (
@@ -234,6 +243,27 @@ create table if not exists public.ctr_documentos (
 );
 create index if not exists ctr_documentos_contrato on public.ctr_documentos (contrato);
 create unique index if not exists ctr_documentos_sp_item on public.ctr_documentos (sp_item);
+
+-- ── Linha do tempo do contrato: reajustes e aditivos (so recebe linhas novas; corrigir = lancar outra) ──
+-- Ao gravar, o contrato passa a ter o valor e o vencimento novos; o anterior fica guardado aqui.
+create table if not exists public.ctr_alteracoes (
+  id           bigint generated always as identity primary key,
+  contrato     bigint not null references public.ctr_contratos(id) on delete cascade,
+  tipo         text   not null check (tipo in ('reajuste','aditivo_valor','aditivo_prazo','renovacao','outro')),
+  vigencia     date   not null,                      -- a partir de quando vale
+  valor_antes  numeric(14,2), valor_depois numeric(14,2),
+  fim_antes    date,          fim_depois   date,
+  indice       text,                                 -- reajuste: indice usado
+  percentual   numeric(8,4),                         -- reajuste: % aplicado (depois de teto e regra do negativo)
+  acumulado    numeric(8,4),                         -- reajuste: % acumulado do indice no periodo
+  periodo_ini  date, periodo_fim date,               -- reajuste: meses do indice (12 meses antes da data-base)
+  documento    bigint references public.ctr_documentos(id) on delete set null,
+  observacao   text check (observacao is null or length(observacao) <= 1000),
+  criado_por   uuid references public.perfis(id) on delete set null,
+  criado_em    timestamptz not null default now(),
+  check (valor_depois is null or valor_depois >= 0)
+);
+create index if not exists ctr_alteracoes_contrato on public.ctr_alteracoes (contrato, vigencia);
 
 -- Historico: so recebe linhas novas; ninguem altera nem apaga
 create table if not exists public.ctr_historico (
@@ -367,6 +397,7 @@ begin
   velho := to_jsonb(old);
   foreach k in array array['titulo','fornecedor_nome','fornecedor_doc','fornecedor_codigo','unidade','categoria',
                            'natureza_cliente','valor_mensal','inicio','fim','aviso_dias','reajuste','mes_reajuste',
+                           'reajuste_teto','reajuste_negativo','reajuste_percentual','reajuste_substituto',
                            'renovacao_automatica','responsavel','confidencial','situacao','observacao'] loop
     if novo -> k is distinct from velho -> k then
       mud := mud || case when mud = '' then '' else '; ' end || k || ': '
@@ -409,11 +440,55 @@ drop trigger if exists ctr_naturezas_depois on public.ctr_naturezas;
 create trigger ctr_naturezas_depois after update on public.ctr_naturezas
   for each row execute function public._ctr_naturezas_depois();
 
+-- alteracao gravada: quem lancou, e o contrato passa a ter o valor/vencimento novos (com historico)
+create or replace function public._ctr_alteracoes_antes() returns trigger
+language plpgsql set search_path = public as $$
+declare c public.ctr_contratos;
+begin
+  select * into c from ctr_contratos where id = new.contrato;
+  new.criado_por := coalesce(auth.uid(), new.criado_por);
+  new.criado_em  := clock_timestamp();
+  new.valor_antes := c.valor_mensal;
+  new.fim_antes   := c.fim;
+  if new.tipo = 'reajuste' and (new.valor_depois is null or new.percentual is null) then
+    raise exception 'reajuste precisa do percentual e do valor novo';
+  end if;
+  if new.documento is not null and not exists (select 1 from ctr_documentos d where d.id = new.documento and d.contrato = new.contrato) then
+    raise exception 'documento de outro contrato';
+  end if;
+  return new;
+end $$;
+drop trigger if exists ctr_alteracoes_antes on public.ctr_alteracoes;
+create trigger ctr_alteracoes_antes before insert on public.ctr_alteracoes
+  for each row execute function public._ctr_alteracoes_antes();
+
+create or replace function public._ctr_alteracoes_depois() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update ctr_contratos set
+    valor_mensal = coalesce(new.valor_depois, valor_mensal),
+    fim          = coalesce(new.fim_depois, fim)
+   where id = new.contrato;
+  insert into ctr_historico (contrato, empresa, usuario, acao, detalhe)
+  select new.contrato, c.empresa, auth.uid(),
+         case new.tipo when 'reajuste' then 'reajuste registrado' when 'aditivo_valor' then 'aditivo de valor'
+              when 'aditivo_prazo' then 'aditivo de prazo' when 'renovacao' then 'renovação' else 'alteração registrada' end,
+         concat_ws(' · ', 'vale a partir de ' || to_char(new.vigencia, 'DD/MM/YYYY'),
+                   case when new.percentual is not null then coalesce(new.indice, '') || ' ' || replace(to_char(new.percentual, 'FM990.00'), '.', ',') || '%' end,
+                   case when new.valor_depois is not null then 'valor ' || coalesce(new.valor_antes::text, '—') || ' → ' || new.valor_depois end,
+                   case when new.fim_depois is not null then 'vencimento ' || coalesce(to_char(new.fim_antes, 'DD/MM/YYYY'), '—') || ' → ' || to_char(new.fim_depois, 'DD/MM/YYYY') end)
+    from ctr_contratos c where c.id = new.contrato;
+  return null;
+end $$;
+drop trigger if exists ctr_alteracoes_depois on public.ctr_alteracoes;
+create trigger ctr_alteracoes_depois after insert on public.ctr_alteracoes
+  for each row execute function public._ctr_alteracoes_depois();
+
 -- historico e documentos nao podem ser alterados nem apagados (nem pela chave secreta)
 create or replace function public._ctr_imutavel() returns trigger
 language plpgsql as $$
 begin
-  if tg_op = 'DELETE' and tg_table_name = 'ctr_historico'
+  if tg_op = 'DELETE' and tg_table_name in ('ctr_historico', 'ctr_alteracoes')
      and not exists (select 1 from public.ctr_contratos where id = old.contrato) then
     return old;   -- deixa apagar so quando o proprio contrato foi apagado (cascade)
   end if;
@@ -421,6 +496,9 @@ begin
 end $$;
 drop trigger if exists ctr_historico_imutavel on public.ctr_historico;
 create trigger ctr_historico_imutavel before update or delete on public.ctr_historico
+  for each row execute function public._ctr_imutavel();
+drop trigger if exists ctr_alteracoes_imutavel on public.ctr_alteracoes;
+create trigger ctr_alteracoes_imutavel before update or delete on public.ctr_alteracoes
   for each row execute function public._ctr_imutavel();
 drop trigger if exists ctr_documentos_imutavel on public.ctr_documentos;
 create trigger ctr_documentos_imutavel before update or delete on public.ctr_documentos
@@ -433,6 +511,7 @@ alter table public.ctr_unidades     enable row level security;
 alter table public.ctr_config       enable row level security;
 alter table public.ctr_naturezas    enable row level security;
 alter table public.ctr_contatos     enable row level security;
+alter table public.ctr_alteracoes   enable row level security;
 alter table public.ctr_acessos      enable row level security;
 alter table public.ctr_contratos    enable row level security;
 alter table public.ctr_liberados    enable row level security;
@@ -440,12 +519,15 @@ alter table public.ctr_documentos   enable row level security;
 alter table public.ctr_historico    enable row level security;
 
 revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos, public.ctr_acessos,
-              public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico from anon;
+              public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico, public.ctr_alteracoes from anon;
 grant select on public.ctr_grupos to authenticated;
 revoke insert, update, delete on public.ctr_grupos from authenticated;
 grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos,
               public.ctr_acessos, public.ctr_contratos, public.ctr_liberados to authenticated;
 grant select on public.ctr_documentos, public.ctr_historico to authenticated;
+grant select, insert on public.ctr_alteracoes to authenticated;
+revoke update, delete on public.ctr_alteracoes from authenticated;
+grant select on public.ctr_alteracoes to service_role;
 revoke insert, update, delete on public.ctr_documentos, public.ctr_historico from authenticated;
 grant select, insert on public.ctr_documentos, public.ctr_historico to service_role;
 grant select on public.ctr_contratos, public.ctr_categorias, public.ctr_grupos, public.ctr_naturezas, public.ctr_acessos,
@@ -510,6 +592,11 @@ create policy ctr_contratos_apagar on public.ctr_contratos for delete to authent
 drop policy if exists ctr_documentos_ver on public.ctr_documentos;
 create policy ctr_documentos_ver on public.ctr_documentos for select to authenticated
   using (public.ctr_nivel_contrato(contrato) >= 1);
+
+drop policy if exists ctr_alteracoes_ver   on public.ctr_alteracoes;
+drop policy if exists ctr_alteracoes_criar on public.ctr_alteracoes;
+create policy ctr_alteracoes_ver   on public.ctr_alteracoes for select to authenticated using (public.ctr_nivel_contrato(contrato) >= 1);
+create policy ctr_alteracoes_criar on public.ctr_alteracoes for insert to authenticated with check (public.ctr_nivel_contrato(contrato) >= 3);
 
 drop policy if exists ctr_historico_ver on public.ctr_historico;
 create policy ctr_historico_ver on public.ctr_historico for select to authenticated

@@ -12,7 +12,8 @@
 //   1) descobre quem e o usuario pelo login dele;
 //   2) pergunta ao banco o nivel dele naquele contrato (mesma regra das telas);
 //   3) so entao fala com o SharePoint.
-// Acoes: iniciar (envio), registrar (envio terminou), ver, baixar, testar (so admin).
+// Acoes: iniciar (envio), registrar (envio terminou), ver, baixar, testar (so admin),
+//        indice (IPCA, IGP-M e INPC mensais do Banco Central, para o calculo do reajuste).
 // ════════════════════════════════════════════════════════════════════════
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -257,6 +258,28 @@ Deno.serve(async (req) => {
       if (!url) throw new Falha(502, "O SharePoint não devolveu o link do arquivo.");
       await historico(db, doc.contrato, c?.empresa ?? "", uid, acao === "baixar" ? "arquivo baixado" : "arquivo visualizado", doc.nome);
       return resposta({ url, nome: doc.nome });
+    }
+
+    // indices de reajuste do Banco Central (SGS): variacao mensal em %, do mes "de" ao mes "ate" (AAAA-MM)
+    if (acao === "indice") {
+      const SERIES: Record<string, number> = { "IPCA": 433, "IGP-M": 189, "INPC": 188 };
+      const indice = String(p.indice ?? ""), serie = SERIES[indice];
+      const de = String(p.de ?? ""), ate = String(p.ate ?? "");
+      if (!serie) throw new Falha(400, "Índice desconhecido.");
+      if (!/^\d{4}-\d{2}$/.test(de) || !/^\d{4}-\d{2}$/.test(ate) || de > ate) throw new Falha(400, "Período inválido.");
+      const [ay, am] = de.split("-"), [by, bm] = ate.split("-");
+      const ultimoDia = new Date(Date.UTC(Number(by), Number(bm), 0)).getUTCDate();
+      const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados?formato=json&dataInicial=01/${am}/${ay}&dataFinal=${ultimoDia}/${bm}/${by}`;
+      let r: Response;
+      try { r = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Accept: "application/json" } }); }
+      catch (_) { throw new Falha(502, "O Banco Central não respondeu. Tente de novo em alguns minutos."); }
+      if (r.status === 404) return resposta({ indice, meses: [] });   // periodo ainda sem dados
+      if (!r.ok) throw new Falha(502, `O Banco Central respondeu com erro (${r.status}). Tente de novo mais tarde.`);
+      const j = await r.json().catch(() => []);
+      const meses = (Array.isArray(j) ? j : []).map((x: { data: string; valor: string }) => ({
+        mes: `${String(x.data).slice(6, 10)}-${String(x.data).slice(3, 5)}`, valor: Number(String(x.valor).replace(",", ".")),
+      })).filter((x: { mes: string; valor: number }) => x.mes >= de && x.mes <= ate && isFinite(x.valor));
+      return resposta({ indice, meses });
     }
 
     throw new Falha(400, "Ação desconhecida.");

@@ -410,6 +410,20 @@ body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transpa
 .bg-res a:hover{background:var(--surface2)} .bg-res .t{font-weight:600} .bg-res .s{font-size:12px;color:var(--muted)}
 .bg-res a.todos{justify-content:center;color:var(--acc);font-weight:600;border-bottom:none} .bg-res .vazio{padding:14px;color:var(--muted);text-align:center}
 
+/* reajuste e linha do tempo */
+.rj-calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+.rj-res{display:grid;gap:6px;background:var(--surface2);border-radius:12px;padding:12px 14px;font-size:13.5px}
+.rj-res>div{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap} .rj-res span{color:var(--muted)}
+.rj-res .novo{border-top:1px solid var(--border);padding-top:8px;margin-top:2px} .rj-res .novo b{font-size:1.15rem;color:var(--acc)}
+.rj-res .nota{font-size:12px;color:var(--warn)}
+.rj-meses{display:grid;grid-template-columns:repeat(4,auto);gap:4px 14px;margin-top:8px;font-size:12.5px}
+.tlv{display:grid;padding:8px 18px 14px}
+.tl-i{display:grid;grid-template-columns:12px 1fr;gap:12px;padding:8px 0;position:relative}
+.tl-i::before{content:"";position:absolute;left:5px;top:22px;bottom:-8px;width:2px;background:var(--border)} .tl-i:last-of-type::before{display:none}
+.tl-i i{width:12px;height:12px;border-radius:50%;margin-top:5px;background:var(--muted)}
+.tl-i.reajuste i{background:var(--acc)} .tl-i.aditivo_valor i,.tl-i.aditivo_prazo i,.tl-i.renovacao i{background:var(--info)} .tl-i.ini i{background:var(--ok)}
+.tl-d{font-size:12px;color:var(--muted)} .tl-i .t{font-weight:600;font-size:13.5px} .tl-i .s{font-size:12.5px;color:var(--muted)}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -483,7 +497,9 @@ const tam = b => b > 1048576 ? (b/1048576).toFixed(1).replace('.',',') + ' MB' :
 const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const LV = ['Sem acesso','Ver','Ver e baixar','Editar e enviar'];
-const REAJUSTES = ['IPCA','IGP-M','INPC','Convenção coletiva','Fixo','Outro'];
+const REAJUSTES = ['IPCA','IGP-M','INPC','Percentual fixo','Convenção coletiva','Fixo','Outro'];
+const INDICES_BC = ['IPCA', 'IGP-M', 'INPC'];   // buscados no Banco Central
+const TIPOS_ALT = { reajuste: 'Reajuste', aditivo_valor: 'Aditivo de valor', aditivo_prazo: 'Aditivo de prazo', renovacao: 'Renovação', outro: 'Outra alteração' };
 // tipos de documento: v = tem data de validade (certidoes, alvaras, seguros...)
 const TIPOS_DOC = {
   'contrato-assinado': { t:'Contrato principal assinado' },
@@ -529,7 +545,7 @@ let PERFIL = null, EMPRESAS = [], EMP = null, NIVEL_EMP = 0;
 let CONTRATOS = [], CAT = new Map(), GRUPOS = [], UNI = new Map(), DOCS = new Map(), PESSOAS = [], MEU = null;
 // modos de visao do admin: TODAS = consolidado da Sinergia; SIM = "ver como" um usuario da empresa (so visualizacao)
 const TODAS = '*';
-let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [], NAT = new Map();
+let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [], NAT = new Map(), ALT = new Map();
 const consolidado = () => EMP === TODAS;
 const ADM = '__adm';
 let MODO_ADM = true;   // admin: true = administracao Sinergia; false = vendo como a empresa ve
@@ -744,14 +760,17 @@ async function recarregar(){
       && (!SIM.contratos.length || SIM.contratos.includes(k.id))
       && (!k.confidencial || k.criado_por === SIM.usuario || libs.has(k.id)));
   }
-  // documentos de cada contrato (so os que a pessoa pode ver): tipo e validade
-  DOCS = new Map();
+  // documentos e alteracoes (reajustes, aditivos) de cada contrato, so os que a pessoa pode ver
+  DOCS = new Map(); ALT = new Map();
   const ids = CONTRATOS.map(x => x.id);
   for (let i = 0; i < ids.length; i += 300) {
     const { data, error } = await db('ctr_documentos').select('contrato,categoria,validade,enviado_em').in('contrato', ids.slice(i, i + 300)).limit(20000);
     if (error) throw error;
     for (const d of data || []) { const a = DOCS.get(d.contrato) || []; a.push(d); DOCS.set(d.contrato, a); }
+    const al = await db('ctr_alteracoes').select('*').in('contrato', ids.slice(i, i + 300)).limit(20000);
+    if (!al.error) for (const x of al.data || []) { const a = ALT.get(x.contrato) || []; a.push(x); ALT.set(x.contrato, a); }
   }
+  for (const a of ALT.values()) a.sort((x, y) => x.vigencia.localeCompare(y.vigencia) || String(x.criado_em).localeCompare(String(y.criado_em)));
 }
 
 // ═════════ Identidade da empresa (logo, cor, nomes) ═════════
@@ -919,12 +938,59 @@ const podeCriar = () => NIVEL_EMP >= 3 && !consolidado() && !(MEU && MEU.contrat
 const podeUnidade = u => !MEU || !MEU.unidades.length || MEU.unidades.includes(u);
 const podeCategoria = id => { const k = CAT.get(id); return !MEU || !MEU.grupos.length || (k && MEU.grupos.includes(k.grupo)); };
 const nivelC = c => ehAdmin() ? 3 : NIVEL_EMP;   // o banco ja escondeu o que a pessoa nao pode ver
-function proxReajuste(c){
-  if (!c.mes_reajuste || !c.reajuste || c.reajuste === 'Fixo' || c.situacao === 'encerrado') return null;
-  const h = hojeD(); let a = h.getFullYear(); if (c.mes_reajuste - 1 < h.getMonth()) a++;
-  return `${MESES[c.mes_reajuste - 1]} de ${a}`;
-}
 const optCategorias = (sel, manter, emp = EMP) => GRUPOS.map(g => { const cs = catsOrdenadas(true, manter).filter(c => c.grupo === g.codigo && (!c.empresa || c.empresa === emp) && (podeCategoria(c.id) || c.id === manter)); return cs.length ? `<optgroup label="${esc(g.nome)}">${cs.map(c => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>` : ''; }).join('');
+
+// ═════════ Reajuste: data-base, calculo pelo indice acumulado e linha do tempo ═════════
+const r2 = v => Math.round(v * 100) / 100;
+const pct = (v, casas = 2) => v == null ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }) + '%';
+const pctX = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + '%';   // exato, como foi usado na conta
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const nomeMes = ym => { const [a, m] = ym.split('-').map(Number); return `${MESES[m - 1].slice(0, 3)}/${a}`; };
+const altsDe = c => ALT.get(c.id) || [];
+const ultimoReajuste = c => altsDe(c).filter(x => x.tipo === 'reajuste').pop() || null;
+const temReajuste = c => !!c.reajuste && c.reajuste !== 'Fixo' && !!(c.mes_reajuste || c.inicio);
+// data-base de um ano: mes do reajuste, no mesmo dia do inicio (ou dia 1)
+function dataBase(c, ano){ const m = (c.mes_reajuste || parse(c.inicio).getMonth() + 1) - 1, dia = c.inicio ? parse(c.inicio).getDate() : 1; const ult = new Date(ano, m + 1, 0).getDate(); return new Date(ano, m, Math.min(dia, ult)); }
+// proximo reajuste: o mais antigo ainda nao registrado (vencido = devido), senao o proximo do calendario
+function proximoReajuste(c){
+  if (!temReajuste(c) || c.situacao === 'encerrado') return null;
+  const h = hojeD(), ini = c.inicio ? parse(c.inicio) : null, ult = ultimoReajuste(c), desde = ult ? parse(ult.vigencia) : null;
+  const primeiro = ini ? new Date(ini.getFullYear() + 1, ini.getMonth(), ini.getDate()) : null;   // 1o reajuste: 12 meses depois do inicio
+  for (let ano = (desde ? desde.getFullYear() + 1 : ini ? ini.getFullYear() : h.getFullYear() - 1); ano <= h.getFullYear() + 1; ano++) {
+    const d = dataBase(c, ano);
+    if (primeiro && d < new Date(primeiro.getFullYear(), primeiro.getMonth(), 1)) continue;
+    if (desde && d <= desde) continue;
+    const n = Math.round((d - h) / 864e5);
+    return { data: ymd(d), dias: n, devido: n <= 0 };
+  }
+  return null;
+}
+const reajusteDevido = c => { const p = proximoReajuste(c); return !!p && p.devido; };
+// indices mensais do Banco Central (pelo servidor do sistema), do mes "de" ao mes "ate" (AAAA-MM)
+async function buscarIndice(indice, de, ate){ const r = await fn({ acao: 'indice', indice, de, ate }); return r.meses || []; }
+// calcula o reajuste de uma data-base: 12 meses de indice antes do mes da data-base
+async function calcularReajuste(c, data, manual){
+  const d = parse(data), fim = new Date(d.getFullYear(), d.getMonth() - 1, 1), ini = new Date(d.getFullYear(), d.getMonth() - 12, 1);
+  const de = ymd(ini).slice(0, 7), ate = ymd(fim).slice(0, 7), valor = Number(c.valor_mensal || 0);
+  let acumulado, indice = c.reajuste, meses = [], notas = [];
+  if (c.reajuste === 'Percentual fixo') { acumulado = Number(c.reajuste_percentual || 0); notas.push('percentual fixo do contrato'); }
+  else if (INDICES_BC.includes(c.reajuste)) {
+    meses = await buscarIndice(c.reajuste, de, ate);
+    if (meses.length < 12 && c.reajuste_substituto) { const s = await buscarIndice(c.reajuste_substituto, de, ate); if (s.length === 12) { meses = s; indice = c.reajuste_substituto; notas.push(`índice substituto (${c.reajuste} sem dados)`); } }
+    if (meses.length < 12) { const faltam = 12 - meses.length; throw new Error(`O ${c.reajuste} de ${faltam === 1 ? 'um mês' : faltam + ' meses'} desse período ainda não foi divulgado. O IPCA e o INPC saem por volta do dia 10 do mês seguinte, e o IGP-M no fim do mês. Tente de novo depois.`); }
+    acumulado = (meses.reduce((f, m) => f * (1 + Number(m.valor) / 100), 1) - 1) * 100;
+  } else {
+    if (manual == null || !isFinite(manual)) throw new Error('Informe o percentual (ex.: o reajuste da convenção coletiva).');
+    acumulado = manual; notas.push(c.reajuste === 'Convenção coletiva' ? 'percentual da convenção coletiva informado' : 'percentual informado');
+  }
+  acumulado = Math.round(acumulado * 10000) / 10000;
+  let aplicado = acumulado;
+  if (aplicado < 0 && (c.reajuste_negativo || 'mantem') === 'mantem') { aplicado = 0; notas.push('índice negativo: o contrato mantém o valor'); }
+  if (c.reajuste_teto != null && aplicado > Number(c.reajuste_teto)) { aplicado = Number(c.reajuste_teto); notas.push(`limitado ao teto de ${pct(c.reajuste_teto)}`); }
+  aplicado = Math.round(aplicado * 10000) / 10000;   // o percentual mostrado e o usado na conta (4 casas)
+  const novo = r2(valor * (1 + aplicado / 100));
+  return { data, indice, de, ate, meses, acumulado, aplicado, valor, novo, diferenca: r2(novo - valor), notas };
+}
 
 // ═════════ Navegacao ═════════
 function nav(){
@@ -986,6 +1052,7 @@ function vPainel(){
   const kpi = (l, val, sub, cor, href) => { const t = /ok/.test(cor) ? 'ok' : /warn/.test(cor) ? 'warn' : /bad/.test(cor) ? 'bad' : /acc/.test(cor) ? 'acc' : 'mut';
     return `<a class="kpi" href="#${href}" style="--k:${cor}"><span class="kpi-top"><span class="lbl">${l}</span><span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KI[t]}</svg></span></span><span class="val">${val}</span><span class="sub">${sub}</span></a>`; };
   const prox = S.filter(([, s]) => ['vencido','aviso','breve'].includes(s.cod)).sort((a, b) => dias(a[0]) - dias(b[0])).slice(0, 30);
+  const reajustes = ativos.map(c => [c, proximoReajuste(c)]).filter(([, p]) => p && p.dias <= 30).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const docAlertas = ativos.flatMap(c => docsObrigatorios(c).filter(x => x.st === 'vencido' || x.st === 'vence').map(x => [c, x])).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const meses = [...Array(12)].map((_, i) => { const d = new Date(hojeD().getFullYear(), hojeD().getMonth() + i, 1); return { d, n: ativos.filter(c => { const f = parse(c.fim); return f && f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth(); }).length }; });
   const mx = Math.max(1, ...meses.map(m => m.n));
@@ -1016,6 +1083,12 @@ function vPainel(){
             <div class="days p-${s.k}">${Math.abs(d)}<small>${d < 0 ? 'dias atrás' : 'dias'}</small></div>
             <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(ondeC(c))} · vence ${fmt(c.fim)}</div></div>
             <span class="pill p-${s.k}">${s.t}</span></div>`; }).join('') : `<div class="empty">Nenhum contrato vencido ou perto de vencer.${comData < ativos.length ? ' Só entram aqui os contratos com vencimento preenchido.' : ''}</div>`}</div>
+        </div>
+        <div class="card"><div class="card-h"><h2>Reajustes</h2><span class="muted small">devidos ou nos próximos 30 dias</span></div>
+          <div class="alerts">${reajustes.length ? reajustes.map(([c, p]) => `<div class="alert" data-go="contrato/${c.id}">
+            <div class="days p-${p.devido ? 'warn' : 'info'}">${Math.abs(p.dias)}<small>${p.dias < 0 ? 'dias atrás' : 'dias'}</small></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)}</div><div class="muted small">${consolidado() ? esc(nomeEmpresa(c.empresa)) + ' · ' : ''}${esc(c.reajuste)} · data-base ${fmt(p.data)} · ${brl(c.valor_mensal)}/mês</div></div>
+            <span class="pill p-${p.devido ? 'warn' : 'info'}">${p.devido ? 'Falta registrar' : 'Vem aí'}</span></div>`).join('') : '<div class="empty">Nenhum reajuste devido ou próximo.</div>'}</div>
         </div>
         <div class="card"><div class="card-h"><h2>Documentos com validade</h2><span class="muted small">certidões, alvarás, seguros: vencidos ou vencendo em até ${AVISAR_DOC} dias</span></div>
           <div class="alerts">${docAlertas.length ? docAlertas.map(([c, x]) => `<div class="alert" data-go="contrato/${c.id}">
@@ -1058,6 +1131,7 @@ function vLista(q){
       if (fi && (consolidado() ? c.empresa : c.unidade) !== fi) return false;
       if (st === 'pendente') return pendente(c);
       if (st === 'semdoc') return c.situacao !== 'encerrado' && !temContrato(c);
+      if (st === 'reajuste') return reajusteDevido(c);
       if (st && s.cod !== st) return false;
       if (!st && c.situacao === 'encerrado') return false;
       return true;
@@ -1089,7 +1163,7 @@ function vLista(q){
       <input class="in search" id="f-q" placeholder="Buscar por objeto, fornecedor, CNPJ, código ou número" aria-label="Buscar">
       <select class="in" id="f-gr" aria-label="Grupo ou categoria">${usaNat() ? `<option value="">Todas as naturezas</option>${[...new Set(CONTRATOS.map(c => (natDe(c) || {}).classe || 'Sem classe'))].sort((a, b) => numClasse(a) - numClasse(b)).map(k => `<option value="cl:${esc(k)}">${esc(k)}</option>${[...new Set(CONTRATOS.filter(c => ((natDe(c) || {}).classe || 'Sem classe') === k && c.natureza_cliente).map(c => c.natureza_cliente))].map(n => `<option value="nt:${esc(n)}">&nbsp;&nbsp;↳ ${esc(nomeNat(n))}</option>`).join('')}`).join('')}` : `<option value="">Todos os grupos</option>${grupos.map(g => `<option value="${esc(g.codigo)}">${esc(g.nome)}</option>${catsOrdenadas(false).filter(c => c.grupo === g.codigo && CONTRATOS.some(x => x.categoria === c.id)).map(c => `<option value="${c.id}">&nbsp;&nbsp;↳ ${esc(c.nome)}</option>`).join('')}`).join('')}`}</select>
       <select class="in" id="f-fi" aria-label="${consolidado() ? 'Empresa' : esc(tU())}"><option value="">${consolidado() ? 'Todas as empresas' : 'Todas as ' + esc(tus())}</option>${unidades.map(f => `<option value="${esc(f)}">${esc(consolidado() ? nomeEmpresa(f) : nomeUnidade(f))}</option>`).join('')}</select>
-      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="encerrado">Encerrados</option></select>
+      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="reajuste">Reajuste devido</option><option value="encerrado">Encerrados</option></select>
       <span class="muted small" style="align-self:center" id="cnt"></span>
     </div>
     <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">${consolidado() ? 'Empresa · ' + esc(tU()) : esc(tU())}</th><th class="hide-m">${usaNat() ? 'Natureza' : 'Categoria'}</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
@@ -1101,6 +1175,7 @@ function exportar(lista){
     'Grupo': grupoDe(c), 'Categoria': catDe(c).nome, 'Natureza': c.natureza_cliente || '', 'Descrição da natureza': natDe(c) ? limpaNat(natDe(c).descricao) : '', 'Classe da natureza': (natDe(c) || {}).classe || '',
     'Valor mensal': c.valor_mensal == null ? '' : Number(c.valor_mensal), 'Início': fmt(c.inicio), 'Vencimento': fmt(c.fim), 'Aviso prévio (dias)': c.aviso_dias,
     'Índice de reajuste': c.reajuste || '', 'Mês do reajuste': c.mes_reajuste ? MESES[c.mes_reajuste - 1] : '', 'Renovação automática': c.renovacao_automatica ? 'Sim' : 'Não',
+    'Último reajuste': ultimoReajuste(c) ? `${fmt(ultimoReajuste(c).vigencia)} ${pctX(ultimoReajuste(c).percentual)}` : '', 'Próximo reajuste': proximoReajuste(c) ? fmt(proximoReajuste(c).data) + (proximoReajuste(c).devido ? ' (devido)' : '') : '',
     'Situação': situ(c).t, 'Documentos pendentes': docsComProblema(c).map(x => tipoDoc(x.t)).join('; '), 'Arquivos': docsDe(c).length }));
   const ws = XLSX.utils.json_to_sheet(linhas); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Contratos');
   XLSX.writeFile(wb, `Contratos_${consolidado() ? 'todas' : EMP}_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -1129,6 +1204,10 @@ function formContrato(c, pode){
       <div class="field"><label for="c-valor">Valor mensal (R$)</label><input class="in" id="c-valor" inputmode="decimal" value="${c && c.valor_mensal != null ? String(c.valor_mensal).replace('.', ',') : ''}" ${dis}></div>
       <div class="field"><label for="c-reaj">Índice de reajuste</label><select class="in" id="c-reaj" ${dis}><option value="">—</option>${REAJUSTES.map(r => `<option ${c && c.reajuste === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
       <div class="field"><label for="c-mes">Mês do reajuste</label><select class="in" id="c-mes" ${dis}><option value="">Mês do início</option>${MESES.map((m, i) => `<option value="${i + 1}" ${c && c.mes_reajuste === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+      <div class="field" id="c-pct-f"><label for="c-pct">Percentual fixo por ano (%)</label><input class="in" id="c-pct" inputmode="decimal" value="${c && c.reajuste_percentual != null ? String(c.reajuste_percentual).replace('.', ',') : ''}" ${dis} placeholder="Ex.: 5"></div>
+      <div class="field" id="c-teto-f"><label for="c-teto">Teto do reajuste (%)</label><input class="in" id="c-teto" inputmode="decimal" value="${c && c.reajuste_teto != null ? String(c.reajuste_teto).replace('.', ',') : ''}" ${dis} placeholder="Sem teto"></div>
+      <div class="field" id="c-neg-f"><label for="c-neg">Se o índice der negativo</label><select class="in" id="c-neg" ${dis}><option value="mantem">Mantém o valor</option><option value="reduz" ${c && c.reajuste_negativo === 'reduz' ? 'selected' : ''}>Reduz o valor</option></select></div>
+      <div class="field" id="c-sub-f"><label for="c-sub">Índice substituto</label><select class="in" id="c-sub" ${dis}><option value="">—</option>${INDICES_BC.map(r => `<option ${c && c.reajuste_substituto === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">Se o índice deixar de existir.</span></div>
       <div class="field"><label for="c-renov">Renovação</label><select class="in" id="c-renov" ${dis}><option value="n">Manual</option><option value="s" ${c && c.renovacao_automatica ? 'selected' : ''}>Automática</option></select></div>
       <div class="field"><label for="c-fcod">Código do fornecedor no seu sistema</label><input class="in" id="c-fcod" value="${v('fornecedor_codigo')}" ${dis} placeholder="Opcional"></div>
       ${usaNat(empF) ? `<input type="hidden" id="c-nat" value="${v('natureza_cliente')}">` : `<div class="field"><label for="c-nat">Código da natureza no seu sistema</label><input class="in" id="c-nat" value="${v('natureza_cliente')}" ${dis} placeholder="Opcional. Ex.: 702"></div>`}
@@ -1160,6 +1239,9 @@ function ligarForm(novo){
     ns.addEventListener('change', () => { const n = NAT.get(ns.value); $('#c-nat').value = ns.value; $('#c-cat').value = n && n.categoria ? String(n.categoria) : ''; $('#c-cat').dispatchEvent(new Event('change')); info(); });
     info();
   }
+  // campos da regra do reajuste conforme o indice
+  const regraReaj = () => { const r = $('#c-reaj').value; $('#c-pct-f').hidden = r !== 'Percentual fixo'; ['#c-teto-f', '#c-neg-f', '#c-sub-f'].forEach(s => { $(s).hidden = !INDICES_BC.includes(r); }); $('#c-mes').closest('.field').hidden = !r || r === 'Fixo'; };
+  $('#c-reaj').addEventListener('change', regraReaj); regraReaj();
   // fornecedor que ja existe: aproveita CPF/CNPJ e codigo
   $('#c-forn').addEventListener('change', () => {
     const x = CONTRATOS.find(k => norm(k.fornecedor_nome) === norm($('#c-forn').value));
@@ -1180,6 +1262,7 @@ function lerForm(){
     unidade: $('#c-uni').value || null, responsavel: $('#c-resp').value || null,
     inicio: $('#c-ini').value || null, fim: $('#c-fim').value || null, aviso_dias: Number($('#c-aviso').value || 0),
     valor_mensal: valor, reajuste: $('#c-reaj').value || null, mes_reajuste: Number($('#c-mes').value) || null,
+    reajuste_teto: lerValor($('#c-teto').value), reajuste_negativo: $('#c-neg').value, reajuste_percentual: lerValor($('#c-pct').value), reajuste_substituto: $('#c-sub').value || null,
     renovacao_automatica: $('#c-renov').value === 's', observacao: $('#c-obs').value.trim() || null, confidencial: $('#c-conf').checked,
   };
   if (!dados.mes_reajuste && dados.inicio && dados.reajuste && dados.reajuste !== 'Fixo') dados.mes_reajuste = parse(dados.inicio).getMonth() + 1;
@@ -1192,6 +1275,10 @@ function lerForm(){
   if (dados.valor_mensal !== null && (!isFinite(dados.valor_mensal) || dados.valor_mensal < 0)) return { erro: 'O valor mensal não é um número válido.' };
   if (dados.inicio && dados.fim && dados.fim < dados.inicio) return { erro: 'O vencimento está antes do início.' };
   if (!Number.isInteger(dados.aviso_dias) || dados.aviso_dias < 0) return { erro: 'O aviso prévio precisa ser um número de dias.' };
+  if (dados.reajuste === 'Percentual fixo' && !(dados.reajuste_percentual > 0)) return { erro: 'Informe o percentual fixo do reajuste.' };
+  for (const k of ['reajuste_teto', 'reajuste_percentual']) if (dados[k] !== null && (!isFinite(dados[k]) || dados[k] < 0 || dados[k] > 100)) return { erro: 'Percentual do reajuste inválido.' };
+  if (dados.reajuste !== 'Percentual fixo') dados.reajuste_percentual = null;
+  if (!INDICES_BC.includes(dados.reajuste)) { dados.reajuste_teto = null; dados.reajuste_substituto = null; dados.reajuste_negativo = 'mantem'; }
   return { dados };
 }
 
@@ -1252,7 +1339,7 @@ function vNovo(){
 function vContrato(id){
   const c = CONTRATOS.find(x => x.id === id);
   if (!c) return topo('Contrato não encontrado', '') + `<div class="card"><div class="card-b"><p class="muted" style="margin:0">Este contrato não existe ou o seu acesso não permite vê-lo.</p></div></div>`;
-  const n = nivelC(c), s = situ(c), cat = catDe(c), rj = proxReajuste(c);
+  const n = nivelC(c), s = situ(c), cat = catDe(c);
   const tipos = Object.entries(TIPOS_DOC);
   const falta = docsObrigatorios(c).find(x => x.st !== 'ok');
   depois(() => carregarDetalhe(c, n));
@@ -1277,6 +1364,8 @@ function vContrato(id){
       </div>
     </div>
     <div class="stack">
+      <div class="card"><div class="card-h"><h2>Reajuste</h2><span id="rj-pill"></span></div><div class="card-b" id="rj" style="display:grid;gap:10px"></div></div>
+      <div class="card"><div class="card-h"><h2>Linha do tempo</h2>${n >= 3 ? '<button class="btn sm" id="b-aditivo">Registrar aditivo</button>' : ''}</div><div class="tlv" id="tlv"></div></div>
       <div class="card"><div class="card-h"><h2>Documentos obrigatórios</h2></div><div class="chk" id="chk"></div></div>
       <div class="card"><div class="card-h"><h2>Resumo</h2></div><div class="card-b" style="display:grid;gap:8px;font-size:13.5px">
         ${consolidado() ? `<div><span class="muted">Empresa:</span> ${esc(nomeEmpresa(c.empresa))}</div>` : ''}
@@ -1284,7 +1373,7 @@ function vContrato(id){
         <div><span class="muted">CPF/CNPJ:</span> ${esc(fmtDoc(c.fornecedor_doc) || '—')}</div>
         <div><span class="muted">Vencimento:</span> ${c.fim ? fmt(c.fim) + ` (${dias(c) < 0 ? 'há ' + -dias(c) : 'em ' + dias(c)} dias)` : 'prazo indeterminado'}</div>
         ${c.fim ? `<div><span class="muted">Avisar a contraparte até:</span> <b>${new Date(parse(c.fim) - c.aviso_dias * 864e5).toLocaleDateString('pt-BR')}</b></div>` : ''}
-        ${rj ? `<div><span class="muted">Próximo reajuste (${esc(c.reajuste)}):</span> ${esc(rj)}</div>` : ''}
+        ${proximoReajuste(c) ? `<div><span class="muted">Próximo reajuste (${esc(c.reajuste)}):</span> ${fmt(proximoReajuste(c).data)}${proximoReajuste(c).devido ? ' <b style="color:var(--warn)">(falta registrar)</b>' : ''}</div>` : ''}
         ${c.fornecedor_codigo || c.natureza_cliente ? `<div><span class="muted">No sistema da empresa:</span> <span class="mono">${esc([c.fornecedor_codigo && 'fornecedor ' + c.fornecedor_codigo, c.natureza_cliente && 'natureza ' + nomeNat(c.natureza_cliente)].filter(Boolean).join(' · '))}</span></div>` : ''}
         <div><span class="muted">Responsável:</span> ${esc(pessoa(c.responsavel))}</div>
         <div><span class="muted">Cadastrado em:</span> ${fmtTs(c.criado_em)}</div>
@@ -1293,6 +1382,83 @@ function vContrato(id){
       <div class="card"><div class="card-h"><h2>Histórico</h2></div><div class="hist" id="hist"><div class="muted" style="padding:8px 0">Carregando…</div></div></div>
     </div></div>`;
 }
+function desenharReajuste(c, n){
+  const el = $('#rj'), pill = $('#rj-pill'); if (!el) return;
+  if (!c.reajuste || c.reajuste === 'Fixo') { el.innerHTML = `<p class="muted" style="margin:0">${c.reajuste === 'Fixo' ? 'Contrato sem reajuste (valor fixo).' : 'Índice de reajuste não informado. Preencha o índice e o mês do reajuste nos dados do contrato.'}</p>`; pill.innerHTML = ''; return; }
+  if (!temReajuste(c)) { el.innerHTML = `<p class="muted" style="margin:0">Índice: ${esc(c.reajuste)}. Para calcular, preencha a <b>data de início</b> ou o <b>mês do reajuste</b> nos dados do contrato.</p>`; pill.innerHTML = '<span class="pill p-mut">Falta a data-base</span>'; return; }
+  const p = proximoReajuste(c), ult = ultimoReajuste(c);
+  const regra = [c.reajuste === 'Percentual fixo' ? `${pct(c.reajuste_percentual)} ao ano` : c.reajuste, `todo mês de ${MESES[(c.mes_reajuste || parse(c.inicio).getMonth() + 1) - 1]}`,
+    c.reajuste_teto != null ? `teto de ${pct(c.reajuste_teto)}` : '', INDICES_BC.includes(c.reajuste) ? (c.reajuste_negativo === 'reduz' ? 'índice negativo reduz o valor' : 'índice negativo mantém o valor') : '',
+    c.reajuste_substituto ? `substituto: ${c.reajuste_substituto}` : ''].filter(Boolean).join(' · ');
+  pill.innerHTML = p ? (p.devido ? `<span class="pill p-warn">Devido desde ${fmt(p.data)}</span>` : `<span class="pill p-info">em ${p.dias} dias</span>`) : '';
+  const manual = !INDICES_BC.includes(c.reajuste) && c.reajuste !== 'Percentual fixo';
+  el.innerHTML = `<div class="small"><span class="muted">Regra:</span> ${esc(regra)}</div>
+    <div class="small"><span class="muted">Último reajuste:</span> ${ult ? `${fmt(ult.vigencia)} · ${esc(ult.indice || '')} ${pctX(ult.percentual)}` : 'nenhum registrado'}</div>
+    <div class="small"><span class="muted">Próximo:</span> ${p ? `<b>${fmt(p.data)}</b>${p.devido ? ' (já passou: falta registrar)' : ''}` : '—'}</div>
+    ${!c.valor_mensal ? '<div class="small" style="color:var(--warn)">Preencha o valor mensal para calcular.</div>' : `
+    <div class="rj-calc"><div class="field"><label for="rj-data">Data-base</label><input class="in" id="rj-data" type="date" value="${p ? p.data : ymd(hojeD())}"></div>
+      ${manual ? '<div class="field"><label for="rj-man">Percentual (%)</label><input class="in" id="rj-man" inputmode="decimal" placeholder="Ex.: 6,5"></div>' : ''}
+      <button class="btn pri" id="rj-calcular">Calcular reajuste</button></div>`}
+    <div id="rj-res"></div>`;
+  const b = $('#rj-calcular'); if (!b) return;
+  b.onclick = async () => {
+    const res = $('#rj-res'); res.innerHTML = `<div class="muted small">${INDICES_BC.includes(c.reajuste) ? 'Buscando o ' + esc(c.reajuste) + ' no Banco Central…' : 'Calculando…'}</div>`;
+    try {
+      const k = await calcularReajuste(c, $('#rj-data').value, manual ? lerValor($('#rj-man').value) : null);
+      res.innerHTML = `<div class="rj-res">
+        <div><span>Período do índice</span><b>${INDICES_BC.includes(k.indice) ? `${nomeMes(k.de)} a ${nomeMes(k.ate)}` : '—'}</b></div>
+        <div><span>${esc(k.indice)} acumulado</span><b>${pct(k.acumulado, 4)}</b></div>
+        <div><span>Percentual aplicado</span><b>${pct(k.aplicado, 4)}</b></div>
+        <div><span>Valor atual</span><b>${brl(k.valor)}</b></div>
+        <div class="novo"><span>Valor novo (a partir de ${fmt(k.data)})</span><b>${brl(k.novo)}</b></div>
+        <div><span>Diferença</span><b>${brl(k.diferenca)}/mês · ${brl(k.diferenca * 12)}/ano</b></div>
+        ${k.notas.length ? `<div class="nota">${esc(k.notas.join(' · '))}</div>` : ''}
+        ${p && k.data !== p.data ? `<div class="nota">Atenção: pela regra do contrato, a data-base é <b>${fmt(p.data)}</b>. Você escolheu ${fmt(k.data)}. Só registre assim se o reajuste foi negociado nessa data; o próximo será contado a partir dela.</div>` : ''}
+        ${k.meses.length ? `<details><summary class="small">Ver os 12 meses do índice</summary><div class="rj-meses">${k.meses.map(m => `<span>${nomeMes(m.mes)}</span><b>${pct(m.valor)}</b>`).join('')}</div></details>` : ''}
+      </div>
+      ${n >= 3 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn pri" id="rj-registrar">Registrar reajuste</button><span class="hint" style="align-self:center">O valor do contrato passa para ${brl(k.novo)}. O anterior fica na linha do tempo.</span></div>` : '<div class="hint" style="margin-top:8px">Quem tem acesso "Editar e enviar" registra o reajuste.</div>'}`;
+      const rg = $('#rj-registrar');
+      if (rg) rg.onclick = () => confirmar('Registrar reajuste', `Registrar o reajuste de <b>${pct(k.aplicado, 4)}</b> (${esc(k.indice)}) a partir de <b>${fmt(k.data)}</b>? O valor mensal passa de ${brl(k.valor)} para <b>${brl(k.novo)}</b>.`, 'Registrar', async () => {
+        const r = await db('ctr_alteracoes').insert({ contrato: c.id, tipo: 'reajuste', vigencia: k.data, valor_depois: k.novo, indice: k.indice, percentual: Math.round(k.aplicado * 10000) / 10000, acumulado: k.acumulado,
+          periodo_ini: INDICES_BC.includes(k.indice) ? k.de + '-01' : null, periodo_fim: INDICES_BC.includes(k.indice) ? k.ate + '-01' : null, observacao: k.notas.join(' · ') || null }).select('*').single();
+        if (r.error) { toast(erroTxt(r.error)); return false; }
+        await recarregar(); toast(`Reajuste registrado: ${brl(k.novo)} a partir de ${fmt(k.data)}.`); render(); return true;
+      });
+    } catch (e) { res.innerHTML = `<div class="msg erro">${esc(erroTxt(e))}</div>`; }
+  };
+}
+function desenharLinhaTempo(c){
+  const el = $('#tlv'); if (!el) return;
+  const alts = altsDe(c), inicial = alts.length ? alts[0].valor_antes : c.valor_mensal;
+  const itens = [{ data: c.inicio, t: 'Início do contrato', d: inicial != null ? brl(inicial) + '/mês' : '', k: 'ini' }].concat(alts.map(x => ({ data: x.vigencia, k: x.tipo,
+    t: TIPOS_ALT[x.tipo] + (x.tipo === 'reajuste' ? ` ${x.indice || ''} ${pctX(x.percentual)}` : ''),
+    d: [x.valor_depois != null ? `${brl(x.valor_antes)} → <b>${brl(x.valor_depois)}</b>` : '', x.fim_depois ? `vencimento ${fmt(x.fim_antes)} → <b>${fmt(x.fim_depois)}</b>` : '', x.observacao ? esc(x.observacao) : ''].filter(Boolean).join(' · ') })));
+  el.innerHTML = itens.reverse().map(x => `<div class="tl-i ${x.k}"><i></i><div><div class="tl-d">${x.data ? fmt(x.data) : 'sem data'}</div><div class="t">${esc(x.t)}</div>${x.d ? `<div class="s">${x.d}</div>` : ''}</div></div>`).join('')
+    + (!alts.length ? '<div class="muted small" style="padding:4px 0 2px">Nenhum reajuste ou aditivo registrado ainda.</div>' : '');
+}
+function modalAditivo(c){
+  const docs = docsDe(c).filter(d => d.id);
+  abrirModal('Registrar aditivo', `
+    <div class="grid2">
+      <div class="field"><label for="ad-tipo" class="req">Tipo</label><select class="in" id="ad-tipo">${Object.entries(TIPOS_ALT).filter(([k]) => k !== 'reajuste').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div class="field"><label for="ad-vig" class="req">Vale a partir de</label><input class="in" id="ad-vig" type="date" value="${ymd(hojeD())}"></div>
+      <div class="field"><label for="ad-valor">Novo valor mensal (R$)</label><input class="in" id="ad-valor" inputmode="decimal" placeholder="Atual: ${esc(brl(c.valor_mensal))}"></div>
+      <div class="field"><label for="ad-fim">Novo vencimento</label><input class="in" id="ad-fim" type="date"></div>
+    </div>
+    <div class="field"><label for="ad-doc">Documento do aditivo</label><select class="in" id="ad-doc"><option value="">— anexe primeiro em "Arquivos", depois escolha aqui —</option>${docs.map(d => `<option value="${d.id}">${esc(tipoDoc(d.categoria))} · ${fmtTs(d.enviado_em)}</option>`).join('')}</select></div>
+    <div class="field"><label for="ad-obs">O que mudou</label><textarea class="in" id="ad-obs" rows="2" placeholder="Ex.: inclusão da sala 2; prorrogação por 24 meses"></textarea></div>
+    <div class="note">O valor e o vencimento do contrato passam a ser os novos. Os anteriores ficam guardados na linha do tempo e não podem ser apagados.</div>
+    <div id="m-msg"></div>`, 'Registrar', async () => {
+      const valor = lerValor($('#ad-valor').value), fim = $('#ad-fim').value || null, tipo = $('#ad-tipo').value, obs = $('#ad-obs').value.trim() || null;
+      if (!$('#ad-vig').value) { msgEm('#m-msg', 'Informe a partir de quando vale.'); return false; }
+      if (valor !== null && (!isFinite(valor) || valor < 0)) { msgEm('#m-msg', 'Valor inválido.'); return false; }
+      if (valor === null && !fim && !obs) { msgEm('#m-msg', 'Informe o novo valor, o novo vencimento ou o que mudou.'); return false; }
+      if (fim && c.inicio && fim < c.inicio) { msgEm('#m-msg', 'O novo vencimento está antes do início do contrato.'); return false; }
+      const r = await db('ctr_alteracoes').insert({ contrato: c.id, tipo, vigencia: $('#ad-vig').value, valor_depois: valor, fim_depois: fim, documento: Number($('#ad-doc').value) || null, observacao: obs }).select('*').single();
+      if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
+      await recarregar(); toast('Aditivo registrado.'); render(); return true;
+    });
+}
 function desenharChecklist(c){
   const el = $('#chk'); if (!el) return;
   const L = { ok: ['p-ok', 'Em dia'], vence: ['p-warn', 'Vence logo'], vencido: ['p-bad', 'Vencido'], falta: ['p-mut', 'Falta'] };
@@ -1300,7 +1466,8 @@ function desenharChecklist(c){
     + `<div class="muted small" style="padding:10px 18px 14px">Exigidos pela categoria <b>${esc(catDe(c).nome)}</b>. ${ehAdmin() ? 'Para mudar a regra, vá em Administração → Categorias.' : ''}</div>`;
 }
 async function carregarDetalhe(c, n){
-  ligarForm(false); desenharChecklist(c);
+  ligarForm(false); desenharChecklist(c); desenharReajuste(c, n); desenharLinhaTempo(c);
+  const ba = $('#b-aditivo'); if (ba) ba.onclick = () => modalAditivo(c);
   const b = $('#b-salvar');
   if (b) b.onclick = async () => {
     const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
