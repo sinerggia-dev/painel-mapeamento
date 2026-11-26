@@ -328,6 +328,11 @@ tbody tr.link:hover td{background:color-mix(in srgb,var(--acc) 4%,var(--surface)
 .errtbl td:first-child{width:70px}
 details summary{cursor:pointer;color:var(--muted)}
 @media (max-width:480px){.bt3{grid-template-columns:1fr 70px}.bt3 .track{display:none}}
+/* celular pequeno (320 px): nada passa da largura da tela */
+.stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
+.tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.mono,.card-b,.note,.msg{overflow-wrap:anywhere}
+.chk-i>div,.card-h>div{min-width:0;max-width:100%}
 </style>
 </head>
 <body>
