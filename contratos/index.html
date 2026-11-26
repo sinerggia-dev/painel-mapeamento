@@ -396,8 +396,9 @@ table.matriz td.sim{color:var(--ok);font-weight:700} table.matriz td.nao{color:v
   <aside class="side" id="side">
     <div class="brand" id="side-brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
     <div class="selo-admin" id="selo-admin" hidden>Você está como <b>Administrador Sinergia</b>. A empresa não vê o menu de administração.</div>
-    <div class="side-sel"><label class="side-lbl" id="lbl-emp" for="sel-emp" hidden>Ver como empresa</label><select class="in" id="sel-emp" hidden></select></div>
-    <div class="side-sel" id="box-ver" hidden><label class="side-lbl" for="sel-ver">Ver como usuário</label><select class="in" id="sel-ver"></select></div>
+    <div class="side-sel"><label class="side-lbl" id="lbl-emp" for="sel-emp" hidden>Ver como</label><select class="in" id="sel-emp" hidden></select></div>
+    <div class="side-sel" id="box-adm" hidden><label class="side-lbl" for="sel-adm">Empresa em gestão</label><select class="in" id="sel-adm"></select></div>
+    <div class="side-sel" id="box-ver" hidden><label class="side-lbl" for="sel-ver">Usuário da empresa</label><select class="in" id="sel-ver"></select></div>
     <nav class="nav" id="nav"></nav>
     <div class="me"><div class="avatar" id="me-av"></div><div style="min-width:0;flex:1"><div style="font-weight:600;font-size:13px" id="me-nome"></div><div class="muted" style="font-size:12px" id="me-papel"></div></div><button class="btn sm" id="btn-sair">Sair</button></div>
   </aside>
@@ -483,6 +484,8 @@ let CONTRATOS = [], CAT = new Map(), GRUPOS = [], UNI = new Map(), DOCS = new Ma
 const TODAS = '*';
 let UNIS = new Map(), CFGS = new Map(), SIM = null, USUARIOS_EMP = [], NAT = new Map();
 const consolidado = () => EMP === TODAS;
+const ADM = '__adm';
+let MODO_ADM = true;   // admin: true = administracao Sinergia; false = vendo como a empresa ve
 const nomeEmpresa = s => (EMPRESAS.find(x => x.slug === s) || {}).nome || s;
 const cfgDe = emp => CFGS.get(emp) || null;
 // como a empresa chama as unidades (Filial, Loja, Obra...)
@@ -491,7 +494,7 @@ const tUs = (emp = EMP) => (cfgDe(emp) || {}).termo_unidades || 'Unidades';
 const tu = emp => tU(emp).toLowerCase(), tus = emp => tUs(emp).toLowerCase();
 let carregado = false, recuperando = false;
 const ehAdminReal = () => PERFIL && PERFIL.papel === 'admin';
-const ehAdmin = () => ehAdminReal() && !SIM;   // no "ver como" o admin enxerga como o usuario escolhido
+const ehAdmin = () => ehAdminReal() && MODO_ADM && !SIM;   // vendo como a empresa (ou um usuario), o admin enxerga como ela
 
 function toast(t, ms = 3800){ const e = $('#toast'); e.textContent = t; e.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => e.hidden = true, ms); }
 function erroTxt(e){
@@ -612,13 +615,24 @@ async function iniciar(){
       EMPRESAS = (ac || []).map(a => ({ slug: a.empresa, nome: nomes.get(a.empresa) || a.empresa, nivel: a.nivel }));
     }
     if (!EMPRESAS.length) { telaSemAcesso('Seu usuário ainda não tem acesso a nenhuma empresa nos contratos. Fale com o administrador da Sinergia.'); return; }
-    let guardada = null; try { guardada = localStorage.getItem('ctr-emp'); } catch (_) {}
-    const e = (guardada === TODAS && ehAdminReal() && EMPRESAS.length > 1 ? { slug: TODAS } : null) || EMPRESAS.find(x => x.slug === guardada) || EMPRESAS.find(x => x.slug === 'millena') || EMPRESAS[0];
+    let guardada = null, modo = null; try { guardada = localStorage.getItem('ctr-emp'); modo = localStorage.getItem('ctr-modo'); } catch (_) {}
     const sel = $('#sel-emp');
-    sel.innerHTML = (ehAdminReal() && EMPRESAS.length > 1 ? `<option value="${TODAS}">Todas as empresas (Sinergia)</option>` : '') + EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
-    sel.hidden = EMPRESAS.length < 2; $('#lbl-emp').hidden = sel.hidden;
+    if (ehAdminReal()) {
+      // "Ver como": a administracao da Sinergia ou uma empresa exatamente como ela ve
+      sel.innerHTML = `<option value="${ADM}">Sinergia (administração)</option>` + EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
+      $('#sel-adm').innerHTML = (EMPRESAS.length > 1 ? `<option value="${TODAS}">Todas as empresas</option>` : '') + EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
+      sel.hidden = false; $('#lbl-emp').hidden = false;
+      MODO_ADM = modo !== 'empresa';
+      $('#sel-adm').onchange = () => trocarEmpresa($('#sel-adm').value);
+    } else {
+      sel.innerHTML = EMPRESAS.map(x => `<option value="${esc(x.slug)}">${esc(x.nome)}</option>`).join('');
+      sel.hidden = EMPRESAS.length < 2; $('#lbl-emp').hidden = sel.hidden;
+    }
+    const e = (guardada === TODAS && ehAdminReal() && MODO_ADM && EMPRESAS.length > 1 ? { slug: TODAS } : null) || EMPRESAS.find(x => x.slug === guardada) || EMPRESAS.find(x => x.slug === 'millena') || EMPRESAS[0];
     $('#sel-ver').onchange = () => verComo($('#sel-ver').value);
-    sel.onchange = () => trocarEmpresa(sel.value);
+    sel.onchange = () => { if (!ehAdminReal()) return trocarEmpresa(sel.value);
+      if (sel.value === ADM) { MODO_ADM = true; return trocarEmpresa(EMP && EMP !== TODAS ? EMP : $('#sel-adm').value || TODAS); }
+      MODO_ADM = false; trocarEmpresa(sel.value); };
     $('#me-av').textContent = iniciais(p.nome); $('#me-nome').textContent = p.nome; $('#me-papel').textContent = ehAdminReal() ? 'Administrador Sinergia' : '';
     await trocarEmpresa(e.slug);
   } catch (err) {
@@ -632,10 +646,12 @@ function telaSemAcesso(t){
   $('#b-sair2').onclick = () => sb.auth.signOut();
 }
 async function trocarEmpresa(slug){
-  EMP = slug; SIM = null; try { localStorage.setItem('ctr-emp', slug); } catch (_) {}
-  const e = EMPRESAS.find(x => x.slug === slug); NIVEL_EMP = consolidado() ? 3 : (e ? e.nivel : 0);
-  $('#sel-emp').value = slug;
-  $('#me-papel').textContent = ehAdminReal() ? 'Administrador Sinergia' : LV[NIVEL_EMP];
+  if (slug === TODAS && !(ehAdminReal() && MODO_ADM)) slug = (EMPRESAS[0] || {}).slug;
+  EMP = slug; SIM = null; try { localStorage.setItem('ctr-emp', slug); localStorage.setItem('ctr-modo', MODO_ADM ? 'adm' : 'empresa'); } catch (_) {}
+  const e = EMPRESAS.find(x => x.slug === slug); NIVEL_EMP = consolidado() || ehAdminReal() ? 3 : (e ? e.nivel : 0);
+  if (ehAdminReal()) { $('#sel-emp').value = MODO_ADM ? ADM : slug; $('#box-adm').hidden = !MODO_ADM; if (MODO_ADM) $('#sel-adm').value = slug; }
+  else $('#sel-emp').value = slug;
+  $('#me-papel').textContent = ehAdmin() ? 'Administrador Sinergia' : ehAdminReal() ? 'Vendo como a empresa vê' : LV[NIVEL_EMP];
   $('#main').innerHTML = '<div class="loading">Carregando contratos…</div>';
   try { await recarregar(); aplicarIdentidade(); montarVerComo(); render(); }
   catch (err) { $('#main').innerHTML = `<div class="card"><div class="card-b"><div class="msg erro">${esc(erroTxt(err))}</div></div></div>`; }
@@ -689,7 +705,7 @@ function corLegivel(hex){   // texto branco ou escuro sobre a cor? (luminancia r
   return { fg: L > .45 ? '#111418' : '#ffffff', contrasteBranco: 1.05 / (L + .05) };
 }
 function aplicarIdentidade(){
-  const root = document.documentElement.style, cfg = consolidado() ? null : cfgDe(EMP);
+  const root = document.documentElement.style, cfg = consolidado() || (ehAdminReal() && MODO_ADM) ? null : cfgDe(EMP);
   ['--acc', '--acc-fg', '--acc-soft'].forEach(k => root.removeProperty(k));
   if (cfg && cfg.cor) { root.setProperty('--acc', cfg.cor); root.setProperty('--acc-fg', corLegivel(cfg.cor).fg); root.setProperty('--acc-soft', `color-mix(in srgb, ${cfg.cor} 14%, var(--surface))`); }
   const nome = consolidado() ? 'Todas as empresas' : ((cfg && cfg.nome_exibicao) || nomeEmpresa(EMP));
@@ -702,28 +718,28 @@ function aplicarIdentidade(){
 // ═════════ Ver como usuário (admin confere o que cada pessoa da empresa enxerga) ═════════
 async function montarVerComo(){
   const box = $('#box-ver'), sel = $('#sel-ver');
-  if (!ehAdminReal() || consolidado()) { box.hidden = true; return; }
+  if (!ehAdminReal() || MODO_ADM || consolidado()) { box.hidden = true; return; }
   const [{ data: ac }, { data: pf }] = await Promise.all([db('ctr_acessos').select('*').eq('empresa', EMP), db('perfis').select('id,nome,papel,ativo').order('nome')]);
   const nomes = new Map((pf || []).map(p => [p.id, p]));
   USUARIOS_EMP = (ac || []).filter(a => nomes.get(a.usuario) && nomes.get(a.usuario).ativo && nomes.get(a.usuario).papel !== 'admin').map(a => ({ ...a, nome: nomes.get(a.usuario).nome }));
-  sel.innerHTML = `<option value="">Administrador (vê tudo)</option>` + USUARIOS_EMP.map(a => `<option value="${esc(a.usuario)}" ${SIM && SIM.usuario === a.usuario ? 'selected' : ''}>${esc(a.nome)} · ${LV[a.nivel]}</option>`).join('');
+  sel.innerHTML = `<option value="">Empresa toda (acesso completo)</option>` + USUARIOS_EMP.map(a => `<option value="${esc(a.usuario)}" ${SIM && SIM.usuario === a.usuario ? 'selected' : ''}>${esc(a.nome)} · ${LV[a.nivel]}</option>`).join('');
   box.hidden = false;
 }
 async function verComo(uid){
   const a = USUARIOS_EMP.find(x => x.usuario === uid);
   SIM = a ? { usuario: a.usuario, nome: a.nome, nivel: a.nivel, unidades: a.unidades || [], grupos: a.grupos || [] } : null;
   NIVEL_EMP = SIM ? SIM.nivel : 3;
-  $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Administrador Sinergia';
+  $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Vendo como a empresa vê';
   $('#main').innerHTML = '<div class="loading">Carregando…</div>';
   await recarregar(); if (SIM && !['painel', 'contratos', 'contrato'].includes((location.hash.slice(1) || 'painel').split(/[/?]/)[0])) location.hash = 'painel'; render();
 }
 function barraModo(){
   if (SIM) { const lim = [SIM.unidades.length ? `${tus()}: ${SIM.unidades.join(', ')}` : `todas as ${tus()}`, SIM.grupos.length ? 'grupos: ' + SIM.grupos.map(nomeGrupo).join(', ') : 'todos os grupos'].join(' · ');
-    return `<div class="modo-bar"><div>Você está vendo o sistema como <b>${esc(SIM.nome)}</b> (${LV[SIM.nivel]} · ${esc(lim)}). <span class="muted">Só visualização: nada é salvo.</span></div><button class="btn sm" data-act="sair-sim">Voltar para administrador</button></div>`; }
-  if (consolidado()) return `<div class="modo-bar info"><div><b>Visão Sinergia:</b> contratos de todas as empresas juntos. Para cadastrar, importar ou configurar, escolha uma empresa no menu.</div></div>`;
+    return `<div class="modo-bar"><div>Você está vendo o sistema como <b>${esc(SIM.nome)}</b> (${LV[SIM.nivel]} · ${esc(lim)}). <span class="muted">Só visualização: nada é salvo.</span></div><button class="btn sm" data-act="sair-sim">Ver a empresa toda</button></div>`; }
+  if (consolidado()) return `<div class="modo-bar info"><div><b>Visão Sinergia:</b> contratos de todas as empresas juntos. Para cadastrar, importar ou configurar, escolha a empresa em <b>Empresa em gestão</b>, no menu.</div></div>`;
   return '';
 }
-function escolhaEmpresa(t){ return topo(t, '') + `<div class="card"><div class="card-b"><p class="muted" style="margin:0">Na visão de todas as empresas não dá para ${t === 'Novo contrato' ? 'cadastrar' : 'fazer isso'}: escolha uma empresa em <b>Ver como empresa</b>, no menu.</p></div></div>`; }
+function escolhaEmpresa(t){ return topo(t, '') + `<div class="card"><div class="card-b"><p class="muted" style="margin:0">Na visão de todas as empresas não dá para ${t === 'Novo contrato' ? 'cadastrar' : 'fazer isso'}: escolha a empresa em <b>Empresa em gestão</b>, no menu.</p></div></div>`; }
 
 // ═════════ Natureza do ERP (padrao da empresa; a categoria da Sinergia vem por tras) ═════════
 const usaNat = (emp = EMP) => emp !== TODAS && !!(cfgDe(emp) || {}).usa_natureza;

@@ -122,11 +122,15 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   por SQL; com `empresa` = criada pelo admin) > contrato. Cada categoria traz `aviso_dias`, `reajuste`
   e `documentos` obrigatórios (além do contrato assinado) e uma `dica`. Os tipos de documento estão em
   `TIPOS_DOC` (telas) e `CATEGORIAS`/`COM_VALIDADE` (Edge Function): **manter os dois iguais**.
-- **Modos de visão (admin)**, no menu lateral: **Ver como empresa** = uma empresa ou "Todas as empresas
-  (Sinergia)" (`EMP = '*'`: painel consolidado com quadro por empresa; cadastro, importação e configuração
-  pedem uma empresa). **Ver como usuário** = o admin vê só o que aquela pessoa da empresa vê (filtra no
-  navegador com a mesma regra de `ctr_nivel`); é só visualização: `db()` bloqueia gravações e `fn()`
-  bloqueia envio de arquivo. Toda leitura/gravação passa por `db(tabela)`, não por `sb.from`.
+- **Modos de visão (admin)**, no menu lateral, seletor **Ver como**:
+  - **Sinergia (administração)** (`MODO_ADM = true`): sempre com a identidade da Sinergia, selo de admin e menu
+    "Administração · só Sinergia". O seletor **Empresa em gestão** escolhe a empresa ou "Todas as empresas"
+    (`EMP = '*'`: painel consolidado com quadro por empresa; cadastro, importação e configuração pedem uma empresa).
+  - **Uma empresa** (`MODO_ADM = false`): a tela exatamente como a empresa vê (identidade dela, sem nada de
+    administração, acesso completo). O seletor **Usuário da empresa** mostra só o que uma pessoa vê (filtra no
+    navegador com a mesma regra de `ctr_nivel`); esse modo é só visualização: `db()` bloqueia gravações e `fn()`
+    bloqueia envio de arquivo. Toda leitura/gravação passa por `db(tabela)`, não por `sb.from`.
+  - `ehAdmin()` = admin real **e** em modo administração **e** sem usuário escolhido; `ehAdminReal()` = papel admin.
 - **Identidade da empresa** (`ctr_config`): nome, cor, logo (imagem reduzida, guardada na própria tabela)
   e como a empresa chama as unidades (`termo_unidade`/`termo_unidades`, ex.: Filial/Filiais). Os usuários
   da empresa sempre veem a identidade dela; sem linha = Sinergia. Login e visão consolidada = Sinergia.
