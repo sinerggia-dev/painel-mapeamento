@@ -318,12 +318,22 @@ tbody tr.link:hover td{background:color-mix(in srgb,var(--acc) 4%,var(--surface)
   #tb tr.link:active{background:var(--surface2)}
   #tb tr.link td.hide-m{display:none}
 }
+/* ═════ Categorias, documentos obrigatorios, importacao ═════ */
+.dica{background:var(--info-soft);color:var(--fg);border-radius:10px;padding:10px 14px;font-size:13px;border-left:3px solid var(--info)}
+.chk{display:grid}
+.chk-i{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);font-size:13.5px}
+.bt3{grid-template-columns:minmax(120px,210px) 1fr 92px}
+.bt3 b{text-align:right}
+.errtbl{max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px}
+.errtbl td:first-child{width:70px}
+details summary{cursor:pointer;color:var(--muted)}
+@media (max-width:480px){.bt3{grid-template-columns:1fr 70px}.bt3 .track{display:none}}
 </style>
 </head>
 <body>
 
 <section id="v-login" hidden>
-  <div class="login-hero" aria-hidden="true"><b>SINERGIA</b><h2>Contratos organizados. Pagamentos conferidos.</h2><p>Todos os contratos da empresa num só lugar, com os vencimentos, os documentos e quem pode ver cada um.</p></div>
+  <div class="login-hero" aria-hidden="true"><b>SINERGIA</b><h2>Contratos organizados. Documentos em dia.</h2><p>Todos os contratos da empresa num só lugar, com os vencimentos, os documentos e quem pode ver cada um.</p></div>
   <form class="login" id="f-login">
     <div class="brand"><div class="brand-mark">S</div><div><strong>SINERGIA</strong><small>Gestão de Contratos</small></div></div>
     <div id="login-titulo"><h2>Entrar</h2><p class="muted" style="margin:4px 0 0">Use o mesmo e-mail e senha do portal da Sinergia.</p></div>
@@ -375,13 +385,37 @@ const hojeD = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 const parse = s => { if (!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
 const fmt = s => s ? parse(s).toLocaleDateString('pt-BR') : '—';
 const fmtTs = s => s ? new Date(s).toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' }) : '';
-const dias = c => c.fim ? Math.round((parse(c.fim) - hojeD()) / 864e5) : null;
+const diasAte = s => s ? Math.round((parse(s) - hojeD()) / 864e5) : null;
+const dias = c => diasAte(c.fim);
 const brl = v => (v === null || v === undefined || v === '') ? '—' : Number(v).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
 const brl0 = v => Number(v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
 const tam = b => b > 1048576 ? (b/1048576).toFixed(1).replace('.',',') + ' MB' : Math.max(1, Math.round((b||0)/1024)) + ' KB';
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const LV = ['Sem acesso','Ver','Ver e baixar','Editar e enviar'];
-const CATEGORIAS = { 'contrato-assinado':'Contrato principal assinado', 'minuta':'Minuta', 'aditivo':'Aditivo', 'anexo':'Anexo / planilha', 'distrato':'Distrato / rescisão', 'renovacao':'Renovação', 'correspondencia':'Correspondência / e-mail' };
 const REAJUSTES = ['IPCA','IGP-M','INPC','Convenção coletiva','Fixo','Outro'];
+// tipos de documento: v = tem data de validade (certidoes, alvaras, seguros...)
+const TIPOS_DOC = {
+  'contrato-assinado': { t:'Contrato principal assinado' },
+  'aditivo':           { t:'Aditivo' },
+  'minuta':            { t:'Minuta' },
+  'anexo':             { t:'Anexo / planilha' },
+  'renovacao':         { t:'Renovação' },
+  'distrato':          { t:'Distrato / rescisão' },
+  'correspondencia':   { t:'Correspondência / e-mail' },
+  'garantia':          { t:'Garantia (caução, fiança, seguro-fiança)', v:true },
+  'cnd-federal':       { t:'Certidão negativa federal (Receita e PGFN)', v:true },
+  'crf-fgts':          { t:'Certificado de regularidade do FGTS', v:true },
+  'cndt':              { t:'Certidão negativa de débitos trabalhistas', v:true },
+  'autorizacao-pf':    { t:'Autorização da Polícia Federal (vigilância)', v:true },
+  'avcb':              { t:'AVCB / certificado do Corpo de Bombeiros', v:true },
+  'alvara':            { t:'Alvará de funcionamento', v:true },
+  'seguro':            { t:'Apólice de seguro', v:true },
+  'licenca':           { t:'Licença sanitária ou ambiental', v:true },
+  'outro-validade':    { t:'Outro documento com validade', v:true },
+};
+const tipoDoc = k => (TIPOS_DOC[k] || { t:k }).t;
+const AVISAR_DOC = 30;   // documento com validade: alerta quando faltar 30 dias ou menos
 
 const icon = {
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -390,6 +424,8 @@ const icon = {
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
   users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c2 .7 3.2 2.6 3.6 5.4"/></svg>',
   imp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>',
+  tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>',
   cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/></svg>',
   menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
   lock:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
@@ -399,7 +435,7 @@ const icon = {
 
 // ═════════ Estado ═════════
 let PERFIL = null, EMPRESAS = [], EMP = null, NIVEL_EMP = 0;
-let CONTRATOS = [], NAT = new Map(), FIL = new Map(), FORN = new Map(), DOCS = new Map(), PESSOAS = [];
+let CONTRATOS = [], CAT = new Map(), GRUPOS = [], UNI = new Map(), DOCS = new Map(), PESSOAS = [], MEU = null;
 let carregado = false, recuperando = false;
 const ehAdmin = () => PERFIL && PERFIL.papel === 'admin';
 
@@ -413,6 +449,11 @@ function erroTxt(e){
   if (/rate limit|too many/i.test(m)) return 'Muitas tentativas. Aguarde alguns minutos.';
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sem conexão com o servidor. Verifique a internet.';
   if (/row-level security|permission denied/i.test(m)) return 'Seu acesso não permite fazer isso.';
+  if (/categoria desativada/i.test(m)) return 'Essa categoria foi desativada. Escolha outra.';
+  if (/categoria invalida/i.test(m)) return 'Essa categoria não vale para esta empresa.';
+  if (/ctr_categorias_nome|duplicate key.*categor/i.test(m)) return 'Já existe uma categoria com esse nome.';
+  if (/ctr_contratos_categoria_fkey|violates foreign key.*categor/i.test(m)) return 'Esta categoria tem contratos. Desative em vez de apagar.';
+  if (/violates foreign key.*unidade|ctr_contratos_empresa_unidade_fkey/i.test(m)) return 'Unidade não cadastrada (ou com contratos, se estiver apagando).';
   if (/relation .*ctr_|does not exist|schema cache/i.test(m)) return 'O banco dos contratos ainda não foi instalado (falta rodar o SQL).';
   return m;
 }
@@ -431,6 +472,25 @@ async function fn(corpo){
   if (!r.ok) throw new Error(j.erro || ('Erro ' + r.status));
   return j;
 }
+
+// ═════════ CPF / CNPJ (inclui o CNPJ com letras, valido desde julho de 2026) ═════════
+function validarDoc(s){
+  const v = String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!v) return { vazio: true };
+  if (/^\d{11}$/.test(v)) {
+    if (/^(\d)\1{10}$/.test(v)) return { erro: 'CPF inválido' };
+    const dv = n => { let s = 0; for (let i = 0; i < n; i++) s += Number(v[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+    return dv(9) === Number(v[9]) && dv(10) === Number(v[10]) ? { ok: v, tipo: 'CPF' } : { erro: 'CPF inválido (dígito não confere)' };
+  }
+  if (/^[A-Z0-9]{12}\d{2}$/.test(v)) {
+    if (/^(.)\1{13}$/.test(v)) return { erro: 'CNPJ inválido' };
+    const val = c => c.charCodeAt(0) - 48;
+    const dv = n => { const p = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2]; let s = 0; for (let i = 0; i < n; i++) s += val(v[i]) * p[i]; const r = s % 11; return r < 2 ? 0 : 11 - r; };
+    return dv(12) === Number(v[12]) && dv(13) === Number(v[13]) ? { ok: v, tipo: 'CNPJ' } : { erro: 'CNPJ inválido (dígito não confere)' };
+  }
+  return { erro: 'CPF tem 11 números e CNPJ tem 14 caracteres' };
+}
+const fmtDoc = v => !v ? '' : v.length === 11 ? v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4') : v.length === 14 ? v.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, '$1.$2.$3/$4-$5') : v;
 
 // ═════════ Login ═════════
 $('#f-login').addEventListener('submit', async ev => {
@@ -515,50 +575,78 @@ async function trocarEmpresa(slug){
   $('#sel-emp').value = slug; $('#side-emp').textContent = e ? e.nome : slug;
   $('#me-papel').textContent = ehAdmin() ? 'Administrador' : LV[NIVEL_EMP];
   $('#main').innerHTML = '<div class="loading">Carregando contratos…</div>';
-  await recarregar();
-  render();
+  try { await recarregar(); render(); }
+  catch (err) { $('#main').innerHTML = `<div class="card"><div class="card-b"><div class="msg erro">${esc(erroTxt(err))}</div></div></div>`; }
 }
 async function recarregar(){
-  const [c, n, f, fo, pe] = await Promise.all([
+  const [c, ca, g, u, pe, ma] = await Promise.all([
     sb.from('ctr_contratos').select('*').eq('empresa', EMP).order('fim', { ascending: true, nullsFirst: false }).limit(5000),
-    sb.from('ctr_naturezas').select('codigo,descricao,classe,tipo,aviso_dias').eq('empresa', EMP).limit(5000),
-    sb.from('ctr_filiais').select('numero,nome').eq('empresa', EMP).limit(5000),
-    sb.from('ctr_fornecedores').select('codigo,nome').eq('empresa', EMP).limit(10000),
+    sb.from('ctr_categorias').select('*').or(`empresa.is.null,empresa.eq.${EMP}`).limit(2000),
+    sb.from('ctr_grupos').select('*').order('ordem'),
+    sb.from('ctr_unidades').select('codigo,nome').eq('empresa', EMP).limit(5000),
     sb.rpc('ctr_pessoas', { p_empresa: EMP }),
+    ehAdmin() ? Promise.resolve({ data: null }) : sb.from('ctr_acessos').select('unidades,grupos,nivel').eq('usuario', PERFIL.id).eq('empresa', EMP).maybeSingle(),
   ]);
-  for (const r of [c, n, f, fo]) if (r.error) throw r.error;
+  for (const r of [c, ca, g, u]) if (r.error) throw r.error;
+  MEU = ehAdmin() ? null : (ma && ma.data) || null;   // limites do proprio acesso (unidades e grupos)
   CONTRATOS = c.data || [];
-  NAT = new Map((n.data || []).map(x => [x.codigo, x]));
-  FIL = new Map((f.data || []).map(x => [x.numero, x.nome]));
-  FORN = new Map((fo.data || []).map(x => [x.codigo, x.nome]));
+  CAT = new Map((ca.data || []).map(x => [x.id, x]));
+  GRUPOS = (g.data || []).sort((a, b) => a.ordem - b.ordem);
+  UNI = new Map((u.data || []).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true })).map(x => [x.codigo, x.nome]));
   PESSOAS = pe.error ? [] : (pe.data || []);
-  // quantos documentos cada contrato tem (so os que a pessoa pode ver)
+  // documentos de cada contrato (so os que a pessoa pode ver): tipo e validade
   DOCS = new Map();
   const ids = CONTRATOS.map(x => x.id);
   for (let i = 0; i < ids.length; i += 300) {
-    const { data, error } = await sb.from('ctr_documentos').select('contrato,categoria').in('contrato', ids.slice(i, i + 300)).limit(10000);
+    const { data, error } = await sb.from('ctr_documentos').select('contrato,categoria,validade,enviado_em').in('contrato', ids.slice(i, i + 300)).limit(20000);
     if (error) throw error;
-    for (const d of data || []) { const a = DOCS.get(d.contrato) || []; a.push(d.categoria); DOCS.set(d.contrato, a); }
+    for (const d of data || []) { const a = DOCS.get(d.contrato) || []; a.push(d); DOCS.set(d.contrato, a); }
   }
 }
 
 // ═════════ Regras de exibicao ═════════
-const nomeFilial = n => n == null ? '—' : (FIL.get(n) ? `${n} · ${FIL.get(n)}` : `Filial ${n}`);
-const nomeNat = n => n == null ? '—' : (NAT.get(n) ? `${n} · ${NAT.get(n).descricao}` : `Natureza ${n}`);
-const classeDe = c => (NAT.get(c.natureza) || {}).classe || 'Sem classe';
-const temDoc = c => (DOCS.get(c.id) || []).length > 0;
+const nomeUnidade = u => u == null || u === '' ? '—' : (UNI.get(u) && UNI.get(u) !== u ? `${u} · ${UNI.get(u)}` : String(u));
+const catDe = c => CAT.get(c.categoria) || { nome: 'Sem categoria', grupo: 'outros', documentos: [] };
+const nomeGrupo = g => (GRUPOS.find(x => x.codigo === g) || {}).nome || g || '—';
+const grupoDe = c => nomeGrupo(catDe(c).grupo);
+const docsDe = c => DOCS.get(c.id) || [];
+const temContrato = c => docsDe(c).some(d => d.categoria === 'contrato-assinado');
 const pessoa = id => (PESSOAS.find(p => p.id === id) || {}).nome || '—';
+const catsOrdenadas = (soAtivas = true, manter = null) => [...CAT.values()].filter(c => !soAtivas || c.ativo || c.id === manter).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+// estado de cada documento obrigatorio (o contrato assinado sempre e obrigatorio)
+function docsObrigatorios(c){
+  const tipos = ['contrato-assinado', ...(catDe(c).documentos || []).filter(t => t !== 'contrato-assinado')];
+  return tipos.map(t => {
+    const ds = docsDe(c).filter(d => d.categoria === t);
+    if (!ds.length) return { t, st: 'falta' };
+    if (!(TIPOS_DOC[t] || {}).v) return { t, st: 'ok' };
+    const val = ds.map(d => d.validade).filter(Boolean).sort().pop();
+    if (!val) return { t, st: 'ok' };
+    const n = diasAte(val);
+    return { t, st: n < 0 ? 'vencido' : n <= AVISAR_DOC ? 'vence' : 'ok', validade: val, dias: n };
+  });
+}
+const docsComProblema = c => c.situacao === 'encerrado' ? [] : docsObrigatorios(c).filter(x => x.st !== 'ok');
 function situ(c){
   if (c.situacao === 'encerrado') return { k:'mut', t:'Encerrado', cod:'encerrado' };
   const d = dias(c);
-  if (d === null) return { k:'mut', t:'Sem datas', cod:'semdatas' };
+  if (d === null) return { k:'mut', t:'Sem vencimento', cod:'semdatas' };
   if (d < 0) return { k:'bad', t:'Vencido', cod:'vencido' };
   if (d <= c.aviso_dias) return { k:'warn', t:'Prazo de aviso', cod:'aviso' };
   if (d <= c.aviso_dias + 60) return { k:'info', t:'Vence em breve', cod:'breve' };
   return { k:'ok', t:'Vigente', cod:'vigente' };
 }
-const pendente = c => c.situacao !== 'encerrado' && (!temDoc(c) || !c.fim);
+const pendente = c => docsComProblema(c).length > 0;
+// o proprio acesso permite cadastrar nesta unidade / categoria? (o banco confere de novo)
+const podeUnidade = u => !MEU || !MEU.unidades.length || MEU.unidades.includes(u);
+const podeCategoria = id => { const k = CAT.get(id); return !MEU || !MEU.grupos.length || (k && MEU.grupos.includes(k.grupo)); };
 const nivelC = c => ehAdmin() ? 3 : NIVEL_EMP;   // o banco ja escondeu o que a pessoa nao pode ver
+function proxReajuste(c){
+  if (!c.mes_reajuste || !c.reajuste || c.reajuste === 'Fixo' || c.situacao === 'encerrado') return null;
+  const h = hojeD(); let a = h.getFullYear(); if (c.mes_reajuste - 1 < h.getMonth()) a++;
+  return `${MESES[c.mes_reajuste - 1]} de ${a}`;
+}
+const optCategorias = (sel, manter) => GRUPOS.map(g => { const cs = catsOrdenadas(true, manter).filter(c => c.grupo === g.codigo && (podeCategoria(c.id) || c.id === manter)); return cs.length ? `<optgroup label="${esc(g.nome)}">${cs.map(c => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>` : ''; }).join('');
 
 // ═════════ Navegacao ═════════
 function nav(){
@@ -566,8 +654,8 @@ function nav(){
   const alertas = CONTRATOS.filter(c => ['vencido','aviso'].includes(situ(c).cod)).length;
   const it = (id, ic, t, extra = '') => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}${t}${extra}</a>`;
   let s = it('painel', 'dash', 'Painel', alertas ? `<span class="count">${alertas}</span>` : '') + it('contratos', 'list', 'Contratos');
-  if (NIVEL_EMP >= 3) s += it('novo', 'plus', 'Novo contrato');
-  if (ehAdmin()) s += `<div class="grp">Administração</div>` + it('acessos', 'users', 'Acessos') + it('importar', 'imp', 'Importar planilhas') + it('sharepoint', 'cloud', 'SharePoint');
+  if (NIVEL_EMP >= 3) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
+  if (ehAdmin()) s += `<div class="grp">Administração</div>` + it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('unidades', 'pin', 'Unidades') + it('sharepoint', 'cloud', 'SharePoint');
   $('#nav').innerHTML = s;
   const tb = (id, ic, t) => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}<span>${t}</span></a>`;
   $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 ? tb('novo', 'plus', 'Novo') : '')
@@ -582,7 +670,8 @@ function render(){
   if (!PERFIL || !EMP) return;
   const raw = location.hash.slice(1) || 'painel';
   const [path, q] = raw.split('?'); const [r, arg] = path.split('/');
-  const telas = { painel: vPainel, contratos: () => vLista(q), contrato: () => vContrato(Number(arg)), novo: vNovo, acessos: vAcessos, importar: vImportar, sharepoint: vSharePoint };
+  const telas = { painel: vPainel, contratos: () => vLista(q), contrato: () => vContrato(Number(arg)), novo: vNovo, importar: vImportar,
+    acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, sharepoint: vSharePoint };
   $('#main').innerHTML = (telas[r] || vPainel)();
   nav(); $('#side').classList.remove('open'); document.body.classList.remove('menu-aberto');
   const depois = render._depois; render._depois = null; if (depois) depois();
@@ -599,48 +688,56 @@ function vPainel(){
   const venc = S.filter(([, s]) => s.cod === 'vencido').length;
   const pend = ativos.filter(pendente).length;
   const mensal = S.filter(([, s]) => s.cod !== 'vencido').reduce((a, [c]) => a + Number(c.valor_mensal || 0), 0);
-  const comDoc = ativos.filter(temDoc).length, comData = ativos.filter(c => c.fim).length, tot = ativos.length || 1;
+  const comDoc = ativos.filter(temContrato).length, comData = ativos.filter(c => c.fim).length, emDia = ativos.filter(c => !pendente(c)).length, tot = ativos.length || 1;
   const KI = { ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>', warn:'<path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9L2.6 17.3A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.7L13.7 3.9a2 2 0 0 0-3.4 0z"/>', bad:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', mut:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>', acc:'<path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.4 4.5 3.2-2 3-4.5 3-4.5-1.3-4.5-3"/>' };
   const kpi = (l, val, sub, cor, href) => { const t = /ok/.test(cor) ? 'ok' : /warn/.test(cor) ? 'warn' : /bad/.test(cor) ? 'bad' : /acc/.test(cor) ? 'acc' : 'mut';
     return `<a class="kpi" href="#${href}" style="--k:${cor}"><span class="kpi-top"><span class="lbl">${l}</span><span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KI[t]}</svg></span></span><span class="val">${val}</span><span class="sub">${sub}</span></a>`; };
   const prox = S.filter(([, s]) => ['vencido','aviso','breve'].includes(s.cod)).sort((a, b) => dias(a[0]) - dias(b[0])).slice(0, 30);
+  const docAlertas = ativos.flatMap(c => docsObrigatorios(c).filter(x => x.st === 'vencido' || x.st === 'vence').map(x => [c, x])).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const meses = [...Array(12)].map((_, i) => { const d = new Date(hojeD().getFullYear(), hojeD().getMonth() + i, 1); return { d, n: ativos.filter(c => { const f = parse(c.fim); return f && f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth(); }).length }; });
   const mx = Math.max(1, ...meses.map(m => m.n));
-  const porClasse = [...ativos.reduce((m, c) => m.set(classeDe(c), (m.get(classeDe(c)) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const mxC = Math.max(1, ...porClasse.map(x => x[1]));
+  const porGrupo = [...ativos.reduce((m, c) => { const g = grupoDe(c); const x = m.get(g) || { n: 0, v: 0 }; x.n++; x.v += Number(c.valor_mensal || 0); return m.set(g, x); }, new Map())].sort((a, b) => b[1].v - a[1].v || b[1].n - a[1].n);
+  const mxG = Math.max(1, ...porGrupo.map(x => x[1].v));
   const emp = EMPRESAS.find(x => x.slug === EMP);
   if (!CONTRATOS.length) {
     return topo('Painel de contratos', esc(emp ? emp.nome : '')) + `<div class="card"><div class="card-b" style="display:grid;gap:12px;justify-items:start"><h2>Nenhum contrato ainda</h2>
-      <p class="muted" style="margin:0;max-width:60ch">${ehAdmin() ? 'Comece importando as planilhas do sistema do cliente (naturezas, filiais, aluguéis e prestadores) ou cadastre um contrato à mão.' : 'Quando houver contratos que você pode ver, eles aparecem aqui.'}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${ehAdmin() ? `<a class="btn pri" href="#importar">${icon.imp}Importar planilhas</a>` : ''}${NIVEL_EMP >= 3 ? `<a class="btn" href="#novo">${icon.plus}Novo contrato</a>` : ''}</div></div></div>`;
+      <p class="muted" style="margin:0;max-width:62ch">${NIVEL_EMP >= 3 ? 'Baixe a planilha modelo, preencha com os contratos que vocês já têm e envie de volta. Os contratos novos do dia a dia são cadastrados um a um.' : 'Quando houver contratos que você pode ver, eles aparecem aqui.'}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${NIVEL_EMP >= 3 ? `<a class="btn pri" href="#importar">${icon.imp}Importar planilha</a><a class="btn" href="#novo">${icon.plus}Novo contrato</a>` : ''}</div></div></div>`;
   }
   return topo('Painel de contratos', `${esc(emp ? emp.nome : '')} · ${CONTRATOS.length} contratos que você pode ver`, NIVEL_EMP >= 3 ? `<a class="btn pri" href="#novo">${icon.plus}Novo contrato</a>` : '')
   + `<div class="kpis">
-      ${kpi('Vigentes', vig, 'com datas preenchidas', 'var(--ok)', 'contratos?st=vigente')}
+      ${kpi('Vigentes', vig, 'com vencimento preenchido', 'var(--ok)', 'contratos?st=vigente')}
       ${kpi('No prazo de aviso', aviso, 'decidir renovar ou cancelar', 'var(--warn)', 'contratos?st=aviso')}
       ${kpi('Vencidos', venc, 'sem renovação registrada', 'var(--bad)', 'contratos?st=vencido')}
-      ${kpi('Pendentes', pend, 'sem documento ou sem datas', 'var(--muted)', 'contratos?st=pendente')}
+      ${kpi('Documentos pendentes', pend, 'falta documento ou está vencido', 'var(--muted)', 'contratos?st=pendente')}
       ${kpi('Custo mensal', brl0(mensal), 'soma dos não vencidos', 'var(--acc)', 'contratos')}
     </div>
     <div class="dash">
       <div class="stack">
-        <div class="card"><div class="card-h"><h2>Andamento do cadastro</h2><span class="muted small">quanto falta para o controle ficar completo</span></div><div class="card-b progress">
-          <div class="pbar"><div class="row"><span>Com documento anexado</span><b class="num">${comDoc} de ${ativos.length}</b></div><div class="track"><i style="width:${comDoc / tot * 100}%"></i></div></div>
-          <div class="pbar"><div class="row"><span>Com início e vencimento</span><b class="num">${comData} de ${ativos.length}</b></div><div class="track"><i style="width:${comData / tot * 100}%"></i></div></div>
-        </div></div>
         <div class="card"><div class="card-h"><h2>O que precisa de atenção</h2><span class="muted small">mais urgente primeiro</span></div>
           <div class="alerts">${prox.length ? prox.map(([c, s]) => { const d = dias(c); return `<div class="alert" data-go="contrato/${c.id}">
             <div class="days p-${s.k}">${Math.abs(d)}<small>${d < 0 ? 'dias atrás' : 'dias'}</small></div>
-            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(nomeFilial(c.filial))} · vence ${fmt(c.fim)}</div></div>
-            <span class="pill p-${s.k}">${s.t}</span></div>`; }).join('') : `<div class="empty">Nenhum contrato vencido ou perto de vencer.${comData < ativos.length ? ' Lembre que só entram aqui os contratos com vencimento preenchido.' : ''}</div>`}</div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(c.titulo)} ${c.confidencial ? `<span class="lock">${icon.lock}</span>` : ''}</div><div class="muted small">${esc(c.fornecedor_nome)} · ${esc(nomeUnidade(c.unidade))} · vence ${fmt(c.fim)}</div></div>
+            <span class="pill p-${s.k}">${s.t}</span></div>`; }).join('') : `<div class="empty">Nenhum contrato vencido ou perto de vencer.${comData < ativos.length ? ' Só entram aqui os contratos com vencimento preenchido.' : ''}</div>`}</div>
+        </div>
+        <div class="card"><div class="card-h"><h2>Documentos com validade</h2><span class="muted small">certidões, alvarás, seguros: vencidos ou vencendo em até ${AVISAR_DOC} dias</span></div>
+          <div class="alerts">${docAlertas.length ? docAlertas.map(([c, x]) => `<div class="alert" data-go="contrato/${c.id}">
+            <div class="days p-${x.st === 'vencido' ? 'bad' : 'warn'}">${Math.abs(x.dias)}<small>${x.dias < 0 ? 'dias atrás' : 'dias'}</small></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(tipoDoc(x.t))}</div><div class="muted small">${esc(c.titulo)} · ${esc(c.fornecedor_nome)} · validade ${fmt(x.validade)}</div></div>
+            <span class="pill p-${x.st === 'vencido' ? 'bad' : 'warn'}">${x.st === 'vencido' ? 'Vencido' : 'Vence logo'}</span></div>`).join('') : '<div class="empty">Nenhum documento vencido ou vencendo.</div>'}</div>
         </div>
       </div>
       <div class="stack">
+        <div class="card"><div class="card-h"><h2>Andamento do cadastro</h2></div><div class="card-b progress">
+          <div class="pbar"><div class="row"><span>Com contrato assinado anexado</span><b class="num">${comDoc} de ${ativos.length}</b></div><div class="track"><i style="width:${comDoc / tot * 100}%"></i></div></div>
+          <div class="pbar"><div class="row"><span>Documentos obrigatórios em dia</span><b class="num">${emDia} de ${ativos.length}</b></div><div class="track"><i style="width:${emDia / tot * 100}%"></i></div></div>
+          <div class="pbar"><div class="row"><span>Com vencimento preenchido</span><b class="num">${comData} de ${ativos.length}</b></div><div class="track"><i style="width:${comData / tot * 100}%"></i></div></div>
+        </div></div>
         <div class="card"><div class="card-h"><h2>Vencimentos nos próximos 12 meses</h2></div><div class="card-b">
           <div class="tl">${meses.map((m, i) => `<div class="col" title="${m.n} contrato(s)"><span class="n">${m.n || ''}</span><div class="bar ${i < 3 && m.n ? 'hot' : ''}" style="height:${m.n / mx * 100}%"></div><span class="m">${m.d.toLocaleDateString('pt-BR', { month:'short' }).replace('.', '')}</span></div>`).join('')}</div>
         </div></div>
-        <div class="card"><div class="card-h"><h2>Por classe de natureza</h2></div><div class="card-b bytype">
-          ${porClasse.map(([k, n]) => `<div class="bt"><span>${esc(k)}</span><span class="track"><i style="width:${n / mxC * 100}%"></i></span><b class="num">${n}</b></div>`).join('')}
+        <div class="card"><div class="card-h"><h2>Custo mensal por grupo</h2></div><div class="card-b bytype">
+          ${porGrupo.map(([k, x]) => `<div class="bt bt3"><span>${esc(k)}<small class="muted"> · ${x.n}</small></span><span class="track"><i style="width:${x.v / mxG * 100}%"></i></span><b class="num">${brl0(x.v)}</b></div>`).join('')}
         </div></div>
       </div>
     </div>`;
@@ -649,18 +746,18 @@ function vPainel(){
 // ═════════ Lista ═════════
 function vLista(q){
   const p = new URLSearchParams(q || '');
-  const classes = [...new Set(CONTRATOS.map(classeDe))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
-  const filiais = [...new Set(CONTRATOS.map(c => c.filial).filter(x => x != null))].sort((a, b) => a - b);
+  const unidades = [...new Set(CONTRATOS.map(c => c.unidade).filter(x => x != null))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
+  const grupos = GRUPOS.filter(g => CONTRATOS.some(c => catDe(c).grupo === g.codigo));
   let limite = 200;
   const filtrar = () => {
-    const t = $('#f-q').value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''), cl = $('#f-cl').value, fi = $('#f-fi').value, st = $('#f-st').value;
+    const t = norm($('#f-q').value), gr = $('#f-gr').value, fi = $('#f-fi').value, st = $('#f-st').value;
     return CONTRATOS.filter(c => {
       const s = situ(c);
-      if (t && !(`${c.titulo} ${c.fornecedor_nome} ${c.fornecedor || ''} ${c.numero} ${c.natureza || ''}`).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(t)) return false;
-      if (cl && classeDe(c) !== cl) return false;
-      if (fi && String(c.filial) !== fi) return false;
+      if (t && !norm(`${c.titulo} ${c.fornecedor_nome} ${c.fornecedor_doc || ''} ${fmtDoc(c.fornecedor_doc)} ${c.fornecedor_codigo || ''} ${c.numero} ${catDe(c).nome} ${c.natureza_cliente || ''}`).includes(t)) return false;
+      if (gr && catDe(c).grupo !== gr && String(c.categoria) !== gr) return false;
+      if (fi && c.unidade !== fi) return false;
       if (st === 'pendente') return pendente(c);
-      if (st === 'semdoc') return c.situacao !== 'encerrado' && !temDoc(c);
+      if (st === 'semdoc') return c.situacao !== 'encerrado' && !temContrato(c);
       if (st && s.cod !== st) return false;
       if (!st && c.situacao === 'encerrado') return false;
       return true;
@@ -668,11 +765,11 @@ function vLista(q){
   };
   const linhas = () => {
     const r = filtrar();
-    $('#tb').innerHTML = r.length ? r.slice(0, limite).map(c => { const s = situ(c), d = dias(c); return `<tr class="link" data-go="contrato/${c.id}">
-      <td><div class="t">${esc(c.titulo)} ${c.confidencial ? `<span class="lock" title="Confidencial">${icon.lock}</span>` : ''}</div><div class="s"><span class="mono">${esc(c.numero)}</span>${temDoc(c) ? '' : ' · <span class="tag semdoc">sem documento</span>'}</div></td>
-      <td>${esc(c.fornecedor_nome)}<div class="s mono">${esc(c.fornecedor || '')}</div></td>
-      <td class="hide-m">${esc(nomeFilial(c.filial))}</td>
-      <td class="hide-m"><span class="tag" title="${esc(classeDe(c))}">${esc(nomeNat(c.natureza))}</span></td>
+    $('#tb').innerHTML = r.length ? r.slice(0, limite).map(c => { const s = situ(c), d = dias(c), pr = docsComProblema(c); return `<tr class="link" data-go="contrato/${c.id}">
+      <td><div class="t">${esc(c.titulo)} ${c.confidencial ? `<span class="lock" title="Confidencial">${icon.lock}</span>` : ''}</div><div class="s"><span class="mono">${esc(c.numero)}</span>${pr.length ? ` · <span class="tag semdoc" title="${esc(pr.map(x => tipoDoc(x.t) + (x.st === 'falta' ? ': falta' : ': vencido/vencendo')).join('\n'))}">${pr.length} doc. pendente${pr.length > 1 ? 's' : ''}</span>` : ''}</div></td>
+      <td>${esc(c.fornecedor_nome)}<div class="s mono">${esc(fmtDoc(c.fornecedor_doc) || c.fornecedor_codigo || '')}</div></td>
+      <td class="hide-m">${esc(nomeUnidade(c.unidade))}</td>
+      <td class="hide-m"><span class="tag" title="${esc(grupoDe(c))}">${esc(catDe(c).nome)}</span></td>
       <td class="num">${fmt(c.fim)}${d !== null ? `<div class="s">${d < 0 ? `há ${-d} dias` : `em ${d} dias`}</div>` : ''}</td>
       <td class="num hide-m">${brl(c.valor_mensal)}</td><td><span class="pill p-${s.k}">${s.t}</span></td></tr>`; }).join('')
       + (r.length > limite ? `<tr><td colspan="7" style="text-align:center"><button class="btn sm" id="mais">Mostrar mais (${r.length - limite} restantes)</button></td></tr>` : '')
@@ -682,26 +779,28 @@ function vLista(q){
   };
   depois(() => {
     if (p.get('st')) $('#f-st').value = p.get('st');
-    ['#f-q', '#f-cl', '#f-fi', '#f-st'].forEach(id => $(id).addEventListener('input', () => { limite = 200; linhas(); }));
+    ['#f-q', '#f-gr', '#f-fi', '#f-st'].forEach(id => $(id).addEventListener('input', () => { limite = 200; linhas(); }));
     $('#b-exp').onclick = () => exportar(filtrar());
     linhas();
   });
   return topo('Contratos', 'Todos os contratos que o seu acesso permite ver.', `<button class="btn" id="b-exp">${icon.dl}Exportar Excel</button>` + (NIVEL_EMP >= 3 ? `<a class="btn pri" href="#novo">${icon.plus}Novo contrato</a>` : ''))
   + `<div class="card"><div class="filters">
-      <input class="in search" id="f-q" placeholder="Buscar por nome, fornecedor, código ou número" aria-label="Buscar">
-      <select class="in" id="f-cl" aria-label="Classe"><option value="">Todas as classes</option>${classes.map(c => `<option>${esc(c)}</option>`).join('')}</select>
-      <select class="in" id="f-fi" aria-label="Filial"><option value="">Todas as filiais</option>${filiais.map(f => `<option value="${f}">${esc(nomeFilial(f))}</option>`).join('')}</select>
-      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem datas</option><option value="semdoc">Sem documento</option><option value="pendente">Pendentes (sem documento ou sem datas)</option><option value="encerrado">Encerrados</option></select>
+      <input class="in search" id="f-q" placeholder="Buscar por objeto, fornecedor, CNPJ, código ou número" aria-label="Buscar">
+      <select class="in" id="f-gr" aria-label="Grupo ou categoria"><option value="">Todos os grupos</option>${grupos.map(g => `<option value="${esc(g.codigo)}">${esc(g.nome)}</option>${catsOrdenadas(false).filter(c => c.grupo === g.codigo && CONTRATOS.some(x => x.categoria === c.id)).map(c => `<option value="${c.id}">&nbsp;&nbsp;↳ ${esc(c.nome)}</option>`).join('')}`).join('')}</select>
+      <select class="in" id="f-fi" aria-label="Unidade"><option value="">Todas as unidades</option>${unidades.map(f => `<option value="${esc(f)}">${esc(nomeUnidade(f))}</option>`).join('')}</select>
+      <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="encerrado">Encerrados</option></select>
       <span class="muted small" style="align-self:center" id="cnt"></span>
     </div>
-    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">Filial</th><th class="hide-m">Natureza</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">Unidade</th><th class="hide-m">Categoria</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
 }
 function exportar(lista){
   if (!window.XLSX) { toast('A ferramenta de Excel ainda está carregando. Tente de novo em 2 segundos.'); return; }
-  const linhas = lista.map(c => ({ 'Número': c.numero, 'Contrato': c.titulo, 'Fornecedor (código)': c.fornecedor || '', 'Fornecedor': c.fornecedor_nome,
-    'Filial': c.filial, 'Nome da filial': FIL.get(c.filial) || '', 'Natureza': c.natureza, 'Descrição da natureza': (NAT.get(c.natureza) || {}).descricao || '', 'Classe': classeDe(c),
+  const linhas = lista.map(c => ({ 'Número': c.numero, 'Objeto do contrato': c.titulo, 'Fornecedor': c.fornecedor_nome, 'CPF/CNPJ': fmtDoc(c.fornecedor_doc),
+    'Código do fornecedor no sistema': c.fornecedor_codigo || '', 'Unidade': c.unidade || '', 'Nome da unidade': UNI.get(c.unidade) || '',
+    'Grupo': grupoDe(c), 'Categoria': catDe(c).nome, 'Código da natureza no sistema': c.natureza_cliente || '',
     'Valor mensal': c.valor_mensal == null ? '' : Number(c.valor_mensal), 'Início': fmt(c.inicio), 'Vencimento': fmt(c.fim), 'Aviso prévio (dias)': c.aviso_dias,
-    'Reajuste': c.reajuste || '', 'Renovação automática': c.renovacao_automatica ? 'Sim' : 'Não', 'Situação': situ(c).t, 'Documentos': (DOCS.get(c.id) || []).length }));
+    'Índice de reajuste': c.reajuste || '', 'Mês do reajuste': c.mes_reajuste ? MESES[c.mes_reajuste - 1] : '', 'Renovação automática': c.renovacao_automatica ? 'Sim' : 'Não',
+    'Situação': situ(c).t, 'Documentos pendentes': docsComProblema(c).map(x => tipoDoc(x.t)).join('; '), 'Arquivos': docsDe(c).length }));
   const ws = XLSX.utils.json_to_sheet(linhas); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Contratos');
   XLSX.writeFile(wb, `Contratos_${EMP}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
@@ -710,52 +809,76 @@ function exportar(lista){
 function formContrato(c, pode){
   const dis = pode ? '' : 'disabled';
   const v = k => esc(c ? (c[k] ?? '') : '');
-  const natList = [...NAT.values()].sort((a, b) => a.codigo - b.codigo);
+  const fornecedores = [...new Map(CONTRATOS.map(x => [norm(x.fornecedor_nome), x.fornecedor_nome])).values()].sort().slice(0, 3000);
   return `<div class="grid2">
-      <div class="field" style="grid-column:1/-1"><label for="c-titulo" class="req">Nome do contrato</label><input class="in" id="c-titulo" value="${v('titulo')}" ${dis} placeholder="Ex.: Aluguel da loja Centro"></div>
-      <div class="field"><label for="c-forn" class="req">Fornecedor / contraparte</label><input class="in" id="c-forn" list="dl-forn" value="${c ? esc((c.fornecedor ? c.fornecedor + ' - ' : '') + c.fornecedor_nome) : ''}" ${dis} placeholder="Digite o código ou o nome"><span class="hint">Use "CÓDIGO - NOME" para ligar ao cadastro do sistema.</span></div>
-      <div class="field"><label for="c-nat">Natureza</label><input class="in" id="c-nat" list="dl-nat" value="${c && c.natureza != null ? esc(nomeNat(c.natureza).replace(' · ', ' - ')) : ''}" ${dis} placeholder="Ex.: 702"></div>
-      <div class="field"><label for="c-fil">Filial</label><input class="in" id="c-fil" list="dl-fil" inputmode="numeric" value="${c && c.filial != null ? c.filial : ''}" ${dis} placeholder="Número da filial"></div>
+      <div class="field"><label for="c-cat" class="req">Categoria</label><select class="in" id="c-cat" ${dis}><option value="">Escolha…</option>${optCategorias(c ? c.categoria : null, c ? c.categoria : null)}</select></div>
+      <div class="field"><label for="c-titulo" class="req">Objeto do contrato</label><input class="in" id="c-titulo" value="${v('titulo')}" ${dis} placeholder="Ex.: Aluguel da loja Centro"></div>
+      <div class="dica" id="c-dica" hidden style="grid-column:1/-1"></div>
+      <div class="field"><label for="c-forn" class="req">Fornecedor / contraparte</label><input class="in" id="c-forn" list="dl-forn" value="${v('fornecedor_nome')}" ${dis} placeholder="Nome ou razão social"></div>
+      <div class="field"><label for="c-doc">CPF ou CNPJ do fornecedor</label><input class="in" id="c-doc" value="${esc(c ? fmtDoc(c.fornecedor_doc) : '')}" ${dis} placeholder="Recomendado"></div>
+      <div class="field"><label for="c-uni">Unidade</label><select class="in" id="c-uni" ${dis}><option value="">—</option>${[...UNI].filter(([k]) => podeUnidade(k) || (c && c.unidade === k)).map(([k, n]) => `<option value="${esc(k)}" ${c && c.unidade === k ? 'selected' : ''}>${esc(nomeUnidade(k))}</option>`).join('')}</select>${UNI.size ? '' : `<span class="hint">Nenhuma unidade cadastrada${ehAdmin() ? ': cadastre em Administração → Unidades' : ''}.</span>`}</div>
       <div class="field"><label for="c-resp">Responsável</label><select class="in" id="c-resp" ${dis}><option value="">—</option>${PESSOAS.map(p => `<option value="${p.id}" ${c && c.responsavel === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
     </div>
     <div class="grid3">
       <div class="field"><label for="c-ini">Início</label><input class="in" id="c-ini" type="date" value="${v('inicio')}" ${dis}></div>
-      <div class="field"><label for="c-fim">Vencimento</label><input class="in" id="c-fim" type="date" value="${v('fim')}" ${dis}></div>
+      <div class="field"><label for="c-fim">Vencimento</label><input class="in" id="c-fim" type="date" value="${v('fim')}" ${dis}><span class="hint">Em branco = prazo indeterminado.</span></div>
       <div class="field"><label for="c-aviso">Aviso prévio (dias)</label><input class="in" id="c-aviso" type="number" min="0" max="3650" value="${c ? c.aviso_dias : 30}" ${dis}></div>
       <div class="field"><label for="c-valor">Valor mensal (R$)</label><input class="in" id="c-valor" inputmode="decimal" value="${c && c.valor_mensal != null ? String(c.valor_mensal).replace('.', ',') : ''}" ${dis}></div>
-      <div class="field"><label for="c-reaj">Reajuste</label><select class="in" id="c-reaj" ${dis}><option value="">—</option>${REAJUSTES.map(r => `<option ${c && c.reajuste === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="field"><label for="c-reaj">Índice de reajuste</label><select class="in" id="c-reaj" ${dis}><option value="">—</option>${REAJUSTES.map(r => `<option ${c && c.reajuste === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+      <div class="field"><label for="c-mes">Mês do reajuste</label><select class="in" id="c-mes" ${dis}><option value="">Mês do início</option>${MESES.map((m, i) => `<option value="${i + 1}" ${c && c.mes_reajuste === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
       <div class="field"><label for="c-renov">Renovação</label><select class="in" id="c-renov" ${dis}><option value="n">Manual</option><option value="s" ${c && c.renovacao_automatica ? 'selected' : ''}>Automática</option></select></div>
+      <div class="field"><label for="c-fcod">Código do fornecedor no seu sistema</label><input class="in" id="c-fcod" value="${v('fornecedor_codigo')}" ${dis} placeholder="Opcional"></div>
+      <div class="field"><label for="c-nat">Código da natureza no seu sistema</label><input class="in" id="c-nat" value="${v('natureza_cliente')}" ${dis} placeholder="Opcional. Ex.: 702"></div>
     </div>
+    <div class="hint" style="margin-top:-6px">Os dois códigos do seu sistema são opcionais, mas é com eles que o sistema vai conferir se os pagamentos batem com o contrato.</div>
     <div class="field"><label for="c-obs">Observações</label><textarea class="in" id="c-obs" rows="2" ${dis}>${v('observacao')}</textarea></div>
     <div style="display:flex;gap:18px;flex-wrap:wrap">
       <label class="check"><input type="checkbox" id="c-conf" ${c && c.confidencial ? 'checked' : ''} ${dis}> Confidencial (só admin, quem cadastrou e pessoas liberadas veem)</label>
       ${c ? `<label class="check"><input type="checkbox" id="c-enc" ${c.situacao === 'encerrado' ? 'checked' : ''} ${dis}> Encerrado (não vale mais)</label>` : ''}
     </div>
-    <datalist id="dl-forn">${[...FORN].slice(0, 3000).map(([k, n]) => `<option value="${esc(k + ' - ' + n)}">`).join('')}</datalist>
-    <datalist id="dl-nat">${natList.slice(0, 3000).map(n => `<option value="${esc(n.codigo + ' - ' + n.descricao)}">${esc(n.classe || '')}</option>`).join('')}</datalist>
-    <datalist id="dl-fil">${[...FIL].map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</datalist>
+    <datalist id="dl-forn">${fornecedores.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div id="c-msg"></div>`;
 }
+// liga o formulario: dica da categoria; no contrato novo, a categoria preenche aviso e reajuste
+function ligarForm(novo){
+  const mostrarDica = () => { const cat = CAT.get(Number($('#c-cat').value)); const d = $('#c-dica'); if (!d) return;
+    const docs = cat ? (cat.documentos || []).map(tipoDoc) : [];
+    d.hidden = !cat || (!cat.dica && !docs.length);
+    if (cat) d.innerHTML = (cat.dica ? `<div>${esc(cat.dica)}</div>` : '') + (docs.length ? `<div class="small" style="margin-top:4px"><b>Documentos exigidos nesta categoria:</b> contrato assinado, ${esc(docs.join(', '))}.</div>` : ''); };
+  $('#c-cat').addEventListener('change', () => {
+    const cat = CAT.get(Number($('#c-cat').value));
+    if (novo && cat) { $('#c-aviso').value = cat.aviso_dias; $('#c-reaj').value = cat.reajuste || ''; }
+    mostrarDica();
+  });
+  // fornecedor que ja existe: aproveita CPF/CNPJ e codigo
+  $('#c-forn').addEventListener('change', () => {
+    const x = CONTRATOS.find(k => norm(k.fornecedor_nome) === norm($('#c-forn').value));
+    if (!x) return;
+    if (!$('#c-doc').value && x.fornecedor_doc) $('#c-doc').value = fmtDoc(x.fornecedor_doc);
+    if (!$('#c-fcod').value && x.fornecedor_codigo) $('#c-fcod').value = x.fornecedor_codigo;
+  });
+  mostrarDica();
+}
+const lerValor = s => { const t = String(s ?? '').trim().replace(/[R$\s]/g, ''); if (!t) return null; const n = /,\d{1,2}$/.test(t) || (t.includes(',') && !t.includes('.')) ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, ''); return Number(n); };
 function lerForm(){
-  const forn = $('#c-forn').value.trim();
-  let fornecedor = null, fornecedor_nome = forn;
-  const mf = /^([A-Za-z0-9]{2,20})\s+-\s+(.+)$/.exec(forn);
-  if (mf && (FORN.has(mf[1]) || /\d/.test(mf[1]))) { fornecedor = mf[1]; fornecedor_nome = mf[2].trim(); }
-  const nat = $('#c-nat').value.trim(); const mn = /^(\d+)/.exec(nat);
-  const fil = $('#c-fil').value.trim();
-  const valor = $('#c-valor').value.trim().replace(/[R$\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const doc = validarDoc($('#c-doc').value);
+  const valor = lerValor($('#c-valor').value);
   const dados = {
-    titulo: $('#c-titulo').value.trim(), fornecedor, fornecedor_nome, natureza: mn ? Number(mn[1]) : null,
-    filial: fil === '' ? null : Number(fil), responsavel: $('#c-resp').value || null,
+    categoria: Number($('#c-cat').value) || null, titulo: $('#c-titulo').value.trim(),
+    fornecedor_nome: $('#c-forn').value.trim().replace(/\s+/g, ' '), fornecedor_doc: doc.ok || null,
+    fornecedor_codigo: $('#c-fcod').value.trim() || null, natureza_cliente: $('#c-nat').value.trim() || null,
+    unidade: $('#c-uni').value || null, responsavel: $('#c-resp').value || null,
     inicio: $('#c-ini').value || null, fim: $('#c-fim').value || null, aviso_dias: Number($('#c-aviso').value || 0),
-    valor_mensal: valor === '' ? null : Number(valor), reajuste: $('#c-reaj').value || null,
+    valor_mensal: valor, reajuste: $('#c-reaj').value || null, mes_reajuste: Number($('#c-mes').value) || null,
     renovacao_automatica: $('#c-renov').value === 's', observacao: $('#c-obs').value.trim() || null, confidencial: $('#c-conf').checked,
   };
+  if (!dados.mes_reajuste && dados.inicio && dados.reajuste && dados.reajuste !== 'Fixo') dados.mes_reajuste = parse(dados.inicio).getMonth() + 1;
   if ($('#c-enc')) dados.situacao = $('#c-enc').checked ? 'encerrado' : 'ativo';
-  if (!dados.titulo) return { erro: 'Preencha o nome do contrato.' };
+  if (!dados.categoria) return { erro: 'Escolha a categoria.' };
+  if (!dados.titulo) return { erro: 'Preencha o objeto do contrato.' };
   if (!dados.fornecedor_nome) return { erro: 'Preencha o fornecedor.' };
-  if (dados.valor_mensal !== null && !isFinite(dados.valor_mensal)) return { erro: 'O valor mensal não é um número válido.' };
-  if (dados.filial !== null && !Number.isInteger(dados.filial)) return { erro: 'A filial precisa ser o número da filial.' };
+  if (doc.erro) return { erro: doc.erro + '.' };
+  if (dados.valor_mensal !== null && (!isFinite(dados.valor_mensal) || dados.valor_mensal < 0)) return { erro: 'O valor mensal não é um número válido.' };
   if (dados.inicio && dados.fim && dados.fim < dados.inicio) return { erro: 'O vencimento está antes do início.' };
   if (!Number.isInteger(dados.aviso_dias) || dados.aviso_dias < 0) return { erro: 'O aviso prévio precisa ser um número de dias.' };
   return { dados };
@@ -764,18 +887,18 @@ function lerForm(){
 function vNovo(){
   if (NIVEL_EMP < 3) return semPermissao();
   depois(() => {
-    $('#c-nat').addEventListener('change', () => { const m = /^(\d+)/.exec($('#c-nat').value); const n = m && NAT.get(Number(m[1])); if (n && n.aviso_dias) $('#c-aviso').value = n.aviso_dias; });
+    ligarForm(true);
     $('#b-salvar').onclick = async () => {
       const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
       $('#b-salvar').disabled = true;
       const { data, error } = await sb.from('ctr_contratos').insert({ ...dados, empresa: EMP }).select('*').single();
       $('#b-salvar').disabled = false;
       if (error) { msgEm('#c-msg', erroTxt(error)); return; }
-      CONTRATOS.push(data); toast(`Contrato ${data.numero} cadastrado. Agora anexe o documento.`);
+      CONTRATOS.push(data); toast(`Contrato ${data.numero} cadastrado. Agora anexe o contrato assinado.`);
       location.hash = 'contrato/' + data.id;
     };
   });
-  return topo('Novo contrato', 'Depois de salvar, você anexa os arquivos na tela do contrato.', '', '<a href="#contratos">Contratos</a> / Novo')
+  return topo('Novo contrato', 'Depois de salvar, você anexa os arquivos na tela do contrato. Para cadastrar muitos de uma vez, use a planilha modelo.', NIVEL_EMP >= 3 ? `<a class="btn" href="#importar">${icon.imp}Importar planilha</a>` : '', '<a href="#contratos">Contratos</a> / Novo')
     + `<div class="card"><div class="card-b" style="display:grid;gap:14px">${formContrato(null, true)}<div><button class="btn pri" id="b-salvar">Salvar contrato</button></div></div></div>`;
 }
 
@@ -783,18 +906,23 @@ function vNovo(){
 function vContrato(id){
   const c = CONTRATOS.find(x => x.id === id);
   if (!c) return topo('Contrato não encontrado', '') + `<div class="card"><div class="card-b"><p class="muted" style="margin:0">Este contrato não existe ou o seu acesso não permite vê-lo.</p></div></div>`;
-  const n = nivelC(c), s = situ(c);
+  const n = nivelC(c), s = situ(c), cat = catDe(c), rj = proxReajuste(c);
+  const tipos = Object.entries(TIPOS_DOC);
+  const falta = docsObrigatorios(c).find(x => x.st !== 'ok');
   depois(() => carregarDetalhe(c, n));
   return topo(esc(c.titulo), `${esc(c.fornecedor_nome)} · <span class="mono">${esc(c.numero)}</span>`, '', `<a href="#contratos">Contratos</a> / ${esc(c.numero)}`)
   + `<div class="detail"><div class="stack">
-      <div class="card"><div class="card-h"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill p-${s.k}">${s.t}</span><span class="tag">${esc(classeDe(c))}</span>${c.confidencial ? `<span class="lock">${icon.lock} Confidencial</span>` : ''}${c.origem === 'importado' ? '<span class="tag">importado</span>' : ''}</div><span class="muted small">Seu acesso: <b>${LV[n]}</b></span></div>
+      <div class="card"><div class="card-h"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill p-${s.k}">${s.t}</span><span class="tag">${esc(nomeGrupo(cat.grupo))} › ${esc(cat.nome)}</span>${c.confidencial ? `<span class="lock">${icon.lock} Confidencial</span>` : ''}${c.origem === 'importado' ? '<span class="tag">importado</span>' : ''}</div><span class="muted small">Seu acesso: <b>${LV[n]}</b></span></div>
         <div class="card-b" style="display:grid;gap:14px">${formContrato(c, n >= 3)}
           ${n >= 3 ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="b-salvar">Salvar alterações</button>${ehAdmin() ? `<button class="btn danger" id="b-apagar">Apagar contrato</button>` : ''}</div>` : ''}
         </div></div>
-      <div class="card"><div class="card-h"><h2>Documentos</h2><span class="muted small" id="d-cnt"></span></div>
+      <div class="card"><div class="card-h"><h2>Arquivos</h2><span class="muted small" id="d-cnt"></span></div>
         <div class="docs" id="d-lista"><div class="empty">Carregando…</div></div>
         ${n >= 3 ? `<div class="card-b" style="border-top:1px solid var(--border);display:grid;gap:10px">
-          <div class="field"><label for="u-cat" class="req">O que é o arquivo</label><select class="in" id="u-cat">${Object.entries(CATEGORIAS).map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></div>
+          <div class="grid2">
+            <div class="field"><label for="u-cat" class="req">O que é o arquivo</label><select class="in" id="u-cat">${tipos.map(([k, t]) => `<option value="${k}" ${falta && falta.t === k ? 'selected' : ''}>${esc(t.t)}</option>`).join('')}</select></div>
+            <div class="field" id="u-val-f"><label for="u-val" class="req">Válido até</label><input class="in" id="u-val" type="date"><span class="hint">Data de validade que está no documento.</span></div>
+          </div>
           <div class="drop" id="dz" tabindex="0" role="button" aria-label="Escolher arquivos">${icon.up}<b>Arraste os arquivos aqui ou clique para escolher</b><span class="muted small">PDF, Word, Excel, imagem, e-mail (.msg) · até 250 MB cada</span></div>
           <input type="file" id="u-file" multiple hidden>
           <div class="files" id="fila"></div>
@@ -803,11 +931,14 @@ function vContrato(id){
       </div>
     </div>
     <div class="stack">
+      <div class="card"><div class="card-h"><h2>Documentos obrigatórios</h2></div><div class="chk" id="chk"></div></div>
       <div class="card"><div class="card-h"><h2>Resumo</h2></div><div class="card-b" style="display:grid;gap:8px;font-size:13.5px">
-        <div><span class="muted">Filial:</span> ${esc(nomeFilial(c.filial))}</div>
-        <div><span class="muted">Natureza:</span> ${esc(nomeNat(c.natureza))}</div>
-        <div><span class="muted">Vencimento:</span> ${fmt(c.fim)}${dias(c) !== null ? ` (${dias(c) < 0 ? 'há ' + -dias(c) : 'em ' + dias(c)} dias)` : ''}</div>
+        <div><span class="muted">Unidade:</span> ${esc(nomeUnidade(c.unidade))}</div>
+        <div><span class="muted">CPF/CNPJ:</span> ${esc(fmtDoc(c.fornecedor_doc) || '—')}</div>
+        <div><span class="muted">Vencimento:</span> ${c.fim ? fmt(c.fim) + ` (${dias(c) < 0 ? 'há ' + -dias(c) : 'em ' + dias(c)} dias)` : 'prazo indeterminado'}</div>
         ${c.fim ? `<div><span class="muted">Avisar a contraparte até:</span> <b>${new Date(parse(c.fim) - c.aviso_dias * 864e5).toLocaleDateString('pt-BR')}</b></div>` : ''}
+        ${rj ? `<div><span class="muted">Próximo reajuste (${esc(c.reajuste)}):</span> ${esc(rj)}</div>` : ''}
+        ${c.fornecedor_codigo || c.natureza_cliente ? `<div><span class="muted">No sistema da empresa:</span> <span class="mono">${esc([c.fornecedor_codigo && 'fornecedor ' + c.fornecedor_codigo, c.natureza_cliente && 'natureza ' + c.natureza_cliente].filter(Boolean).join(' · '))}</span></div>` : ''}
         <div><span class="muted">Responsável:</span> ${esc(pessoa(c.responsavel))}</div>
         <div><span class="muted">Cadastrado em:</span> ${fmtTs(c.criado_em)}</div>
       </div></div>
@@ -815,35 +946,42 @@ function vContrato(id){
       <div class="card"><div class="card-h"><h2>Histórico</h2></div><div class="hist" id="hist"><div class="muted" style="padding:8px 0">Carregando…</div></div></div>
     </div></div>`;
 }
+function desenharChecklist(c){
+  const el = $('#chk'); if (!el) return;
+  const L = { ok: ['p-ok', 'Em dia'], vence: ['p-warn', 'Vence logo'], vencido: ['p-bad', 'Vencido'], falta: ['p-mut', 'Falta'] };
+  el.innerHTML = docsObrigatorios(c).map(x => `<div class="chk-i"><div style="min-width:0"><div style="font-weight:500">${esc(tipoDoc(x.t))}</div>${x.validade ? `<div class="muted small">válido até ${fmt(x.validade)}</div>` : ''}</div><span class="pill ${L[x.st][0]}">${L[x.st][1]}</span></div>`).join('')
+    + `<div class="muted small" style="padding:10px 18px 14px">Exigidos pela categoria <b>${esc(catDe(c).nome)}</b>. ${ehAdmin() ? 'Para mudar a regra, vá em Administração → Categorias.' : ''}</div>`;
+}
 async function carregarDetalhe(c, n){
+  ligarForm(false); desenharChecklist(c);
   const b = $('#b-salvar');
   if (b) b.onclick = async () => {
     const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
     b.disabled = true;
     const { data, error } = await sb.from('ctr_contratos').update(dados).eq('id', c.id).select('*').maybeSingle();
     b.disabled = false;
-    if (error || !data) { msgEm('#c-msg', error ? erroTxt(error) : 'Não foi possível salvar: confira se o seu acesso permite esta filial/natureza.'); return; }
+    if (error || !data) { msgEm('#c-msg', error ? erroTxt(error) : 'Não foi possível salvar: confira se o seu acesso permite esta unidade/grupo.'); return; }
     Object.assign(c, data); toast('Alterações salvas.'); render();
   };
   const ap = $('#b-apagar');
-  if (ap) ap.onclick = () => confirmar('Apagar contrato', `Apagar ${esc(c.numero)} – ${esc(c.titulo)}? Só é possível quando não há documentos anexados. Para contratos que acabaram, prefira marcar "Encerrado".`, 'Apagar', async () => {
+  if (ap) ap.onclick = () => confirmar('Apagar contrato', `Apagar ${esc(c.numero)} – ${esc(c.titulo)}? Só é possível quando não há arquivos anexados. Para contratos que acabaram, prefira marcar "Encerrado".`, 'Apagar', async () => {
     const { data, error } = await sb.from('ctr_contratos').delete().eq('id', c.id).select('id');
-    if (error || !data || !data.length) { toast(error ? erroTxt(error) : 'Não foi possível apagar: o contrato tem documentos. Marque como "Encerrado".'); return; }
+    if (error || !data || !data.length) { toast(error ? erroTxt(error) : 'Não foi possível apagar: o contrato tem arquivos. Marque como "Encerrado".'); return; }
     CONTRATOS = CONTRATOS.filter(x => x.id !== c.id); toast('Contrato apagado.'); location.hash = 'contratos';
   });
   if (n >= 3) ligarUpload(c);
   await Promise.all([listarDocs(c, n), listarHist(c), ehAdmin() && c.confidencial ? listarLiberados(c) : null]);
 }
 async function listarDocs(c, n){
-  const { data, error } = await sb.from('ctr_documentos').select('id,categoria,nome,nome_original,tamanho,versao,enviado_por,enviado_em').eq('contrato', c.id).order('enviado_em', { ascending: false });
+  const { data, error } = await sb.from('ctr_documentos').select('id,contrato,categoria,validade,nome,nome_original,tamanho,versao,enviado_por,enviado_em').eq('contrato', c.id).order('enviado_em', { ascending: false });
   const el = $('#d-lista'); if (!el) return;
   if (error) { el.innerHTML = `<div class="empty">${esc(erroTxt(error))}</div>`; return; }
-  DOCS.set(c.id, (data || []).map(d => d.categoria));
+  DOCS.set(c.id, data || []); desenharChecklist(c);
   $('#d-cnt').textContent = data.length ? `${data.length} arquivo(s)` : '';
-  el.innerHTML = data.length ? data.map(d => { const e = (d.nome.split('.').pop() || '').toLowerCase(); return `<div class="doc"><div class="ext ${esc(e)}">${esc(e.toUpperCase().slice(0, 4))}</div>
-      <div style="min-width:0"><div class="mono" style="word-break:break-all;font-size:12.5px">${esc(d.nome)}</div><div class="muted" style="font-size:12px">${esc(CATEGORIAS[d.categoria] || d.categoria)} · ${tam(d.tamanho)} · ${fmtTs(d.enviado_em)} · ${esc(pessoa(d.enviado_por))}</div></div>
+  el.innerHTML = data.length ? data.map(d => { const e = (d.nome.split('.').pop() || '').toLowerCase(); const nv = diasAte(d.validade); return `<div class="doc"><div class="ext ${esc(e)}">${esc(e.toUpperCase().slice(0, 4))}</div>
+      <div style="min-width:0"><div class="mono" style="word-break:break-all;font-size:12.5px">${esc(d.nome)}</div><div class="muted" style="font-size:12px">${esc(tipoDoc(d.categoria))}${d.validade ? ` · <span style="color:var(--${nv < 0 ? 'bad' : nv <= AVISAR_DOC ? 'warn' : 'muted'})">válido até ${fmt(d.validade)}</span>` : ''} · ${tam(d.tamanho)} · ${fmtTs(d.enviado_em)} · ${esc(pessoa(d.enviado_por))}</div></div>
       <div style="display:flex;gap:4px"><button class="btn sm ghost" data-ver="${d.id}" title="Visualizar" aria-label="Visualizar">${icon.eye}</button>${n >= 2 ? `<button class="btn sm ghost" data-baixar="${d.id}" title="Baixar" aria-label="Baixar">${icon.dl}</button>` : ''}</div></div>`; }).join('')
-    : `<div class="empty">Nenhum arquivo ainda.${n >= 3 ? ' Anexe o contrato assinado abaixo.' : ''}</div>`;
+    : `<div class="empty">Nenhum arquivo ainda.${n >= 3 ? ' Comece pelo contrato assinado.' : ''}</div>`;
   el.onclick = async ev => {
     const bt = ev.target.closest('[data-ver],[data-baixar]'); if (!bt) return;
     const baixar = bt.hasAttribute('data-baixar');
@@ -883,15 +1021,23 @@ async function listarLiberados(c){
 // ═════════ Envio de arquivos (direto do navegador para o SharePoint, em partes) ═════════
 function ligarUpload(c){
   const dz = $('#dz'), inp = $('#u-file'); if (!dz) return;
-  dz.onclick = () => inp.click();
-  dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } };
+  const mostrarValidade = () => { $('#u-val-f').hidden = !(TIPOS_DOC[$('#u-cat').value] || {}).v; };
+  $('#u-cat').addEventListener('change', mostrarValidade); mostrarValidade();
+  const conferir = () => {
+    const precisa = (TIPOS_DOC[$('#u-cat').value] || {}).v;
+    if (precisa && !$('#u-val').value) { toast('Preencha a data de validade do documento antes de enviar.'); $('#u-val').focus(); return false; }
+    return true;
+  };
+  dz.onclick = () => { if (conferir()) inp.click(); };
+  dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (conferir()) inp.click(); } };
   ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
-  dz.addEventListener('drop', e => enviarVarios(c, [...e.dataTransfer.files]));
+  dz.addEventListener('drop', e => { if (conferir()) enviarVarios(c, [...e.dataTransfer.files]); });
   inp.onchange = () => { enviarVarios(c, [...inp.files]); inp.value = ''; };
 }
 async function enviarVarios(c, files){
   const cat = $('#u-cat').value;
+  const validade = (TIPOS_DOC[cat] || {}).v ? $('#u-val').value || null : null;
   const fila = $('#fila');
   for (const f of files) {
     const row = document.createElement('div'); row.className = 'file';
@@ -920,11 +1066,164 @@ async function enviarVarios(c, files){
       }
       if (!item || !item.id) throw new Error('O SharePoint não confirmou o arquivo.');
       st.textContent = 'Registrando…';
-      const reg = await fn({ acao: 'registrar', contrato: c.id, categoria: cat, item_id: item.id, nome_original: f.name });
+      const reg = await fn({ acao: 'registrar', contrato: c.id, categoria: cat, validade, item_id: item.id, nome_original: f.name });
       st.innerHTML = `<span style="color:var(--ok)">Salvo no SharePoint:</span> <span class="mono">${esc(reg.caminho)}</span>`;
     } catch (e) { st.innerHTML = `<span style="color:var(--bad)">${esc(erroTxt(e))}</span>`; bar.style.background = 'var(--bad)'; }
   }
   await Promise.all([listarDocs(c, nivelC(c)), listarHist(c)]);
+}
+
+// ═════════ Importar: planilha modelo (igual para todo cliente) ═════════
+const COLS = [
+  { k:'unidade',   h:'Unidade *',                               req:1, ex:'1', d:'Código ou nome da unidade (loja, filial, CD), como está em Unidades.' },
+  { k:'forn',      h:'Fornecedor *',                            req:1, ex:'Imobiliária Exemplo Ltda', d:'Nome ou razão social de quem presta o serviço ou aluga.' },
+  { k:'doc',       h:'CPF/CNPJ do fornecedor',                  ex:'11.222.333/0001-81', d:'Recomendado. O sistema confere os dígitos.' },
+  { k:'fcod',      h:'Código do fornecedor no seu sistema',     ex:'BFJ490', d:'Opcional. Necessário para conferir os pagamentos.' },
+  { k:'cat',       h:'Categoria *',                             req:1, ex:'Aluguel de imóvel comercial', d:'Exatamente como na aba "Categorias".' },
+  { k:'nat',       h:'Código da natureza no seu sistema',       ex:'702', d:'Opcional. Necessário para conferir os pagamentos.' },
+  { k:'titulo',    h:'Objeto do contrato *',                    req:1, ex:'Aluguel da loja Centro', d:'Do que se trata o contrato, em poucas palavras.' },
+  { k:'valor',     h:'Valor mensal',                            ex:'9800,00', d:'Em reais. Em branco se não for mensal.' },
+  { k:'inicio',    h:'Início',                                  ex:'01/03/2024', d:'dd/mm/aaaa.' },
+  { k:'fim',       h:'Vencimento',                              ex:'28/02/2029', d:'dd/mm/aaaa. Em branco = prazo indeterminado (o sistema não consegue avisar).' },
+  { k:'aviso',     h:'Aviso prévio (dias)',                     ex:'', d:'Em branco = o padrão da categoria.' },
+  { k:'reaj',      h:'Índice de reajuste',                      ex:'IGP-M', d:'IPCA, IGP-M, INPC, Convenção coletiva, Fixo ou Outro. Em branco = o padrão da categoria.' },
+  { k:'mes',       h:'Mês do reajuste',                         ex:'3', d:'1 a 12. Em branco = o mês do início.' },
+  { k:'renov',     h:'Renovação automática',                    ex:'Não', d:'Sim ou Não.' },
+  { k:'obs',       h:'Observações',                             ex:'', d:'Livre.' },
+];
+function vImportar(){
+  if (NIVEL_EMP < 3) return semPermissao();
+  depois(() => {
+    $('#b-modelo').onclick = baixarModelo;
+    $('#imp-file').addEventListener('change', () => { const f = $('#imp-file').files[0]; $('#imp-file').value = ''; if (f) lerImport(f); });
+  });
+  return topo('Importar planilha', 'Para cadastrar de uma vez os contratos que a empresa já tem. A planilha é lida no seu navegador e nada passa pelo GitHub.')
+    + `<div class="stack">
+      <div class="card"><div class="card-h"><h2>1. Baixe a planilha modelo</h2><button class="btn" id="b-modelo">${icon.dl}Baixar planilha modelo</button></div>
+        <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">Uma linha por contrato. A planilha já vem com as instruções, a lista de categorias e as unidades desta empresa.</p>
+        <div class="small"><span class="muted">Obrigatórias:</span> Unidade, Fornecedor, Categoria e Objeto do contrato. <span class="muted">Muito recomendadas:</span> CPF/CNPJ, Valor mensal, Início e Vencimento.</div></div></div>
+      <div class="card"><div class="card-h"><h2>2. Envie a planilha preenchida</h2><label class="btn pri">${icon.up}Escolher planilha<input type="file" id="imp-file" accept=".xlsx,.xls,.csv" hidden></label></div>
+        <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">O sistema confere todas as linhas <b>antes</b> de gravar. Se houver erro, nada é gravado: corrija na planilha e envie de novo.</p><div id="imp-res"></div></div></div>
+    </div>`;
+}
+function baixarModelo(){
+  if (!window.XLSX) { toast('A ferramenta de Excel ainda está carregando. Tente de novo em 2 segundos.'); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([COLS.map(c => c.h)]);
+  ws['!cols'] = COLS.map(c => ({ wch: Math.max(14, c.h.length + 2) }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Contratos');
+  const ex = XLSX.utils.aoa_to_sheet([COLS.map(c => c.h), COLS.map(c => c.ex)]); ex['!cols'] = ws['!cols'];
+  XLSX.utils.book_append_sheet(wb, ex, 'Exemplo');
+  const ins = XLSX.utils.aoa_to_sheet([['Como preencher'], ['Preencha a aba "Contratos", uma linha por contrato. Não mude os títulos das colunas. Colunas com * são obrigatórias.'], ['A aba "Exemplo" mostra uma linha preenchida. Ela não é importada.'], [], ['Coluna', 'O que colocar'], ...COLS.map(c => [c.h, c.d])]);
+  ins['!cols'] = [{ wch: 38 }, { wch: 100 }];
+  XLSX.utils.book_append_sheet(wb, ins, 'Instruções');
+  const cats = XLSX.utils.aoa_to_sheet([['Categoria', 'Grupo', 'Aviso prévio padrão (dias)', 'Reajuste padrão', 'Documentos exigidos'], ...catsOrdenadas().sort((a, b) => (GRUPOS.findIndex(g => g.codigo === a.grupo) - GRUPOS.findIndex(g => g.codigo === b.grupo)) || a.nome.localeCompare(b.nome, 'pt-BR')).map(c => [c.nome, nomeGrupo(c.grupo), c.aviso_dias, c.reajuste || '', ['Contrato assinado', ...(c.documentos || []).map(tipoDoc)].join('; ')])]);
+  cats['!cols'] = [{ wch: 40 }, { wch: 32 }, { wch: 14 }, { wch: 18 }, { wch: 90 }];
+  XLSX.utils.book_append_sheet(wb, cats, 'Categorias');
+  const un = XLSX.utils.aoa_to_sheet([['Unidade (código)', 'Nome'], ...[...UNI].map(([k, n]) => [k, n])]); un['!cols'] = [{ wch: 18 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, un, 'Unidades');
+  const emp = (EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP;
+  XLSX.writeFile(wb, `Planilha modelo de contratos - ${emp}.xlsx`);
+}
+const cel = v => v == null ? '' : String(v).trim();
+function lerData(v){
+  if (v == null || v === '') return { vazio: true };
+  if (typeof v === 'number' && isFinite(v)) { const d = XLSX.SSF.parse_date_code(v); if (!d || !d.y) return { erro: 1 }; return { ok: `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}` }; }
+  const s = String(v).trim(); let m;
+  if ((m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/.exec(s))) { let [, d, mo, y] = m.map(Number); if (y < 100) y += 2000; const dt = new Date(y, mo - 1, d); if (dt.getMonth() !== mo - 1 || dt.getDate() !== d) return { erro: 1 }; return { ok: `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` }; }
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s))) return { ok: `${m[1]}-${m[2]}-${m[3]}` };
+  return { erro: 1 };
+}
+async function lerImport(arquivo){
+  const res = $('#imp-res');
+  if (!window.XLSX) { res.innerHTML = '<div class="msg erro">A ferramenta de Excel ainda está carregando. Tente de novo.</div>'; return; }
+  res.innerHTML = '<div class="muted">Lendo e conferindo…</div>';
+  try {
+    const wb = XLSX.read(await arquivo.arrayBuffer(), { type: 'array' });
+    const aba = wb.SheetNames.find(n => norm(n) === 'contratos') || wb.SheetNames[0];
+    const L = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, raw: true, defval: null });
+    const ih = L.findIndex(r => r && r.some(v => norm(v).replace(/[^a-z ]/g, '').trim() === 'fornecedor'));
+    if (ih < 0) throw new Error('Não encontrei a linha de títulos. Use a planilha modelo, sem mudar os títulos das colunas.');
+    const cab = L[ih].map(v => norm(v).replace(/[*]/g, '').trim());
+    const idx = {}; for (const c of COLS) idx[c.k] = cab.indexOf(norm(c.h).replace(/[*]/g, '').trim());
+    const faltam = COLS.filter(c => c.req && idx[c.k] < 0).map(c => c.h.replace(' *', ''));
+    if (faltam.length) throw new Error('Faltam colunas obrigatórias: ' + faltam.join(', ') + '. Use a planilha modelo.');
+    const g = (r, k) => idx[k] >= 0 ? r[idx[k]] : null;
+    const catPorNome = new Map(catsOrdenadas().map(c => [norm(c.nome), c]));
+    const uniPor = new Map(); for (const [k, n] of UNI) { uniPor.set(norm(k), k); if (!uniPor.has(norm(n))) uniPor.set(norm(n), k); }
+    const existentes = new Set(CONTRATOS.map(c => [c.unidade, c.fornecedor_doc || norm(c.fornecedor_nome), c.categoria, norm(c.titulo)].join('|')));
+    const erros = [], avisos = [], linhas = [], vistos = new Map(), novasUni = new Map();
+    for (let i = ih + 1; i < L.length; i++) {
+      const r = L[i]; if (!r || !r.some(v => cel(v) !== '')) continue;
+      const n = i + 1, E = t => erros.push([n, t]), A = t => avisos.push([n, t]);
+      // unidade
+      let uniTxt = cel(g(r, 'unidade')).replace(/\.0+$/, ''), unidade = null;
+      if (!uniTxt) E('Unidade em branco.');
+      else if (uniPor.has(norm(uniTxt))) unidade = uniPor.get(norm(uniTxt));
+      else if (ehAdmin()) { unidade = uniTxt.slice(0, 30); novasUni.set(unidade, uniTxt); }
+      else E(`Unidade "${uniTxt}" não está cadastrada. Peça ao administrador para cadastrar.`);
+      if (unidade && !podeUnidade(unidade)) E(`Seu acesso não permite cadastrar na unidade "${uniTxt}".`);
+      const forn = cel(g(r, 'forn')).replace(/\s+/g, ' '); if (!forn) E('Fornecedor em branco.');
+      const titulo = cel(g(r, 'titulo')); if (!titulo) E('Objeto do contrato em branco.');
+      const catTxt = cel(g(r, 'cat')), cat = catPorNome.get(norm(catTxt));
+      if (!catTxt) E('Categoria em branco.'); else if (!cat) E(`Categoria "${catTxt}" não existe. Copie o nome exato da aba "Categorias".`);
+      else if (!podeCategoria(cat.id)) E(`Seu acesso não permite cadastrar contratos de "${nomeGrupo(cat.grupo)}".`);
+      const dv = validarDoc(g(r, 'doc')); if (dv.erro) E(`${dv.erro}: "${cel(g(r, 'doc'))}".`); else if (dv.vazio) A('Sem CPF/CNPJ do fornecedor.');
+      const vt = g(r, 'valor'); const valor = typeof vt === 'number' ? Math.round(vt * 100) / 100 : lerValor(vt);
+      if (valor !== null && (!isFinite(valor) || valor < 0)) E(`Valor mensal inválido: "${cel(vt)}".`); else if (valor === null) A('Sem valor mensal.');
+      const di = lerData(g(r, 'inicio')), df = lerData(g(r, 'fim'));
+      if (di.erro) E(`Data de início inválida: "${cel(g(r, 'inicio'))}". Use dd/mm/aaaa.`);
+      if (df.erro) E(`Data de vencimento inválida: "${cel(g(r, 'fim'))}". Use dd/mm/aaaa.`); else if (df.vazio) A('Sem vencimento: o sistema não vai conseguir avisar.');
+      if (di.ok && df.ok && df.ok < di.ok) E('O vencimento está antes do início.');
+      let aviso = cel(g(r, 'aviso')); aviso = aviso === '' ? (cat ? cat.aviso_dias : 30) : Number(aviso.replace(',', '.'));
+      if (!Number.isInteger(aviso) || aviso < 0 || aviso > 3650) E(`Aviso prévio inválido: "${cel(g(r, 'aviso'))}".`);
+      const rjTxt = cel(g(r, 'reaj')); const reaj = rjTxt ? REAJUSTES.find(x => norm(x) === norm(rjTxt) || norm(x).replace(/-/g, '') === norm(rjTxt).replace(/-/g, '')) : (cat ? cat.reajuste : null);
+      if (rjTxt && !reaj) E(`Índice de reajuste "${rjTxt}" não reconhecido. Use IPCA, IGP-M, INPC, Convenção coletiva, Fixo ou Outro.`);
+      const mesTxt = cel(g(r, 'mes')); let mes = null;
+      if (mesTxt) { mes = Number(mesTxt) || (MESES.findIndex(m => norm(m) === norm(mesTxt)) + 1) || null; if (!mes || mes < 1 || mes > 12) E(`Mês do reajuste inválido: "${mesTxt}".`); }
+      else if (di.ok && reaj && reaj !== 'Fixo') mes = Number(di.ok.slice(5, 7));
+      const rnTxt = norm(cel(g(r, 'renov'))); if (rnTxt && !['sim', 'nao', 's', 'n'].includes(rnTxt)) E('Renovação automática: use Sim ou Não.');
+      const chave = [unidade, dv.ok || norm(forn), cat && cat.id, norm(titulo)].join('|');
+      if (unidade && forn && cat && titulo) {
+        if (vistos.has(chave)) E(`Linha repetida (igual à linha ${vistos.get(chave)}).`); else vistos.set(chave, n);
+        if (existentes.has(chave)) E('Este contrato já está cadastrado (mesma unidade, fornecedor, categoria e objeto).');
+      }
+      linhas.push({ empresa: EMP, unidade, fornecedor_nome: forn, fornecedor_doc: dv.ok || null, fornecedor_codigo: cel(g(r, 'fcod')) || null,
+        categoria: cat ? cat.id : null, natureza_cliente: cel(g(r, 'nat')).replace(/\.0+$/, '') || null, titulo: titulo.slice(0, 300),
+        valor_mensal: valor, inicio: di.ok || null, fim: df.ok || null, aviso_dias: aviso, reajuste: reaj || null, mes_reajuste: mes,
+        renovacao_automatica: rnTxt === 'sim' || rnTxt === 's', observacao: cel(g(r, 'obs')) || null, origem: 'importado' });
+    }
+    if (!linhas.length && !erros.length) throw new Error('A aba "Contratos" está vazia.');
+    const tabela = (lista, cor) => `<div class="tbl-wrap errtbl"><table><thead><tr><th>Linha</th><th>${cor === 'bad' ? 'Erro' : 'Aviso'}</th></tr></thead><tbody>${lista.slice(0, 300).map(([n, t]) => `<tr><td class="num">${n}</td><td>${esc(t)}</td></tr>`).join('')}${lista.length > 300 ? `<tr><td colspan="2" class="muted">… e mais ${lista.length - 300}</td></tr>` : ''}</tbody></table></div>`;
+    if (erros.length) {
+      res.innerHTML = `<div class="msg erro"><b>${erros.length} erro(s) em ${new Set(erros.map(e => e[0])).size} linha(s). Nada foi gravado.</b> Corrija na planilha e envie de novo.</div>${tabela(erros, 'bad')}`
+        + (avisos.length ? `<details style="margin-top:8px"><summary class="small">Ver também ${avisos.length} aviso(s)</summary>${tabela(avisos, 'warn')}</details>` : '');
+      return;
+    }
+    const semVenc = linhas.filter(l => !l.fim).length, semDoc = linhas.filter(l => !l.fornecedor_doc).length;
+    res.innerHTML = `<div style="display:grid;gap:10px">
+      <div class="msg ok"><b>Tudo certo: ${linhas.length} contrato(s) prontos para gravar.</b></div>
+      ${novasUni.size ? `<div class="note">${novasUni.size} unidade(s) nova(s) serão cadastradas: ${esc([...novasUni.keys()].join(', '))}. Depois dê um nome a elas em Administração → Unidades.</div>` : ''}
+      ${avisos.length ? `<div class="msg" style="background:var(--warn-soft);color:var(--warn)">${avisos.length} aviso(s), que não impedem a importação${semVenc ? ` · ${semVenc} sem vencimento` : ''}${semDoc ? ` · ${semDoc} sem CPF/CNPJ` : ''}.</div><details><summary class="small">Ver avisos</summary>${tabela(avisos, 'warn')}</details>` : ''}
+      <div><button class="btn pri" id="imp-ok">Gravar ${linhas.length} contrato(s)</button> <button class="btn" id="imp-cancel">Cancelar</button></div></div>`;
+    $('#imp-cancel').onclick = () => res.innerHTML = '';
+    $('#imp-ok').onclick = async ev => {
+      ev.target.disabled = true; let gravados = 0;
+      try {
+        if (novasUni.size) { const r = await sb.from('ctr_unidades').upsert([...novasUni].map(([k, n]) => ({ empresa: EMP, codigo: k, nome: n })), { onConflict: 'empresa,codigo' }); if (r.error) throw r.error; }
+        for (let i = 0; i < linhas.length; i += 200) {
+          const r = await sb.from('ctr_contratos').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error;
+          gravados = Math.min(i + 200, linhas.length);
+          res.innerHTML = `<div class="muted">Gravando… ${gravados} de ${linhas.length}</div>`;
+        }
+        await recarregar(); nav();
+        res.innerHTML = `<div class="msg ok">${linhas.length} contrato(s) gravados. Agora anexe o contrato assinado e os documentos de cada um.</div><p><a class="btn" href="#contratos?st=pendente">Ver contratos com documentos pendentes</a></p>`;
+      } catch (e) {
+        res.innerHTML = `<div class="msg erro">${esc(erroTxt(e))}${gravados ? ` · ${gravados} contrato(s) já tinham sido gravados antes do erro: não envie a planilha inteira de novo, só as linhas que faltaram.` : ''}</div>`;
+        await recarregar().catch(() => {}); nav();
+      }
+    };
+  } catch (e) { res.innerHTML = `<div class="msg erro">${esc(erroTxt(e))}</div>`; }
 }
 
 // ═════════ Admin: acessos ═════════
@@ -932,8 +1231,8 @@ function vAcessos(){
   if (!ehAdmin()) return semPermissao();
   depois(carregarAcessos);
   return topo('Acessos', `Quem pode usar os contratos de ${esc((EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP)} e o que cada um vê.`, `<button class="btn pri" id="b-novo-user">${icon.plus}Cadastrar pessoa</button>`)
-    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">Filiais</th><th class="hide-m">Classes</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
-    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>Filiais</b> e <b>classes</b> em branco = todas. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
+    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">Unidades</th><th class="hide-m">Grupos</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
+    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>Unidades</b> e <b>grupos</b> em branco = todos. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
 }
 async function carregarAcessos(){
   const [{ data: pf, error }, { data: ac }] = await Promise.all([
@@ -946,27 +1245,24 @@ async function carregarAcessos(){
   tb.innerHTML = (pf || []).map(p => { const a = A.get(p.id);
     return `<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="avatar">${esc(iniciais(p.nome))}</div><div><div class="t">${esc(p.nome)}${p.ativo ? '' : ' <span class="tag">inativo</span>'}</div><div class="s">${esc(p.email)}</div></div></div></td>
       <td>${p.papel === 'admin' ? '<span class="pill p-info">Admin (tudo)</span>' : (a ? `<span class="pill p-ok">${LV[a.nivel]}</span>` : '<span class="pill p-mut">Sem acesso</span>')}</td>
-      <td class="hide-m small">${a && a.filiais.length ? esc(a.filiais.join(', ')) : (a ? 'Todas' : '—')}</td>
-      <td class="hide-m small">${a && a.classes.length ? esc(a.classes.join('; ')) : (a ? 'Todas' : '—')}</td>
+      <td class="hide-m small">${a && a.unidades.length ? esc(a.unidades.join(', ')) : (a ? 'Todas' : '—')}</td>
+      <td class="hide-m small">${a && a.grupos.length ? esc(a.grupos.map(nomeGrupo).join('; ')) : (a ? 'Todos' : '—')}</td>
       <td style="text-align:right">${p.papel === 'admin' ? '' : `<button class="btn sm" data-ed="${p.id}">Editar</button>`}</td></tr>`; }).join('');
   tb.onclick = ev => { const b = ev.target.closest('[data-ed]'); if (b) modalAcesso((pf || []).find(p => p.id === b.dataset.ed), A.get(b.dataset.ed)); };
   $('#b-novo-user').onclick = modalNovoUsuario;
 }
-function classesDisponiveis(){ return [...new Set([...NAT.values()].map(n => n.classe).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })); }
 function modalAcesso(p, a){
-  const cls = classesDisponiveis();
   abrirModal(`Acesso de ${esc(p.nome)}`, `
     <div class="field"><label for="m-nivel">O que pode fazer</label><select class="in" id="m-nivel">${LV.map((t, i) => `<option value="${i}" ${(a ? a.nivel : 0) === i ? 'selected' : ''}>${t}</option>`).join('')}</select>
-      <span class="hint">Ver: só olha. Ver e baixar: também baixa os arquivos. Editar e enviar: cadastra, altera e anexa.</span></div>
-    <div class="field"><label for="m-fil">Filiais (números separados por vírgula)</label><input class="in" id="m-fil" value="${a ? esc(a.filiais.join(', ')) : ''}" placeholder="Em branco = todas"></div>
-    <div class="field"><label>Classes de natureza</label><div class="chips" style="max-height:220px;overflow:auto">${cls.length ? cls.map(k => `<label><input type="checkbox" data-cl="${esc(k)}" ${a && a.classes.includes(k) ? 'checked' : ''}> ${esc(k)}</label>`).join('') : '<span class="muted small">Importe o cadastro de naturezas para escolher classes.</span>'}</div><span class="hint">Nenhuma marcada = todas.</span></div>
+      <span class="hint">Ver: só olha. Ver e baixar: também baixa os arquivos. Editar e enviar: cadastra, importa, altera e anexa.</span></div>
+    <div class="field"><label>Unidades</label><div class="chips" style="max-height:180px;overflow:auto">${UNI.size ? [...UNI].map(([k]) => `<label><input type="checkbox" data-un="${esc(k)}" ${a && a.unidades.includes(k) ? 'checked' : ''}> ${esc(nomeUnidade(k))}</label>`).join('') : '<span class="muted small">Cadastre as unidades em Administração → Unidades.</span>'}</div><span class="hint">Nenhuma marcada = todas.</span></div>
+    <div class="field"><label>Grupos de contratos</label><div class="chips">${GRUPOS.map(g => `<label><input type="checkbox" data-gr="${esc(g.codigo)}" ${a && a.grupos.includes(g.codigo) ? 'checked' : ''}> ${esc(g.nome)}</label>`).join('')}</div><span class="hint">Nenhum marcado = todos. Ex.: o setor de manutenção vê só "Manutenção e serviços prediais".</span></div>
     <div id="m-msg"></div>`, 'Salvar', async () => {
       const nivel = Number($('#m-nivel').value);
-      const fil = $('#m-fil').value.split(/[,;\s]+/).filter(Boolean).map(Number);
-      if (fil.some(x => !Number.isInteger(x))) { msgEm('#m-msg', 'Use só números de filial, separados por vírgula.'); return false; }
-      const classes = $$('[data-cl]').filter(x => x.checked).map(x => x.dataset.cl);
+      const unidades = $$('[data-un]').filter(x => x.checked).map(x => x.dataset.un);
+      const grupos = $$('[data-gr]').filter(x => x.checked).map(x => x.dataset.gr);
       const r = nivel === 0 ? await sb.from('ctr_acessos').delete().eq('usuario', p.id).eq('empresa', EMP)
-        : await sb.from('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel, filiais: fil, classes });
+        : await sb.from('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel, unidades, grupos });
       if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
       toast('Acesso salvo.'); carregarAcessos(); return true;
     });
@@ -999,108 +1295,94 @@ function modalNovoUsuario(){
     });
 }
 
-// ═════════ Admin: importar planilhas ═════════
-function vImportar(){
+// ═════════ Admin: categorias ═════════
+function vCategorias(){
   if (!ehAdmin()) return semPermissao();
+  const uso = c => CONTRATOS.filter(x => x.categoria === c.id).length;
   depois(() => {
-    $$('[data-imp]').forEach(inp => inp.addEventListener('change', () => { const f = inp.files[0]; inp.value = ''; if (f) lerPlanilha(inp.dataset.imp, f); }));
+    $('#b-nova-cat').onclick = () => modalCategoria(null);
+    $('#cat-lista').onclick = ev => { const b = ev.target.closest('[data-cat]'); if (b) modalCategoria(CAT.get(Number(b.dataset.cat))); };
   });
-  const bloco = (tipo, titulo, txt, colunas) => `<div class="card"><div class="card-h"><h2>${titulo}</h2><label class="btn sm">${icon.up}Escolher planilha<input type="file" accept=".xlsx,.xls,.csv" data-imp="${tipo}" hidden></label></div>
-    <div class="card-b" style="display:grid;gap:8px"><p class="muted" style="margin:0">${txt}</p><div class="small"><span class="muted">Colunas lidas:</span> ${colunas}</div><div id="res-${tipo}"></div></div></div>`;
-  return topo('Importar planilhas', 'Os arquivos são lidos no seu navegador e os dados vão direto para o banco. Nada passa pelo GitHub.')
-    + `<div class="note" style="margin-bottom:16px">Ordem recomendada: <b>1. Naturezas</b> → <b>2. Filiais</b> → <b>3. Aluguéis / prestadores</b>. Pode importar de novo quando a planilha mudar: o que já existe é atualizado, e os contratos não são duplicados.</div>
-    <div class="stack">
-      ${bloco('naturezas', '1. Cadastro de naturezas', 'O plano de naturezas do sistema do cliente. O código da natureza vira o tipo do contrato.', '<span class="mono">Codigo, Descrição, Classe, Despesa / Receita</span>')}
-      ${bloco('filiais', '2. Cadastro de filiais', 'Liga o número da filial ao nome da loja.', '<span class="mono">Filial (ou Número/Código), Nome (ou Descrição/Cidade)</span>')}
-      ${bloco('contratos', '3. Aluguéis, prestadores de serviço e outros', 'Cada combinação filial + fornecedor + natureza (+ valor) vira um contrato <b>pendente</b>: depois é só anexar o documento e preencher as datas.', '<span class="mono">Filial, Fornecedor ("CÓDIGO - NOME"), Natureza, Valor (opcional)</span>')}
-    </div>`;
+  return topo('Categorias', 'Como os contratos são organizados. A lista padrão da Sinergia vale para todos os clientes; você pode criar categorias só para esta empresa.', `<button class="btn pri" id="b-nova-cat">${icon.plus}Nova categoria</button>`)
+    + `<div class="note" style="margin-bottom:16px">Cada categoria traz as regras que o sistema usa: <b>aviso prévio</b> e <b>índice de reajuste</b> sugeridos no cadastro, e os <b>documentos obrigatórios</b> que entram em "Documentos pendentes". Os <b>grupos</b> são fixos: servem para os relatórios e para comparar clientes.</div>
+    <div class="stack" id="cat-lista">${GRUPOS.map(g => { const cs = [...CAT.values()].filter(c => c.grupo === g.codigo).sort((a, b) => (a.empresa ? 1 : 0) - (b.empresa ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR')); return `<div class="card"><div class="card-h"><h2>${esc(g.nome)}</h2><span class="muted small">${cs.length} categoria(s)</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Categoria</th><th class="hide-m">Aviso</th><th class="hide-m">Reajuste</th><th class="hide-m">Documentos exigidos</th><th>Contratos</th><th></th></tr></thead><tbody>
+      ${cs.map(c => `<tr><td><div class="t">${esc(c.nome)} ${c.empresa ? '<span class="tag">desta empresa</span>' : ''} ${c.ativo ? '' : '<span class="tag">desativada</span>'}</div>${c.dica ? `<div class="s">${esc(c.dica)}</div>` : ''}</td>
+        <td class="hide-m num">${c.aviso_dias} dias</td><td class="hide-m">${esc(c.reajuste || '—')}</td>
+        <td class="hide-m small">${['Contrato assinado', ...(c.documentos || []).map(tipoDoc)].map(esc).join('<br>')}</td>
+        <td class="num">${uso(c)}</td><td style="text-align:right">${c.empresa ? `<button class="btn sm" data-cat="${c.id}">Editar</button>` : '<span class="muted small">Padrão</span>'}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nenhuma.</td></tr>'}
+      </tbody></table></div></div>`; }).join('')}</div>`;
 }
-const normCab = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-function acharColuna(cab, opcoes){ const n = cab.map(normCab); for (const o of opcoes) { const i = n.findIndex(x => x === o || x.startsWith(o + ' ')); if (i >= 0) return i; } for (const o of opcoes) { const i = n.findIndex(x => x.includes(o)); if (i >= 0) return i; } return -1; }
-async function lerPlanilha(tipo, arquivo){
-  const res = $('#res-' + tipo);
-  if (!window.XLSX) { res.innerHTML = '<div class="msg erro">A ferramenta de Excel ainda está carregando. Tente de novo.</div>'; return; }
-  res.innerHTML = '<div class="muted">Lendo…</div>';
-  try {
-    const wb = XLSX.read(await arquivo.arrayBuffer(), { type: 'array' });
-    const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null }).filter(r => r.some(v => v !== null && String(v).trim() !== ''));
-    if (linhas.length < 2) throw new Error('A planilha está vazia.');
-    const cab = linhas[0], dados = linhas.slice(1);
-    if (tipo === 'naturezas') return prepararNaturezas(res, cab, dados);
-    if (tipo === 'filiais') return prepararFiliais(res, cab, dados);
-    return prepararContratos(res, cab, dados, arquivo.name);
-  } catch (e) { res.innerHTML = `<div class="msg erro">${esc(erroTxt(e))}</div>`; }
-}
-const int = v => { const n = Number(String(v ?? '').trim()); return Number.isInteger(n) ? n : null; };
-const txt = v => String(v ?? '').trim();
-async function gravarLotes(tabela, linhas, conflito, res, rotulo){
-  for (let i = 0; i < linhas.length; i += 500) {
-    const r = await sb.from(tabela).upsert(linhas.slice(i, i + 500), { onConflict: conflito });
-    if (r.error) throw r.error;
-    res.innerHTML = `<div class="muted">Gravando ${rotulo}… ${Math.min(i + 500, linhas.length)} de ${linhas.length}</div>`;
-  }
-}
-function confirmarImport(res, resumo, acao){
-  res.innerHTML = `<div style="display:grid;gap:10px">${resumo}<div><button class="btn pri" data-ok>Confirmar importação</button> <button class="btn" data-cancel>Cancelar</button></div></div>`;
-  res.querySelector('[data-cancel]').onclick = () => res.innerHTML = '';
-  res.querySelector('[data-ok]').onclick = async ev => {
-    ev.target.disabled = true;
-    try { const fim = await acao(); res.innerHTML = `<div class="msg ok">${fim}</div>`; await recarregar(); nav(); }
-    catch (e) { res.innerHTML = `<div class="msg erro">${esc(erroTxt(e))}</div>`; }
+function modalCategoria(c){
+  const docs = Object.entries(TIPOS_DOC).filter(([k]) => k !== 'contrato-assinado' && !['minuta', 'aditivo', 'anexo', 'renovacao', 'distrato', 'correspondencia'].includes(k));
+  const usada = c && CONTRATOS.some(x => x.categoria === c.id);
+  abrirModal(c ? 'Editar categoria' : 'Nova categoria', `
+    <div class="grid2">
+      <div class="field"><label for="k-grupo" class="req">Grupo</label><select class="in" id="k-grupo">${GRUPOS.map(g => `<option value="${esc(g.codigo)}" ${c && c.grupo === g.codigo ? 'selected' : ''}>${esc(g.nome)}</option>`).join('')}</select></div>
+      <div class="field"><label for="k-nome" class="req">Nome</label><input class="in" id="k-nome" value="${esc(c ? c.nome : '')}" maxlength="80" placeholder="Ex.: Locação de empilhadeira"></div>
+      <div class="field"><label for="k-aviso">Aviso prévio padrão (dias)</label><input class="in" id="k-aviso" type="number" min="0" max="3650" value="${c ? c.aviso_dias : 30}"></div>
+      <div class="field"><label for="k-reaj">Reajuste padrão</label><select class="in" id="k-reaj"><option value="">—</option>${REAJUSTES.map(r => `<option ${c && c.reajuste === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Documentos obrigatórios (além do contrato assinado)</label><div class="chips">${docs.map(([k, t]) => `<label><input type="checkbox" data-doc="${k}" ${c && (c.documentos || []).includes(k) ? 'checked' : ''}> ${esc(t.t)}</label>`).join('')}</div></div>
+    <div class="field"><label for="k-dica">Dica que aparece no cadastro</label><textarea class="in" id="k-dica" rows="2" placeholder="Opcional">${esc(c ? c.dica || '' : '')}</textarea></div>
+    ${c ? `<label class="check"><input type="checkbox" id="k-ativo" ${c.ativo ? 'checked' : ''}> Ativa (desmarque para não aparecer em contratos novos)</label>` : ''}
+    ${c && !usada ? `<button class="btn sm danger" type="button" id="k-apagar" style="justify-self:start">Apagar categoria</button>` : ''}
+    <div class="note">Antes de criar, confira se não existe uma parecida na lista padrão. Categorias demais atrapalham os relatórios.</div>
+    <div id="m-msg"></div>`, 'Salvar', async () => {
+      const dados = { grupo: $('#k-grupo').value, nome: $('#k-nome').value.trim().replace(/\s+/g, ' '), aviso_dias: Number($('#k-aviso').value || 0),
+        reajuste: $('#k-reaj').value || null, documentos: $$('[data-doc]').filter(x => x.checked).map(x => x.dataset.doc), dica: $('#k-dica').value.trim() || null };
+      if (c) dados.ativo = $('#k-ativo').checked;
+      if (dados.nome.length < 2) { msgEm('#m-msg', 'Preencha o nome.'); return false; }
+      if (!Number.isInteger(dados.aviso_dias) || dados.aviso_dias < 0) { msgEm('#m-msg', 'Aviso prévio inválido.'); return false; }
+      const parecida = [...CAT.values()].find(x => x.id !== (c && c.id) && norm(x.nome) === norm(dados.nome));
+      if (parecida) { msgEm('#m-msg', `Já existe "${parecida.nome}".`); return false; }
+      const r = c ? await sb.from('ctr_categorias').update(dados).eq('id', c.id).select('*').maybeSingle()
+                  : await sb.from('ctr_categorias').insert({ ...dados, empresa: EMP }).select('*').single();
+      if (r.error || !r.data) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível salvar.'); return false; }
+      CAT.set(r.data.id, r.data); toast('Categoria salva.'); render(); return true;
+    });
+  const ap = $('#k-apagar');
+  if (ap) ap.onclick = async () => {
+    const r = await sb.from('ctr_categorias').delete().eq('id', c.id).select('id');
+    if (r.error || !r.data || !r.data.length) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível apagar.'); return; }
+    CAT.delete(c.id); fecharModal(); toast('Categoria apagada.'); render();
   };
 }
-function prepararNaturezas(res, cab, dados){
-  const ic = acharColuna(cab, ['codigo', 'natureza', 'cod']), id = acharColuna(cab, ['descricao', 'nome']), icl = acharColuna(cab, ['classe', 'grupo']), it = acharColuna(cab, ['despesa receita', 'tipo', 'd r']);
-  if (ic < 0 || id < 0) throw new Error('Não encontrei as colunas "Codigo" e "Descrição".');
-  const m = new Map();
-  for (const r of dados) { const cod = int(r[ic]); if (cod === null || !txt(r[id])) continue; m.set(cod, { empresa: EMP, codigo: cod, descricao: txt(r[id]).replace(/^#\s*/, ''), classe: icl >= 0 ? txt(r[icl]) || null : null, tipo: it >= 0 ? txt(r[it]) || null : null }); }
-  const linhas = [...m.values()];
-  confirmarImport(res, `<div>${linhas.length} naturezas encontradas, em ${new Set(linhas.map(x => x.classe)).size} classes.</div>`, async () => {
-    await gravarLotes('ctr_naturezas', linhas, 'empresa,codigo', res, 'naturezas'); return `${linhas.length} naturezas importadas.`;
+
+// ═════════ Admin: unidades ═════════
+function vUnidades(){
+  if (!ehAdmin()) return semPermissao();
+  depois(() => {
+    $('#b-nova-uni').onclick = () => modalUnidade(null);
+    $('#uni-tb').onclick = ev => { const b = ev.target.closest('[data-uni]'); if (b) modalUnidade(b.dataset.uni); };
   });
+  return topo('Unidades', 'Lojas, filiais, CDs e escritórios desta empresa. Servem para separar os contratos e para liberar o acesso por unidade.', `<button class="btn pri" id="b-nova-uni">${icon.plus}Nova unidade</button>`)
+    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nome</th><th>Contratos</th><th></th></tr></thead><tbody id="uni-tb">
+      ${[...UNI].map(([k, n]) => `<tr><td class="mono">${esc(k)}</td><td>${esc(n)}</td><td class="num">${CONTRATOS.filter(c => c.unidade === k).length}</td><td style="text-align:right"><button class="btn sm" data-uni="${esc(k)}">Editar</button></td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nenhuma unidade ainda. Cadastre aqui ou deixe a planilha modelo criar na importação.</td></tr>'}
+    </tbody></table></div></div>
+    <div class="note" style="margin-top:14px">Use como código o mesmo número ou sigla que a empresa já usa no sistema dela (ex.: o número da filial). Isso facilita a conferência dos pagamentos.</div>`;
 }
-function prepararFiliais(res, cab, dados){
-  const inum = acharColuna(cab, ['filial', 'numero', 'codigo', 'cod']), inome = acharColuna(cab, ['nome', 'descricao', 'cidade', 'loja', 'fantasia']);
-  if (inum < 0 || inome < 0 || inum === inome) throw new Error('Não encontrei a coluna do número da filial e a do nome.');
-  const m = new Map();
-  for (const r of dados) { const n = int(r[inum]); if (n === null || !txt(r[inome])) continue; m.set(n, { empresa: EMP, numero: n, nome: txt(r[inome]) }); }
-  const linhas = [...m.values()];
-  confirmarImport(res, `<div>${linhas.length} filiais encontradas.</div>`, async () => { await gravarLotes('ctr_filiais', linhas, 'empresa,numero', res, 'filiais'); return `${linhas.length} filiais importadas.`; });
-}
-function prepararContratos(res, cab, dados, nomeArq){
-  const ifi = acharColuna(cab, ['filial']), ifo = acharColuna(cab, ['fornecedor', 'prestador', 'locador']), ina = acharColuna(cab, ['natureza']), iva = acharColuna(cab, ['valor']);
-  if (ifi < 0 || ifo < 0 || ina < 0) throw new Error('Não encontrei as colunas Filial, Fornecedor e Natureza.');
-  const grupos = new Map(), fornecedores = new Map(); let semNat = 0;
-  for (const r of dados) {
-    const filial = int(r[ifi]), nat = int(r[ina]), fo = txt(r[ifo]); if (!fo) continue;
-    const m = /^\s*([^-\s][^-]*?)\s+-\s+(.+)$/.exec(fo); const cod = m ? m[1].trim() : null, nome = m ? m[2].trim() : fo;
-    if (cod) fornecedores.set(cod, { empresa: EMP, codigo: cod, nome });
-    if (nat !== null && !NAT.has(nat)) semNat++;
-    const valor = iva >= 0 && r[iva] !== null && r[iva] !== '' && isFinite(Number(r[iva])) ? Math.round(Number(r[iva]) * 100) / 100 : null;
-    const k = [filial, cod || nome, nat, valor].join('|');
-    const g = grupos.get(k) || { filial, cod, nome, nat, valor, n: 0 }; g.n++; grupos.set(k, g);
-  }
-  const existe = new Set(CONTRATOS.filter(c => c.origem === 'importado').map(c => [c.filial, c.fornecedor || c.fornecedor_nome, c.natureza, c.valor_mensal == null ? null : Number(c.valor_mensal)].join('|')));
-  const novos = [...grupos.entries()].filter(([k]) => !existe.has(k)).map(([, g]) => g);
-  const repetidos = [...grupos.values()].filter(g => g.n > 1).length;
-  const resumo = `<div>${dados.length} linhas → <b>${grupos.size}</b> contratos (filial + fornecedor + natureza${iva >= 0 ? ' + valor' : ''}), <b>${fornecedores.size}</b> fornecedores.</div>
-    <div>${novos.length} contratos novos${grupos.size - novos.length ? `, ${grupos.size - novos.length} já importados antes (ficam como estão)` : ''}.</div>
-    ${repetidos ? `<div class="msg erro" style="background:var(--warn-soft);color:var(--warn)">${repetidos} combinações aparecem repetidas na planilha (mesma filial, fornecedor e valor). Entram uma vez só, com o aviso "conferir duplicidade" nas observações.</div>` : ''}
-    ${semNat ? `<div class="msg erro" style="background:var(--warn-soft);color:var(--warn)">${semNat} linhas têm natureza que não está no cadastro de naturezas. Importe as naturezas primeiro para aparecer a descrição.</div>` : ''}`;
-  confirmarImport(res, resumo, async () => {
-    await gravarLotes('ctr_fornecedores', [...fornecedores.values()], 'empresa,codigo', res, 'fornecedores');
-    const linhas = novos.map(g => { const n = NAT.get(g.nat); return {
-      empresa: EMP, filial: g.filial, fornecedor: g.cod, fornecedor_nome: g.nome, natureza: g.nat, valor_mensal: g.valor,
-      titulo: `${n ? n.descricao.replace(/^#\s*/, '') : 'Natureza ' + (g.nat ?? '?')} – ${g.nome}`.slice(0, 200),
-      aviso_dias: (n && n.aviso_dias) || 30, origem: 'importado',
-      observacao: `Importado de ${nomeArq}.` + (g.n > 1 ? ` Aparece ${g.n} vezes na planilha: conferir duplicidade.` : ''),
-    }; });
-    for (let i = 0; i < linhas.length; i += 200) {
-      const r = await sb.from('ctr_contratos').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error;
-      res.innerHTML = `<div class="muted">Gravando contratos… ${Math.min(i + 200, linhas.length)} de ${linhas.length}</div>`;
-    }
-    return `${linhas.length} contratos pendentes criados e ${fornecedores.size} fornecedores atualizados.`;
-  });
+function modalUnidade(cod){
+  const usada = cod != null && CONTRATOS.some(c => c.unidade === cod);
+  abrirModal(cod != null ? 'Editar unidade' : 'Nova unidade', `
+    <div class="grid2"><div class="field"><label for="un-cod" class="req">Código</label><input class="in" id="un-cod" value="${esc(cod ?? '')}" maxlength="30" ${cod != null ? 'disabled' : ''} placeholder="Ex.: 12"></div>
+    <div class="field"><label for="un-nome" class="req">Nome</label><input class="in" id="un-nome" value="${esc(cod != null ? UNI.get(cod) : '')}" placeholder="Ex.: Loja Centro"></div></div>
+    ${cod != null && !usada ? `<button class="btn sm danger" type="button" id="un-apagar" style="justify-self:start">Apagar unidade</button>` : ''}
+    <div id="m-msg"></div>`, 'Salvar', async () => {
+      const codigo = cod ?? $('#un-cod').value.trim(), nome = $('#un-nome').value.trim();
+      if (!codigo || !nome) { msgEm('#m-msg', 'Preencha código e nome.'); return false; }
+      if (cod == null && UNI.has(codigo)) { msgEm('#m-msg', 'Já existe uma unidade com esse código.'); return false; }
+      const r = await sb.from('ctr_unidades').upsert({ empresa: EMP, codigo, nome }, { onConflict: 'empresa,codigo' });
+      if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
+      UNI.set(codigo, nome); UNI = new Map([...UNI].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR', { numeric: true })));
+      toast('Unidade salva.'); render(); return true;
+    });
+  const ap = $('#un-apagar');
+  if (ap) ap.onclick = async () => {
+    const r = await sb.from('ctr_unidades').delete().eq('empresa', EMP).eq('codigo', cod).select('codigo');
+    if (r.error || !r.data || !r.data.length) { msgEm('#m-msg', r.error ? erroTxt(r.error) : 'Não foi possível apagar.'); return; }
+    UNI.delete(cod); fecharModal(); toast('Unidade apagada.'); render();
+  };
 }
 
 // ═════════ Admin: SharePoint ═════════
@@ -1118,7 +1400,7 @@ function vSharePoint(){
   return topo('SharePoint', 'Onde os arquivos ficam guardados.')
     + `<div class="card"><div class="card-b" style="display:grid;gap:12px;justify-items:start">
       <div>Site: <span class="mono">sinerggiacombr.sharepoint.com/sites/GestaoContratos</span></div>
-      <div class="muted small">Pastas: Contratos / Empresa / Natureza / Número – Fornecedor / arquivo padronizado.</div>
+      <div class="muted small">Pastas: Contratos / Empresa / Categoria / Número – Fornecedor / arquivo padronizado.</div>
       <button class="btn pri" id="b-testar">${icon.cloud}Testar conexão</button><div id="sp-res" style="width:100%"></div></div></div>
     <div class="card" style="margin-top:16px;border-color:var(--warn)"><div class="card-b"><h3 style="color:var(--warn)">Ponto de atenção</h3>
     <p style="margin:6px 0 0">As regras de acesso daqui só valem para quem entra pelo sistema. O site do SharePoint precisa continuar fechado: só você e o aplicativo do sistema.</p></div></div>`;

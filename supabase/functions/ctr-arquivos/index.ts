@@ -23,15 +23,28 @@ const CORS = {
 };
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const MAX_BYTES = 250 * 1024 * 1024;
+// tipos de documento (iguais aos das telas); os com validade exigem a data
 const CATEGORIAS: Record<string, string> = {
   "contrato-assinado": "Contrato principal assinado",
-  "minuta": "Minuta",
   "aditivo": "Aditivo",
+  "minuta": "Minuta",
   "anexo": "Anexo / planilha",
-  "distrato": "Distrato / rescisão",
   "renovacao": "Renovação",
+  "distrato": "Distrato / rescisão",
   "correspondencia": "Correspondência / e-mail",
+  "garantia": "Garantia (caução, fiança, seguro-fiança)",
+  "cnd-federal": "Certidão negativa federal (Receita e PGFN)",
+  "crf-fgts": "Certificado de regularidade do FGTS",
+  "cndt": "Certidão negativa de débitos trabalhistas",
+  "autorizacao-pf": "Autorização da Polícia Federal (vigilância)",
+  "avcb": "AVCB / certificado do Corpo de Bombeiros",
+  "alvara": "Alvará de funcionamento",
+  "seguro": "Apólice de seguro",
+  "licenca": "Licença sanitária ou ambiental",
+  "outro-validade": "Outro documento com validade",
 };
+const COM_VALIDADE = new Set(["garantia", "cnd-federal", "crf-fgts", "cndt", "autorizacao-pf", "avcb", "alvara", "seguro", "licenca", "outro-validade"]);
+const dataValida = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + "T00:00:00Z"));
 
 class Falha extends Error { constructor(public status: number, msg: string) { super(msg); } }
 const env = (k: string, padrao?: string) => {
@@ -126,19 +139,18 @@ async function nivel(usuario: ReturnType<typeof createClient>, contrato: number)
 }
 async function pastaDoContrato(db: ReturnType<typeof createClient>, contrato: number) {
   const { data: c, error } = await db.from("ctr_contratos")
-    .select("id,numero,empresa,natureza,fornecedor_nome").eq("id", contrato).single();
+    .select("id,numero,empresa,categoria,fornecedor_nome").eq("id", contrato).single();
   if (error || !c) throw new Falha(404, "Contrato não encontrado.");
   const { data: emp } = await db.from("empresas").select("nome").eq("slug", c.empresa).single();
-  const { data: nat } = c.natureza == null ? { data: null } :
-    await db.from("ctr_naturezas").select("descricao").eq("empresa", c.empresa).eq("codigo", c.natureza).maybeSingle();
-  const pastaNatureza = c.natureza == null ? "Sem natureza" : limpar(`${c.natureza} - ${nat?.descricao ?? ""}`, 70);
+  const { data: cat } = await db.from("ctr_categorias").select("nome").eq("id", c.categoria).maybeSingle();
+  const nomeCategoria = cat?.nome ?? "Sem categoria";
   const pasta = [
     limpar(env("SP_PASTA_RAIZ", "Contratos"), 40),
     limpar(emp?.nome ?? c.empresa, 50),
-    pastaNatureza,
+    limpar(nomeCategoria, 70),
     limpar(`${c.numero} - ${c.fornecedor_nome}`, 90),
   ].join("/");
-  return { c, pasta };
+  return { c: { ...c, nomeCategoria }, pasta };
 }
 async function historico(db: ReturnType<typeof createClient>, contrato: number, empresa: string, usuario: string, acao: string, detalhe: string) {
   const { error } = await db.from("ctr_historico").insert({ contrato, empresa, usuario, acao, detalhe });
@@ -189,7 +201,7 @@ Deno.serve(async (req) => {
       const { count } = await db.from("ctr_documentos").select("id", { count: "exact", head: true })
         .eq("contrato", contrato).eq("categoria", categoria);
       const versao = (count ?? 0) + 1;
-      const nome = `${c.numero}_${c.natureza ?? "SN"}_${slug(c.fornecedor_nome)}_${categoria}_v${versao}.${extensao(nomeOriginal)}`;
+      const nome = `${c.numero}_${slug(c.nomeCategoria, 30)}_${slug(c.fornecedor_nome)}_${categoria}_v${versao}.${extensao(nomeOriginal)}`;
       await garantirPasta(pasta);
       const sessao = await graph(`${site()}/root:/${codificar(`${pasta}/${nome}`)}:/createUploadSession`, {
         method: "POST",
@@ -202,6 +214,9 @@ Deno.serve(async (req) => {
       const contrato = Number(p.contrato);
       const categoria = String(p.categoria ?? "");
       if (!CATEGORIAS[categoria]) throw new Falha(400, "Categoria inválida.");
+      const validade = p.validade ? String(p.validade) : null;
+      if (COM_VALIDADE.has(categoria) && !dataValida(validade)) throw new Falha(400, "Informe a data de validade do documento.");
+      if (validade && !dataValida(validade)) throw new Falha(400, "Data de validade inválida.");
       if (await nivel(usuario, contrato) < 3) throw new Falha(403, "Você não tem permissão para enviar arquivos neste contrato.");
       const { c, pasta } = await pastaDoContrato(db, contrato);
       const item = await graph(`${site()}/items/${encodeURIComponent(String(p.item_id ?? ""))}?$select=id,name,size,file,parentReference`, {}, true);
@@ -211,7 +226,7 @@ Deno.serve(async (req) => {
       }
       const versao = Number((/_v(\d+)[^._]*\.[^.]+$/.exec(item.name) ?? [])[1]) || 1;
       const { data: doc, error } = await db.from("ctr_documentos").insert({
-        contrato, categoria, nome: item.name, nome_original: String(p.nome_original ?? "").slice(0, 200),
+        contrato, categoria, validade: COM_VALIDADE.has(categoria) ? validade : null, nome: item.name, nome_original: String(p.nome_original ?? "").slice(0, 200),
         tamanho: item.size, tipo_mime: item.file?.mimeType ?? null, versao, sp_item: item.id,
         sp_caminho: `${pasta}/${item.name}`, enviado_por: uid,
       }).select("id").single();
@@ -219,7 +234,7 @@ Deno.serve(async (req) => {
         if (/duplicate|unique/i.test(error.message)) throw new Falha(409, "Este arquivo já foi registrado.");
         console.error("registrar", error.message); throw new Falha(500, "O arquivo subiu, mas não foi possível registrar no sistema.");
       }
-      await historico(db, contrato, c.empresa, uid, "arquivo enviado", `${CATEGORIAS[categoria]}: ${item.name}`);
+      await historico(db, contrato, c.empresa, uid, "arquivo enviado", `${CATEGORIAS[categoria]}${COM_VALIDADE.has(categoria) ? ` (válido até ${validade!.split("-").reverse().join("/")})` : ""}: ${item.name}`);
       return resposta({ ok: true, id: doc.id, nome: item.name, caminho: `${pasta}/${item.name}` });
     }
 

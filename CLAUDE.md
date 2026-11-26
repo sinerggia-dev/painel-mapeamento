@@ -100,7 +100,7 @@ no Supabase. Não commitar `dados/`, xlsx, html gerados, nem nada com nomes de p
 
 Sistema separado do mapeamento, publicado em `.../painel-mapeamento/contratos/`. Usa o **mesmo
 Supabase e o mesmo login** do portal (tabela `perfis`; admin do portal = admin dos contratos).
-Os **arquivos ficam no SharePoint**, nunca no Supabase nem no GitHub.
+Os **arquivos ficam no SharePoint**, nunca no Supabase nem no GitHub. **Ainda não instalado.**
 
 ```
 navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
@@ -108,27 +108,37 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
         └──► Edge Function "ctr-arquivos" (guarda o segredo da Microsoft, confere o nível
              do usuário no banco, cria a pasta, abre o envio, registra, gera link de ver/baixar)
                     └──► SharePoint: site GestaoContratos (sinerggiacombr), biblioteca Documentos,
-                         Contratos/<Empresa>/<natureza - descrição>/<CTR-AAAA-NNNNN - Fornecedor>/
+                         Contratos/<Empresa>/<Categoria>/<CTR-AAAA-NNNNN - Fornecedor>/
 ```
 
 | Arquivo | Para que serve |
 |---|---|
-| `contratos/index.html` | Telas: painel, lista, contrato (dados, documentos, histórico), novo, Admin (acessos, importar planilhas, SharePoint). |
-| `supabase/2026-11-23_contratos.sql` | Tabelas `ctr_*`, função `ctr_nivel` (quem vê o quê), gatilhos (número CTR, histórico automático, histórico e documentos imutáveis). |
+| `contratos/index.html` | Telas: painel, lista, contrato (dados, documentos obrigatórios, arquivos, histórico), novo, importar (planilha modelo), Admin (acessos, categorias, unidades, SharePoint). |
+| `supabase/2026-11-23_contratos.sql` | Tabelas `ctr_*`, lista padrão de grupos e categorias, função `ctr_nivel`, gatilhos (número CTR, categoria válida, histórico automático, histórico e documentos imutáveis). |
 | `supabase/functions/ctr-arquivos/index.ts` | Edge Function (ações iniciar, registrar, ver, baixar, testar). |
 
-- **Permissão**: `ctr_acessos` por usuário e empresa: nível 1 ver, 2 ver e baixar, 3 editar e enviar;
-  `filiais` e `classes` (classe da natureza) vazias = todas. Contrato confidencial: só admin, quem
-  criou e `ctr_liberados`. A Edge Function usa a mesma regra (`ctr_nivel_contrato`).
-- **Tipo do contrato = código da NATUREZA** do sistema do cliente (`ctr_naturezas`, importada da
-  planilha "cadastro de naturezas"). Aluguéis/prestadores importados viram contratos "pendentes"
-  (sem documento/datas) agrupados por filial + fornecedor + natureza + valor; reimportar não duplica.
-  As planilhas são lidas no navegador (SheetJS) e vão direto ao banco: **nunca commitar as planilhas**.
+- **Organização igual para todo cliente (não depende do sistema dele)**: GRUPO (`ctr_grupos`, fixo,
+  só muda por SQL) > CATEGORIA (`ctr_categorias`: `empresa` vazia = lista padrão da Sinergia, só muda
+  por SQL; com `empresa` = criada pelo admin) > contrato. Cada categoria traz `aviso_dias`, `reajuste`
+  e `documentos` obrigatórios (além do contrato assinado) e uma `dica`. Os tipos de documento estão em
+  `TIPOS_DOC` (telas) e `CATEGORIAS`/`COM_VALIDADE` (Edge Function): **manter os dois iguais**.
+- **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
+  ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
+- **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no
+  contrato: servem para a futura conferência dos pagamentos. CPF/CNPJ (`fornecedor_doc`) é validado,
+  inclusive o CNPJ com letras (desde jul/2026).
+- **Importação**: planilha modelo gerada no navegador (abas Contratos, Exemplo, Instruções,
+  Categorias, Unidades). Confere tudo antes; com qualquer erro nada é gravado. Admin e nível 3
+  importam; unidade nova só o admin cria. **Nunca commitar planilhas de clientes.**
+- **Permissão**: `ctr_acessos` por usuário e empresa: nível 1 ver, 2 ver e baixar, 3 editar, enviar
+  e importar; `unidades` e `grupos` vazios = todos. Contrato confidencial: só admin, quem criou e
+  `ctr_liberados`. A Edge Function usa a mesma regra (`ctr_nivel_contrato`).
 - **Microsoft**: app "Sistema de Gestão de Contratos" no Entra, permissão de aplicativo
   `Sites.Selected` com acesso `write` só ao site GestaoContratos (concedido via Graph Explorer,
   POST `/sites/{id}/permissions`). Segredos da Edge Function: `MS_TENANT_ID`, `MS_CLIENT_ID`,
   `MS_CLIENT_SECRET`, `SP_SITE_ID` (e opcional `SP_PASTA_RAIZ`). O segredo do Entra **vence**:
   anotar a data e renovar antes.
 - Teste local: Postgres 16 com stub de `auth.uid()` para o SQL; Playwright com Supabase simulado
-  (dados inventados) para as telas.
-- Ainda não feito: e-mail de aviso de vencimento e backup diário do banco para o SharePoint.
+  (dados inventados) para as telas. O protótipo é o `index.html` com o Supabase simulado no lugar.
+- Ainda não feito: e-mail de aviso de vencimento, backup diário do banco para o SharePoint,
+  reajuste calculado pelo IPCA/IGP-M do Banco Central, conferência contrato × pagamento.
