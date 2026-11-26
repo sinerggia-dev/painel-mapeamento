@@ -318,9 +318,10 @@ tbody tr.link:hover td{background:color-mix(in srgb,var(--acc) 4%,var(--surface)
   #tb tr.link{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:14px 16px;border-bottom:1px solid var(--border)}
   #tb tr.link td{display:block;padding:0;border:none;background:none!important}
   #tb td:nth-child(1){grid-column:1;grid-row:1}
-  #tb td:nth-child(7){grid-column:2;grid-row:1;align-self:start}
+  #tb td:nth-child(8){grid-column:2;grid-row:1;align-self:start}
+  #tb td:nth-child(5){grid-column:1;grid-row:3}
   #tb td:nth-child(2){grid-column:1;grid-row:2;font-size:13px;color:var(--muted)}
-  #tb td:nth-child(5){grid-column:2;grid-row:2;text-align:right;font-size:13px}
+  #tb td:nth-child(6){grid-column:2;grid-row:2;text-align:right;font-size:13px}
   #tb tr.link:active{background:var(--surface2)}
   #tb tr.link td.hide-m{display:none}
 }
@@ -981,6 +982,15 @@ function proximoReajuste(c){
   }
   return null;
 }
+const TIPOS_CTR = { novo: ['Novo', 'p-ok'], renovacao: ['Renovação', 'p-info'], aditivo: ['Aditivado', 'p-warn'], distrato: ['Distrato', 'p-bad'] };
+function tipoC(c){
+  const alts = altsDe(c);
+  if (docsDe(c).some(d => d.categoria === 'distrato') || alts.some(x => /^Distrato/i.test(x.observacao || ''))) return 'distrato';
+  if (c.tipo_contrato === 'renovacao' || alts.some(x => x.tipo === 'renovacao') || docsDe(c).some(d => d.categoria === 'renovacao')) return 'renovacao';
+  if (alts.some(x => ['aditivo_valor', 'aditivo_prazo', 'outro'].includes(x.tipo)) || docsDe(c).some(d => d.categoria === 'aditivo')) return 'aditivo';
+  return 'novo';
+}
+const pillTipo = c => { const [t, k] = TIPOS_CTR[tipoC(c)]; return `<span class="pill ${k}">${t}</span>`; };
 const reajusteDevido = c => { const p = proximoReajuste(c); return !!p && p.devido; };
 // indices mensais do Banco Central (pelo servidor do sistema), do mes "de" ao mes "ate" (AAAA-MM)
 async function buscarIndice(indice, de, ate){ const r = await fn({ acao: 'indice', indice, de, ate }); return r.meses || []; }
@@ -1137,7 +1147,7 @@ function vLista(q){
   const grupos = GRUPOS.filter(g => CONTRATOS.some(c => catDe(c).grupo === g.codigo));
   let limite = 200;
   const filtrar = () => {
-    const t = norm($('#f-q').value), gr = $('#f-gr').value, fi = $('#f-fi').value, st = $('#f-st').value;
+    const t = norm($('#f-q').value), gr = $('#f-gr').value, fi = $('#f-fi').value, st = $('#f-st').value, tp = $('#f-tp').value;
     return CONTRATOS.filter(c => {
       const s = situ(c);
       if (t && !norm(`${nomeNat(c.natureza_cliente)} ${c.titulo} ${c.fornecedor_nome} ${c.fornecedor_doc || ''} ${fmtDoc(c.fornecedor_doc)} ${c.fornecedor_codigo || ''} ${c.numero} ${catDe(c).nome} ${c.natureza_cliente || ''}`).includes(t)) return false;
@@ -1145,11 +1155,12 @@ function vLista(q){
       else if (gr && gr.startsWith('nt:')) { if (c.natureza_cliente !== gr.slice(3)) return false; }
       else if (gr && catDe(c).grupo !== gr && String(c.categoria) !== gr) return false;
       if (fi && (consolidado() ? c.empresa : c.unidade) !== fi) return false;
+      if (tp && tipoC(c) !== tp) return false;
       if (st === 'pendente') return pendente(c);
       if (st === 'semdoc') return c.situacao !== 'encerrado' && !temContrato(c);
       if (st === 'reajuste') return reajusteDevido(c);
       if (st && s.cod !== st) return false;
-      if (!st && c.situacao === 'encerrado') return false;
+      if (!st && !tp && c.situacao === 'encerrado') return false;
       return true;
     }).sort((a, b) => (dias(a) ?? 1e9) - (dias(b) ?? 1e9) || a.titulo.localeCompare(b.titulo));
   };
@@ -1160,17 +1171,19 @@ function vLista(q){
       <td>${esc(c.fornecedor_nome)}<div class="s mono">${esc(fmtDoc(c.fornecedor_doc) || c.fornecedor_codigo || '')}</div></td>
       <td class="hide-m">${esc(ondeC(c))}</td>
       <td class="hide-m"><span class="tag" title="${esc(grupoDe(c) + ' › ' + catDe(c).nome)}">${esc(usaNat() && c.natureza_cliente ? nomeNat(c.natureza_cliente) : catDe(c).nome)}</span></td>
+      <td class="col-tipo">${pillTipo(c)}</td>
       <td class="num">${fmt(c.fim)}${d !== null ? `<div class="s">${d < 0 ? `há ${-d} dias` : `em ${d} dias`}</div>` : ''}</td>
       <td class="num hide-m">${brl(c.valor_mensal)}</td><td><span class="pill p-${s.k}">${s.t}</span></td></tr>`; }).join('')
-      + (r.length > limite ? `<tr><td colspan="7" style="text-align:center"><button class="btn sm" id="mais">Mostrar mais (${r.length - limite} restantes)</button></td></tr>` : '')
-      : `<tr><td colspan="7" class="empty">Nenhum contrato com esses filtros.</td></tr>`;
+      + (r.length > limite ? `<tr><td colspan="8" style="text-align:center"><button class="btn sm" id="mais">Mostrar mais (${r.length - limite} restantes)</button></td></tr>` : '')
+      : `<tr><td colspan="8" class="empty">Nenhum contrato com esses filtros.</td></tr>`;
     $('#cnt').textContent = `${r.length} de ${CONTRATOS.length}`;
     const m = $('#mais'); if (m) m.onclick = ev => { ev.stopPropagation(); limite += 200; linhas(); };
   };
   depois(() => {
     if (p.get('st')) $('#f-st').value = p.get('st');
     if (p.get('q')) $('#f-q').value = p.get('q');
-    ['#f-q', '#f-gr', '#f-fi', '#f-st'].forEach(id => $(id).addEventListener('input', () => { limite = 200; linhas(); }));
+    if (p.get('tp')) $('#f-tp').value = p.get('tp');
+    ['#f-q', '#f-gr', '#f-fi', '#f-st', '#f-tp'].forEach(id => $(id).addEventListener('input', () => { limite = 200; linhas(); }));
     $('#b-exp').onclick = () => exportar(filtrar());
     linhas();
   });
@@ -1180,13 +1193,14 @@ function vLista(q){
       <select class="in" id="f-gr" aria-label="Grupo ou categoria">${usaNat() ? `<option value="">Todas as naturezas</option>${[...new Set(CONTRATOS.map(c => (natDe(c) || {}).classe || 'Sem classe'))].sort((a, b) => numClasse(a) - numClasse(b)).map(k => `<option value="cl:${esc(k)}">${esc(k)}</option>${[...new Set(CONTRATOS.filter(c => ((natDe(c) || {}).classe || 'Sem classe') === k && c.natureza_cliente).map(c => c.natureza_cliente))].map(n => `<option value="nt:${esc(n)}">&nbsp;&nbsp;↳ ${esc(nomeNat(n))}</option>`).join('')}`).join('')}` : `<option value="">Todos os grupos</option>${grupos.map(g => `<option value="${esc(g.codigo)}">${esc(g.nome)}</option>${catsOrdenadas(false).filter(c => c.grupo === g.codigo && CONTRATOS.some(x => x.categoria === c.id)).map(c => `<option value="${c.id}">&nbsp;&nbsp;↳ ${esc(c.nome)}</option>`).join('')}`).join('')}`}</select>
       <select class="in" id="f-fi" aria-label="${consolidado() ? 'Empresa' : esc(tU())}"><option value="">${consolidado() ? 'Todas as empresas' : 'Todas as ' + esc(tus())}</option>${unidades.map(f => `<option value="${esc(f)}">${esc(consolidado() ? nomeEmpresa(f) : nomeUnidade(f))}</option>`).join('')}</select>
       <select class="in" id="f-st" aria-label="Situação"><option value="">Ativos (todas as situações)</option><option value="vigente">Vigente</option><option value="breve">Vence em breve</option><option value="aviso">Prazo de aviso</option><option value="vencido">Vencido</option><option value="semdatas">Sem vencimento</option><option value="pendente">Documentos pendentes</option><option value="semdoc">Sem contrato assinado</option><option value="reajuste">Reajuste devido</option><option value="encerrado">Encerrados</option></select>
+      <select class="in" id="f-tp" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.entries(TIPOS_CTR).map(([k, [t]]) => `<option value="${k}">${t} (${CONTRATOS.filter(c => tipoC(c) === k).length})</option>`).join('')}</select>
       <span class="muted small" style="align-self:center" id="cnt"></span>
     </div>
-    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">${consolidado() ? 'Empresa · ' + esc(tU()) : esc(tU())}</th><th class="hide-m">${usaNat() ? 'Natureza' : 'Categoria'}</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+    <div class="tbl-wrap"><table><thead><tr><th>Contrato</th><th>Fornecedor</th><th class="hide-m">${consolidado() ? 'Empresa · ' + esc(tU()) : esc(tU())}</th><th class="hide-m">${usaNat() ? 'Natureza' : 'Categoria'}</th><th class="col-tipo">Tipo</th><th>Vencimento</th><th class="hide-m">Valor/mês</th><th>Situação</th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
 }
 function exportar(lista){
   if (!window.XLSX) { toast('A ferramenta de Excel ainda está carregando. Tente de novo em 2 segundos.'); return; }
-  const linhas = lista.map(c => ({ 'Empresa': nomeEmpresa(c.empresa), 'Número': c.numero, 'Objeto do contrato': c.titulo, 'Fornecedor': c.fornecedor_nome, 'CPF/CNPJ': fmtDoc(c.fornecedor_doc),
+  const linhas = lista.map(c => ({ 'Empresa': nomeEmpresa(c.empresa), 'Número': c.numero, 'Tipo': TIPOS_CTR[tipoC(c)][0], 'Objeto do contrato': c.titulo, 'Fornecedor': c.fornecedor_nome, 'CPF/CNPJ': fmtDoc(c.fornecedor_doc),
     'Código do fornecedor no sistema': c.fornecedor_codigo || '', [tU(c.empresa)]: c.unidade || '', ['Nome da ' + tu(c.empresa)]: unidadesDe(c.empresa).get(c.unidade) || '',
     'Grupo': grupoDe(c), 'Categoria': catDe(c).nome, 'Natureza': c.natureza_cliente || '', 'Descrição da natureza': natDe(c) ? limpaNat(natDe(c).descricao) : '', 'Classe da natureza': (natDe(c) || {}).classe || '',
     'Valor mensal': c.valor_mensal == null ? '' : Number(c.valor_mensal), 'Início': fmt(c.inicio), 'Vencimento': fmt(c.fim), 'Aviso prévio (dias)': c.aviso_dias,
@@ -1224,6 +1238,7 @@ function formContrato(c, pode){
       <div class="field" id="c-teto-f"><label for="c-teto">Teto do reajuste (%)</label><input class="in" id="c-teto" inputmode="decimal" value="${c && c.reajuste_teto != null ? String(c.reajuste_teto).replace('.', ',') : ''}" ${dis} placeholder="Sem teto"></div>
       <div class="field" id="c-neg-f"><label for="c-neg">Se o índice der negativo</label><select class="in" id="c-neg" ${dis}><option value="mantem">Mantém o valor</option><option value="reduz" ${c && c.reajuste_negativo === 'reduz' ? 'selected' : ''}>Reduz o valor</option></select></div>
       <div class="field" id="c-sub-f"><label for="c-sub">Índice substituto</label><select class="in" id="c-sub" ${dis}><option value="">—</option>${INDICES_BC.map(r => `<option ${c && c.reajuste_substituto === r ? 'selected' : ''}>${r}</option>`).join('')}</select><span class="hint">Se o índice deixar de existir.</span></div>
+      <div class="field"><label for="c-tipo">Este contrato é</label><select class="in" id="c-tipo" ${dis}><option value="novo">Novo</option><option value="renovacao" ${c && c.tipo_contrato === 'renovacao' ? 'selected' : ''}>Renovação de contrato anterior</option></select><span class="hint">Aditivo e distrato são marcados sozinhos pela linha do tempo.</span></div>
       <div class="field"><label for="c-renov">Renovação</label><select class="in" id="c-renov" ${dis}><option value="n">Manual</option><option value="s" ${c && c.renovacao_automatica ? 'selected' : ''}>Automática</option></select></div>
       <div class="field"><label for="c-fcod">Código do fornecedor no seu sistema</label><input class="in" id="c-fcod" value="${v('fornecedor_codigo')}" ${dis} placeholder="Opcional"></div>
       ${usaNat(empF) ? `<input type="hidden" id="c-nat" value="${v('natureza_cliente')}">` : `<div class="field"><label for="c-nat">Código da natureza no seu sistema</label><input class="in" id="c-nat" value="${v('natureza_cliente')}" ${dis} placeholder="Opcional. Ex.: 702"></div>`}
@@ -1279,7 +1294,7 @@ function lerForm(){
     inicio: $('#c-ini').value || null, fim: $('#c-fim').value || null, aviso_dias: Number($('#c-aviso').value || 0),
     valor_mensal: valor, reajuste: $('#c-reaj').value || null, mes_reajuste: Number($('#c-mes').value) || null,
     reajuste_teto: lerValor($('#c-teto').value), reajuste_negativo: $('#c-neg').value, reajuste_percentual: lerValor($('#c-pct').value), reajuste_substituto: $('#c-sub').value || null,
-    renovacao_automatica: $('#c-renov').value === 's', observacao: $('#c-obs').value.trim() || null, confidencial: $('#c-conf').checked,
+    renovacao_automatica: $('#c-renov').value === 's', tipo_contrato: $('#c-tipo').value, observacao: $('#c-obs').value.trim() || null, confidencial: $('#c-conf').checked,
   };
   if (!dados.mes_reajuste && dados.inicio && dados.reajuste && dados.reajuste !== 'Fixo') dados.mes_reajuste = parse(dados.inicio).getMonth() + 1;
   if ($('#c-enc')) dados.situacao = $('#c-enc').checked ? 'encerrado' : 'ativo';
@@ -1361,7 +1376,7 @@ function vContrato(id){
   depois(() => carregarDetalhe(c, n));
   return topo(esc(c.titulo), `${esc(c.fornecedor_nome)} · <span class="mono">${esc(c.numero)}</span>`, '', `<a href="#contratos">Contratos</a> / ${esc(c.numero)}`)
   + `<div class="detail"><div class="stack">
-      <div class="card"><div class="card-h"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill p-${s.k}">${s.t}</span><span class="tag">${usaNat(c.empresa) && c.natureza_cliente ? esc(nomeNat(c.natureza_cliente)) + ' · ' : ''}${esc(nomeGrupo(cat.grupo))} › ${esc(cat.nome)}</span>${c.confidencial ? `<span class="lock">${icon.lock} Confidencial</span>` : ''}${c.origem === 'importado' ? '<span class="tag">importado</span>' : ''}</div><span class="muted small">Seu acesso: <b>${LV[n]}</b></span></div>
+      <div class="card"><div class="card-h"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill p-${s.k}">${s.t}</span>${pillTipo(c)}<span class="tag">${usaNat(c.empresa) && c.natureza_cliente ? esc(nomeNat(c.natureza_cliente)) + ' · ' : ''}${esc(nomeGrupo(cat.grupo))} › ${esc(cat.nome)}</span>${c.confidencial ? `<span class="lock">${icon.lock} Confidencial</span>` : ''}${c.origem === 'importado' ? '<span class="tag">importado</span>' : ''}</div><span class="muted small">Seu acesso: <b>${LV[n]}</b></span></div>
         <div class="card-b" style="display:grid;gap:14px">${formContrato(c, n >= 3)}
           ${n >= 3 ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="b-salvar">Salvar alterações</button>${ehAdmin() ? `<button class="btn danger" id="b-apagar">Apagar contrato</button>` : ''}</div>` : ''}
         </div></div>
@@ -1668,6 +1683,7 @@ const COLS = [
   { k:'mes',       h:'Mês do reajuste',                         ex:'3', d:'1 a 12. Em branco = o mês do início.' },
   { k:'renov',     h:'Renovação automática',                    ex:'Não', d:'Sim ou Não.' },
   { k:'obs',       h:'Observações',                             ex:'', d:'Livre.' },
+  { k:'tipo',      h:'Tipo (Novo ou Renovação)',                ex:'Novo', d:'Novo ou Renovação (renovação de um contrato anterior). Em branco = Novo.' },
 ];
 // colunas com o nome da unidade que a empresa usa (Filial, Loja...); a leitura aceita os dois
 const colsAtuais = () => COLS.map(c => c.k === 'unidade' ? { ...c, h: `${tU()} *`, d: `Código ou nome da ${tu()}, como está na aba "${tUs()}".` }
@@ -1780,6 +1796,7 @@ async function lerImport(arquivo){
       const mesTxt = cel(g(r, 'mes')); let mes = null;
       if (mesTxt) { mes = Number(mesTxt) || (MESES.findIndex(m => norm(m) === norm(mesTxt)) + 1) || null; if (!mes || mes < 1 || mes > 12) E(`Mês do reajuste inválido: "${mesTxt}".`); }
       else if (di.ok && reaj && reaj !== 'Fixo') mes = Number(di.ok.slice(5, 7));
+      const tpTxt = norm(cel(g(r, 'tipo'))); if (tpTxt && !['novo', 'renovacao'].includes(tpTxt)) E('Tipo: use Novo ou Renovação.');
       const rnTxt = norm(cel(g(r, 'renov'))); if (rnTxt && !['sim', 'nao', 's', 'n'].includes(rnTxt)) E('Renovação automática: use Sim ou Não.');
       const chave = [unidade, dv.ok || norm(forn), cat && cat.id, norm(titulo)].join('|');
       if (unidade && forn && cat && titulo) {
@@ -1789,7 +1806,7 @@ async function lerImport(arquivo){
       linhas.push({ empresa: EMP, unidade, fornecedor_nome: forn, fornecedor_doc: dv.ok || null, fornecedor_codigo: cel(g(r, 'fcod')) || null,
         categoria: cat ? cat.id : null, natureza_cliente: natCod || cel(g(r, 'nat')).replace(/\.0+$/, '') || null, titulo: titulo.slice(0, 300),
         valor_mensal: valor, inicio: di.ok || null, fim: df.ok || null, aviso_dias: aviso, reajuste: reaj || null, mes_reajuste: mes,
-        renovacao_automatica: rnTxt === 'sim' || rnTxt === 's', observacao: cel(g(r, 'obs')) || null, origem: 'importado' });
+        renovacao_automatica: rnTxt === 'sim' || rnTxt === 's', tipo_contrato: tpTxt === 'renovacao' ? 'renovacao' : 'novo', observacao: cel(g(r, 'obs')) || null, origem: 'importado' });
     }
     if (!linhas.length && !erros.length) throw new Error('A aba "Contratos" está vazia.');
     const tabela = (lista, cor) => `<div class="tbl-wrap errtbl"><table><thead><tr><th>Linha</th><th>${cor === 'bad' ? 'Erro' : 'Aviso'}</th></tr></thead><tbody>${lista.slice(0, 300).map(([n, t]) => `<tr><td class="num">${n}</td><td>${esc(t)}</td></tr>`).join('')}${lista.length > 300 ? `<tr><td colspan="2" class="muted">… e mais ${lista.length - 300}</td></tr>` : ''}</tbody></table></div>`;

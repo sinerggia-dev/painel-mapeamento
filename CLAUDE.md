@@ -152,6 +152,10 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   anterior" (obrigatório), vigência e, se houver, novo valor/vencimento; viram uma linha em `ctr_alteracoes` ligada
   ao arquivo. A lista marca "versão vigente" e "versão anterior · guardada". Nenhum arquivo pode ser apagado.
   **O SharePoint só aparece para o admin da Sinergia** (`ehAdmin()`): nunca para a empresa, nem com acesso completo.
+- **Tipo do contrato** (coluna e filtro na lista, selo na tela do contrato, coluna no Excel): `tipoC()` decide pela
+  linha do tempo e pelos arquivos: Distrato (arquivo de distrato ou alteração "Distrato: ...") > Renovação
+  (`tipo_contrato = 'renovacao'` no cadastro, alteração ou arquivo de renovação) > Aditivado (aditivo) > Novo.
+  O filtro "Distrato" mostra também os encerrados. Planilha modelo: coluna opcional "Tipo (Novo ou Renovação)" no fim.
 - **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
   ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
 - **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no

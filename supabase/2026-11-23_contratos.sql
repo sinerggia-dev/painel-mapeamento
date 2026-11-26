@@ -201,6 +201,7 @@ create table if not exists public.ctr_contratos (
   reajuste_percentual  numeric(6,2) check (reajuste_percentual is null or reajuste_percentual >= 0), -- "Percentual fixo"
   reajuste_substituto  text check (reajuste_substituto in ('IPCA','IGP-M','INPC')),            -- se o indice acabar
   renovacao_automatica boolean not null default false,
+  tipo_contrato        text not null default 'novo' check (tipo_contrato in ('novo','renovacao')),   -- como foi cadastrado
   responsavel          uuid references public.perfis(id) on delete set null,
   confidencial         boolean not null default false,
   situacao             text not null default 'ativo' check (situacao in ('ativo','encerrado')),
@@ -214,6 +215,7 @@ create table if not exists public.ctr_contratos (
 );
 create index if not exists ctr_contratos_empresa on public.ctr_contratos (empresa, fim);
 alter table public.ctr_contratos add column if not exists reajuste_teto numeric(6,2);
+alter table public.ctr_contratos add column if not exists tipo_contrato text not null default 'novo' check (tipo_contrato in ('novo','renovacao'));
 alter table public.ctr_contratos add column if not exists reajuste_negativo text not null default 'mantem';
 alter table public.ctr_contratos add column if not exists reajuste_percentual numeric(6,2);
 alter table public.ctr_contratos add column if not exists reajuste_substituto text;
@@ -398,7 +400,7 @@ begin
   velho := to_jsonb(old);
   foreach k in array array['titulo','fornecedor_nome','fornecedor_doc','fornecedor_codigo','unidade','categoria',
                            'natureza_cliente','valor_mensal','inicio','fim','aviso_dias','reajuste','mes_reajuste',
-                           'reajuste_teto','reajuste_negativo','reajuste_percentual','reajuste_substituto',
+                           'reajuste_teto','reajuste_negativo','reajuste_percentual','reajuste_substituto','tipo_contrato',
                            'renovacao_automatica','responsavel','confidencial','situacao','observacao'] loop
     if novo -> k is distinct from velho -> k then
       mud := mud || case when mud = '' then '' else '; ' end || k || ': '
