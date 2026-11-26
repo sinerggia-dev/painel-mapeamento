@@ -926,16 +926,22 @@ const temContrato = c => docsDe(c).some(d => d.categoria === 'contrato-assinado'
 const pessoa = id => (PESSOAS.find(p => p.id === id) || {}).nome || '—';
 const catsOrdenadas = (soAtivas = true, manter = null) => [...CAT.values()].filter(c => !soAtivas || c.ativo || c.id === manter).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 // estado de cada documento obrigatorio (o contrato assinado sempre e obrigatorio)
+// certidoes e autorizacoes sao da empresa contratada, nao do contrato: enviadas uma vez, valem para todos os contratos dela
+const DOCS_FORNECEDOR = ['cnd-federal', 'crf-fgts', 'cndt', 'autorizacao-pf'];
+const chaveForn = c => c.empresa + '|' + (c.fornecedor_doc || 'n:' + norm(c.fornecedor_nome));
+const contratosDoFornecedor = c => { const k = chaveForn(c); return CONTRATOS.filter(x => chaveForn(x) === k); };
 function docsObrigatorios(c){
   const tipos = ['contrato-assinado', ...(catDe(c).documentos || []).filter(t => t !== 'contrato-assinado')];
+  const doForn = contratosDoFornecedor(c);
   return tipos.map(t => {
-    const ds = docsDe(c).filter(d => d.categoria === t);
-    if (!ds.length) return { t, st: 'falta' };
+    const deForn = DOCS_FORNECEDOR.includes(t);
+    const ds = deForn ? doForn.flatMap(x => docsDe(x).filter(d => d.categoria === t).map(d => ({ ...d, _ct: x }))) : docsDe(c).filter(d => d.categoria === t);
+    if (!ds.length) return { t, st: 'falta', deForn, nForn: doForn.length };
     if (!(TIPOS_DOC[t] || {}).v) return { t, st: 'ok' };
-    const val = ds.map(d => d.validade).filter(Boolean).sort().pop();
-    if (!val) return { t, st: 'ok' };
-    const n = diasAte(val);
-    return { t, st: n < 0 ? 'vencido' : n <= AVISAR_DOC ? 'vence' : 'ok', validade: val, dias: n };
+    const ult = ds.filter(d => d.validade).sort((a, b) => a.validade.localeCompare(b.validade)).pop();
+    if (!ult) return { t, st: 'ok', deForn, nForn: doForn.length };
+    const n = diasAte(ult.validade), outro = deForn && ult._ct && ult._ct.id !== c.id ? ult._ct : null;
+    return { t, st: n < 0 ? 'vencido' : n <= AVISAR_DOC ? 'vence' : 'ok', validade: ult.validade, dias: n, deForn, nForn: doForn.length, outro };
   });
 }
 const docsComProblema = c => c.situacao === 'encerrado' ? [] : docsObrigatorios(c).filter(x => x.st !== 'ok');
@@ -1079,7 +1085,10 @@ function vPainel(){
     return `<a class="kpi" href="#${href}" style="--k:${cor}"><span class="kpi-top"><span class="lbl">${l}</span><span class="ki"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KI[t]}</svg></span></span><span class="val">${val}</span><span class="sub">${sub}</span></a>`; };
   const prox = S.filter(([, s]) => ['vencido','aviso','breve'].includes(s.cod)).sort((a, b) => dias(a[0]) - dias(b[0])).slice(0, 30);
   const reajustes = ativos.map(c => [c, proximoReajuste(c)]).filter(([, p]) => p && p.dias <= 30).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
-  const docAlertas = ativos.flatMap(c => docsObrigatorios(c).filter(x => x.st === 'vencido' || x.st === 'vence').map(x => [c, x])).sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
+  const vistosDoc = new Set();
+  const docAlertas = ativos.flatMap(c => docsObrigatorios(c).filter(x => x.st === 'vencido' || x.st === 'vence').map(x => [c, x]))
+    .filter(([c, x]) => { if (!x.deForn) return true; const k = chaveForn(c) + '|' + x.t; if (vistosDoc.has(k)) return false; vistosDoc.add(k); return true; })
+    .sort((a, b) => a[1].dias - b[1].dias).slice(0, 20);
   const meses = [...Array(12)].map((_, i) => { const d = new Date(hojeD().getFullYear(), hojeD().getMonth() + i, 1); return { d, n: ativos.filter(c => { const f = parse(c.fim); return f && f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth(); }).length }; });
   const mx = Math.max(1, ...meses.map(m => m.n));
   const porGrupo = [...ativos.reduce((m, c) => { const g = usaNat() ? ((natDe(c) || {}).classe || 'Sem natureza') : grupoDe(c); const x = m.get(g) || { n: 0, v: 0 }; x.n++; if (situ(c).cod !== 'vencido') x.v += Number(c.valor_mensal || 0); return m.set(g, x); }, new Map())].sort((a, b) => b[1].v - a[1].v || b[1].n - a[1].n);
@@ -1119,7 +1128,7 @@ function vPainel(){
         <div class="card"><div class="card-h"><h2>Documentos com validade</h2><span class="muted small">certidões, alvarás, seguros: vencidos ou vencendo em até ${AVISAR_DOC} dias</span></div>
           <div class="alerts">${docAlertas.length ? docAlertas.map(([c, x]) => `<div class="alert" data-go="contrato/${c.id}">
             <div class="days p-${x.st === 'vencido' ? 'bad' : 'warn'}">${Math.abs(x.dias)}<small>${x.dias < 0 ? 'dias atrás' : 'dias'}</small></div>
-            <div style="min-width:0"><div style="font-weight:600">${esc(tipoDoc(x.t))}</div><div class="muted small">${consolidado() ? esc(nomeEmpresa(c.empresa)) + ' · ' : ''}${esc(c.titulo)} · ${esc(c.fornecedor_nome)} · validade ${fmt(x.validade)}</div></div>
+            <div style="min-width:0"><div style="font-weight:600">${esc(tipoDoc(x.t))}</div><div class="muted small">${consolidado() ? esc(nomeEmpresa(c.empresa)) + ' · ' : ''}${x.deForn && x.nForn > 1 ? `${esc(c.fornecedor_nome)} · vale para ${x.nForn} contratos` : `${esc(c.titulo)} · ${esc(c.fornecedor_nome)}`} · validade ${fmt(x.validade)}</div></div>
             <span class="pill p-${x.st === 'vencido' ? 'bad' : 'warn'}">${x.st === 'vencido' ? 'Vencido' : 'Vence logo'}</span></div>`).join('') : '<div class="empty">Nenhum documento vencido ou vencendo.</div>'}</div>
         </div>
       </div>
@@ -1501,7 +1510,7 @@ function modalAditivo(c){
 function desenharChecklist(c){
   const el = $('#chk'); if (!el) return;
   const L = { ok: ['p-ok', 'Em dia'], vence: ['p-warn', 'Vence logo'], vencido: ['p-bad', 'Vencido'], falta: ['p-mut', 'Falta'] };
-  el.innerHTML = docsObrigatorios(c).map(x => `<div class="chk-i"><div style="min-width:0"><div style="font-weight:500">${esc(tipoDoc(x.t))}</div>${x.validade ? `<div class="muted small">válido até ${fmt(x.validade)}</div>` : ''}</div><span class="pill ${L[x.st][0]}">${L[x.st][1]}</span></div>`).join('')
+  el.innerHTML = docsObrigatorios(c).map(x => `<div class="chk-i"><div style="min-width:0"><div style="font-weight:500">${esc(tipoDoc(x.t))}</div>${x.validade ? `<div class="muted small">válido até ${fmt(x.validade)}${x.outro ? ` · enviado no <a href="#contrato/${x.outro.id}">${esc(x.outro.numero)}</a>` : ''}</div>` : ''}${x.deForn && x.nForn > 1 ? `<div class="muted small">do fornecedor: vale para os ${x.nForn} contratos dele</div>` : ''}</div><span class="pill ${L[x.st][0]}">${L[x.st][1]}</span></div>`).join('')
     + `<div class="muted small" style="padding:10px 18px 14px">Exigidos pela categoria <b>${esc(catDe(c).nome)}</b>. ${ehAdmin() ? 'Para mudar a regra, vá em Administração → Categorias.' : ''}</div>`;
 }
 async function carregarDetalhe(c, n){
@@ -1600,7 +1609,9 @@ const EXPLICA = {
 function ligarUpload(c){
   const dz = $('#dz'), inp = $('#u-file'); if (!dz) return;
   const mostrar = () => { const k = $('#u-cat').value; $('#u-val-f').hidden = !(TIPOS_DOC[k] || {}).v; $('#u-mud').hidden = !ehMudanca(c, k);
-    $('#u-expl').textContent = (TIPOS_DOC[k] || {}).v ? 'Documento com data de validade: o sistema avisa quando estiver perto de vencer.' : EXPLICA[k === 'contrato-assinado' && !temContrato(c) ? 'contrato-assinado-novo' : k] || ''; };
+    const nf = contratosDoFornecedor(c).length;
+    $('#u-expl').textContent = DOCS_FORNECEDOR.includes(k) ? (nf > 1 ? `Documento da empresa contratada: vale para os ${nf} contratos de ${c.fornecedor_nome}. Envie uma vez só, em qualquer um deles.` : 'Documento da empresa contratada: se ela tiver outros contratos, vale para todos.')
+      : (TIPOS_DOC[k] || {}).v ? 'Documento com data de validade: o sistema avisa quando estiver perto de vencer.' : EXPLICA[k === 'contrato-assinado' && !temContrato(c) ? 'contrato-assinado-novo' : k] || ''; };
   $('#u-cat').addEventListener('change', mostrar); mostrar();
   const conferir = () => {
     const k = $('#u-cat').value;

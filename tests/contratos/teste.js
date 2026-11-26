@@ -33,7 +33,7 @@ const txt = async (pg, s) => (await pg.textContent(s)) || '';
   await pg.screenshot({ path: SP + '/s-painel.png', fullPage: true });
   // lista
   await pg.goto(URL + '#contratos'); await pg.waitForSelector('#tb tr');
-  ok((await pg.$$('#tb tr.link')).length === 12, 'lista mostra 12 contratos ativos (o frete foi encerrado por distrato)');
+  ok((await pg.$$('#tb tr.link')).length === 13, 'lista mostra 13 contratos ativos (o frete foi encerrado por distrato)');
   await pg.selectOption('#f-gr', 'nt:702'); ok((await pg.$$('#tb tr.link')).length === 4, 'filtro pela natureza 702 = 4');
   ok((await txt(pg, '#tb')).includes('702 · ALUGUEL DE IMOVEIS'), 'lista mostra a natureza');
   await pg.selectOption('#f-gr', ''); await pg.selectOption('#f-st', 'pendente');
@@ -114,7 +114,7 @@ const txt = async (pg, s) => (await pg.textContent(s)) || '';
   ok(r2.includes('3 contrato(s) prontos') && r2.includes('filial(s) nova(s)') && r2.includes('sem vencimento'), 'planilha boa: 3 prontos, 1 unidade nova, avisos');
   await pg.click('#imp-ok'); await pg.waitForFunction(() => /gravados/.test(document.querySelector('#imp-res').textContent));
   await pg.goto(URL + '#contratos'); await pg.waitForSelector('#tb tr.link');
-  ok((await pg.$$('#tb tr.link')).length === 16, 'depois da importação: 16 contratos ativos');
+  ok((await pg.$$('#tb tr.link')).length === 17, 'depois da importação: 17 contratos ativos');
   await pg.fill('#f-q', 'Entregas zona norte'); await pg.click('#tb tr.link'); await pg.waitForSelector('#c-aviso');
   ok((await pg.inputValue('#c-aviso')) === '30' && (await pg.inputValue('#c-mes')) === '3' && (await pg.inputValue('#c-reaj')) === 'IPCA' && (await pg.inputValue('#c-uni')) === '4', 'importado: unidade por nome, aviso padrão, reajuste IPCA, mês março');
   // categorias
@@ -200,7 +200,7 @@ const txt = async (pg, s) => (await pg.textContent(s)) || '';
   ok((await txt(pg, '#side-brand')).includes('SINERGIA') && !(await pg.evaluate(() => document.documentElement.style.getPropertyValue('--acc'))), 'consolidado: identidade da Sinergia');
   ok(await (await pg.$('#box-ver')).isHidden(), 'consolidado: sem "ver como usuário"');
   await pg.goto(URL + '#contratos'); await pg.waitForSelector('#tb tr.link');
-  const nTot = (await pg.$$('#tb tr.link')).length; ok(nTot === 19, 'consolidado: 19 contratos ativos (16 Millena + 3 Novatec): ' + nTot);
+  const nTot = (await pg.$$('#tb tr.link')).length; ok(nTot === 20, 'consolidado: 20 contratos ativos (17 Millena + 3 Novatec): ' + nTot);
   await pg.selectOption('#f-fi', 'novatec'); ok((await pg.$$('#tb tr.link')).length === 3, 'consolidado: filtro por empresa');
   await pg.goto(URL + '#novo'); await pg.waitForTimeout(200); ok((await txt(pg, '#main')).includes('escolha a empresa'), 'consolidado: cadastro pede para escolher empresa');
   await pg.goto(URL + '#painel'); await pg.waitForSelector('[data-emp="novatec"]'); await pg.screenshot({ path: SP + '/s-consolidado.png', fullPage: true });

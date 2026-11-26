@@ -156,6 +156,10 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   linha do tempo e pelos arquivos: Distrato (arquivo de distrato ou alteração "Distrato: ...") > Renovação
   (`tipo_contrato = 'renovacao'` no cadastro, alteração ou arquivo de renovação) > Aditivado (aditivo) > Novo.
   O filtro "Distrato" mostra também os encerrados. Planilha modelo: coluna opcional "Tipo (Novo ou Renovação)" no fim.
+- **Documentos do fornecedor**: certidões e autorização da PF (`DOCS_FORNECEDOR`) são da empresa contratada:
+  enviadas em qualquer contrato, valem para todos os contratos do mesmo fornecedor na empresa (`chaveForn`: mesmo
+  CPF/CNPJ ou, sem documento, mesmo nome). Checklist mostra "enviado no CTR-..." e o painel mostra um alerta por fornecedor.
+  Limite: a pessoa só enxerga a certidão se puder ver o contrato onde ela foi enviada.
 - **Documentos com validade** (certidões, AVCB, alvará, seguro...): `ctr_documentos.validade`; vencido
   ou faltando = "Documentos pendentes"; alerta com 30 dias (`AVISAR_DOC`).
 - **Códigos do sistema do cliente** (`fornecedor_codigo`, `natureza_cliente`) são opcionais no
