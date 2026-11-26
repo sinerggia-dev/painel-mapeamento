@@ -6,3 +6,4 @@ config.json
 .session.json
 dados/
 index.html
+!contratos/index.html

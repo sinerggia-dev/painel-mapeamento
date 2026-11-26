@@ -95,3 +95,40 @@ no Supabase. Não commitar `dados/`, xlsx, html gerados, nem nada com nomes de p
 4. `git push` na branch `main`: o robô gera os painéis e republica o portal sozinho
    (~2 min). Acompanhe em https://github.com/sinerggia-dev/painel-mapeamento/actions.
 5. Depois avise o usuário para apertar **Ctrl+F5** no portal (ou tocar no ↻ do painel).
+
+## Gestão de Contratos (`contratos/`)
+
+Sistema separado do mapeamento, publicado em `.../painel-mapeamento/contratos/`. Usa o **mesmo
+Supabase e o mesmo login** do portal (tabela `perfis`; admin do portal = admin dos contratos).
+Os **arquivos ficam no SharePoint**, nunca no Supabase nem no GitHub.
+
+```
+navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
+        │  envio em partes direto para o link de upload do SharePoint
+        └──► Edge Function "ctr-arquivos" (guarda o segredo da Microsoft, confere o nível
+             do usuário no banco, cria a pasta, abre o envio, registra, gera link de ver/baixar)
+                    └──► SharePoint: site GestaoContratos (sinerggiacombr), biblioteca Documentos,
+                         Contratos/<Empresa>/<natureza - descrição>/<CTR-AAAA-NNNNN - Fornecedor>/
+```
+
+| Arquivo | Para que serve |
+|---|---|
+| `contratos/index.html` | Telas: painel, lista, contrato (dados, documentos, histórico), novo, Admin (acessos, importar planilhas, SharePoint). |
+| `supabase/2026-11-23_contratos.sql` | Tabelas `ctr_*`, função `ctr_nivel` (quem vê o quê), gatilhos (número CTR, histórico automático, histórico e documentos imutáveis). |
+| `supabase/functions/ctr-arquivos/index.ts` | Edge Function (ações iniciar, registrar, ver, baixar, testar). |
+
+- **Permissão**: `ctr_acessos` por usuário e empresa: nível 1 ver, 2 ver e baixar, 3 editar e enviar;
+  `filiais` e `classes` (classe da natureza) vazias = todas. Contrato confidencial: só admin, quem
+  criou e `ctr_liberados`. A Edge Function usa a mesma regra (`ctr_nivel_contrato`).
+- **Tipo do contrato = código da NATUREZA** do sistema do cliente (`ctr_naturezas`, importada da
+  planilha "cadastro de naturezas"). Aluguéis/prestadores importados viram contratos "pendentes"
+  (sem documento/datas) agrupados por filial + fornecedor + natureza + valor; reimportar não duplica.
+  As planilhas são lidas no navegador (SheetJS) e vão direto ao banco: **nunca commitar as planilhas**.
+- **Microsoft**: app "Sistema de Gestão de Contratos" no Entra, permissão de aplicativo
+  `Sites.Selected` com acesso `write` só ao site GestaoContratos (concedido via Graph Explorer,
+  POST `/sites/{id}/permissions`). Segredos da Edge Function: `MS_TENANT_ID`, `MS_CLIENT_ID`,
+  `MS_CLIENT_SECRET`, `SP_SITE_ID` (e opcional `SP_PASTA_RAIZ`). O segredo do Entra **vence**:
+  anotar a data e renovar antes.
+- Teste local: Postgres 16 com stub de `auth.uid()` para o SQL; Playwright com Supabase simulado
+  (dados inventados) para as telas.
+- Ainda não feito: e-mail de aviso de vencimento e backup diário do banco para o SharePoint.
