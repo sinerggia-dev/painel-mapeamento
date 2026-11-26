@@ -394,6 +394,9 @@ body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transpa
 .prev[data-menu="marca"] .prev-item{color:var(--pcf)}
 .prev[data-menu="marca"] .prev-side small{color:var(--pcf);opacity:.75}
 
+.anexo-novo{display:grid;gap:10px;border-top:1px solid var(--border);padding-top:16px;margin-top:4px}
+.anexo-novo h3{font-size:1.02rem}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -1157,22 +1160,57 @@ function lerForm(){
   return { dados };
 }
 
+// arquivos escolhidos no cadastro: enviados logo depois de salvar, na tela do contrato
+let ENVIO_PENDENTE = null;
 function vNovo(){
   if (NIVEL_EMP < 3) return semPermissao();
+  let arquivos = [];
   depois(() => {
     ligarForm(true);
+    const inp = $('#n-file'), dz = $('#n-dz'), lista = $('#n-lista');
+    const mostrar = () => {
+      lista.innerHTML = arquivos.map((f, i) => `<div class="file"><div style="min-width:0"><div style="font-size:13px;font-weight:500;word-break:break-all">${esc(f.name)}</div><div class="muted small">${tam(f.size)}</div></div><button class="btn sm ghost" type="button" data-tira="${i}" aria-label="Tirar">✕</button></div>`).join('');
+      dz.querySelector('b').textContent = arquivos.length ? 'Adicionar mais arquivos' : 'Arraste o arquivo do contrato aqui ou clique para escolher';
+    };
+    const add = fs => { for (const f of fs) { if (f.size > 250 * 1024 * 1024) { toast(`${f.name} passa de 250 MB.`); continue; } if (f.size) arquivos.push(f); } mostrar(); };
+    const mostrarValidade = () => { $('#n-val-f').hidden = !(TIPOS_DOC[$('#n-cat').value] || {}).v; };
+    $('#n-cat').addEventListener('change', mostrarValidade); mostrarValidade();
+    dz.onclick = () => inp.click();
+    dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } };
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+    dz.addEventListener('drop', e => add([...e.dataTransfer.files]));
+    inp.onchange = () => { add([...inp.files]); inp.value = ''; };
+    lista.onclick = e => { const b = e.target.closest('[data-tira]'); if (b) { arquivos.splice(Number(b.dataset.tira), 1); mostrar(); } };
     $('#b-salvar').onclick = async () => {
       const { dados, erro } = lerForm(); if (erro) { msgEm('#c-msg', erro); return; }
+      const cat = $('#n-cat').value, validade = (TIPOS_DOC[cat] || {}).v ? $('#n-val').value || null : null;
+      if (arquivos.length && (TIPOS_DOC[cat] || {}).v && !validade) { msgEm('#c-msg', 'Preencha a data de validade do documento anexado.'); return; }
       $('#b-salvar').disabled = true;
       const { data, error } = await db('ctr_contratos').insert({ ...dados, empresa: EMP }).select('*').single();
       $('#b-salvar').disabled = false;
       if (error) { msgEm('#c-msg', erroTxt(error)); return; }
-      CONTRATOS.push(data); toast(`Contrato ${data.numero} cadastrado. Agora anexe o contrato assinado.`);
+      CONTRATOS.push(data);
+      if (arquivos.length) { ENVIO_PENDENTE = { contrato: data.id, arquivos, cat, validade }; toast(`Contrato ${data.numero} cadastrado. Enviando ${arquivos.length === 1 ? 'o arquivo' : arquivos.length + ' arquivos'} para o SharePoint…`); }
+      else toast(`Contrato ${data.numero} cadastrado. Lembre de anexar o contrato assinado.`);
       location.hash = 'contrato/' + data.id;
     };
   });
-  return topo('Novo contrato', 'Depois de salvar, você anexa os arquivos na tela do contrato. Para cadastrar muitos de uma vez, use a planilha modelo.', NIVEL_EMP >= 3 ? `<a class="btn" href="#importar">${icon.imp}Importar planilha</a>` : '', '<a href="#contratos">Contratos</a> / Novo')
-    + `<div class="card"><div class="card-b" style="display:grid;gap:14px">${formContrato(null, true)}<div><button class="btn pri" id="b-salvar">Salvar contrato</button></div></div></div>`;
+  const tipos = Object.entries(TIPOS_DOC);
+  return topo('Novo contrato', 'Preencha os dados e anexe o contrato assinado, se já tiver. Os arquivos vão para o SharePoint quando você salvar.', '', '<a href="#contratos">Contratos</a> / Novo')
+    + `<div class="card"><div class="card-b" style="display:grid;gap:14px">${formContrato(null, true)}
+      <div class="anexo-novo">
+        <h3>Arquivo do contrato</h3>
+        <div class="grid2">
+          <div class="field"><label for="n-cat">O que é o arquivo</label><select class="in" id="n-cat">${tipos.map(([k, x]) => `<option value="${k}" ${k === 'contrato-assinado' ? 'selected' : ''}>${esc(x.t)}</option>`).join('')}</select></div>
+          <div class="field" id="n-val-f"><label for="n-val" class="req">Válido até</label><input class="in" id="n-val" type="date"></div>
+        </div>
+        <div class="drop" id="n-dz" tabindex="0" role="button" aria-label="Escolher arquivos">${icon.up}<b>Arraste o arquivo do contrato aqui ou clique para escolher</b><span class="muted small">PDF, Word, imagem ou foto tirada no celular · até 250 MB cada · opcional</span></div>
+        <input type="file" id="n-file" multiple hidden>
+        <div class="files" id="n-lista"></div>
+        <span class="hint">Outros documentos (aditivos, certidões, alvarás) você anexa depois, na tela do contrato.</span>
+      </div>
+      <div><button class="btn pri" id="b-salvar">Salvar contrato</button></div></div></div>`;
 }
 
 // ═════════ Detalhe ═════════
@@ -1244,6 +1282,11 @@ async function carregarDetalhe(c, n){
     CONTRATOS = CONTRATOS.filter(x => x.id !== c.id); toast('Contrato apagado.'); location.hash = 'contratos';
   });
   if (n >= 3) ligarUpload(c);
+  if (ENVIO_PENDENTE && ENVIO_PENDENTE.contrato === c.id && n >= 3) {
+    const p = ENVIO_PENDENTE; ENVIO_PENDENTE = null;
+    $('#u-cat').value = p.cat; $('#u-cat').dispatchEvent(new Event('change')); if (p.validade) $('#u-val').value = p.validade;
+    enviarVarios(c, p.arquivos);
+  }
   await Promise.all([listarDocs(c, n), listarHist(c), ehAdmin() && c.confidencial ? listarLiberados(c) : null]);
 }
 async function listarDocs(c, n){
