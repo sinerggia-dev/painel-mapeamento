@@ -156,7 +156,14 @@ navegador (contratos/index.html) ──► Supabase (tabelas ctr_*, regras RLS)
   Categorias, Unidades). Confere tudo antes; com qualquer erro nada é gravado. Admin e nível 3
   importam; unidade nova só o admin cria. **Nunca commitar planilhas de clientes.**
 - **Permissão**: `ctr_acessos` por usuário e empresa: nível 1 ver, 2 ver e baixar, 3 editar, enviar
-  e importar; `unidades` e `grupos` vazios = todos. Contrato confidencial: só admin, quem criou e
+  e importar; `unidades` e `grupos` vazios = todos; `contratos` com itens = vê **só** esses (e não cadastra
+  novos: `podeCriar()`).
+- **Pessoas** (Admin → Acessos): busca por nome, e-mail, cargo, função ou telefone. Cadastro com cargo, função e
+  WhatsApp (`ctr_contatos`), nível e o que vê. A senha é gerada (`gerarSenha`, formato xxxx-xxxx) e a tela
+  "Enviar acesso" manda por WhatsApp (wa.me) ou e-mail (mailto) com o link `?e=<empresa>`. `trocar_senha` obriga
+  a criar a senha no 1º acesso (depois `ctr_senha_trocada()`). "Gerar nova senha e enviar" usa
+  `admin_definir_senha` (do portal) e liga `trocar_senha` de novo.
+- **Busca rápida** no topo de todas as telas (contrato, fornecedor, CNPJ, número, natureza/categoria, unidade). Contrato confidencial: só admin, quem criou e
   `ctr_liberados`. A Edge Function usa a mesma regra (`ctr_nivel_contrato`).
 - **Microsoft**: app "Sistema de Gestão de Contratos" no Entra, permissão de aplicativo
   `Sites.Selected` com acesso `write` só ao site GestaoContratos (concedido via Graph Explorer,

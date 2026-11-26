@@ -161,8 +161,20 @@ create table if not exists public.ctr_acessos (
   nivel     smallint not null default 1 check (nivel between 1 and 3),
   unidades  text[]   not null default '{}',   -- vazio = todas as unidades
   grupos    text[]   not null default '{}',   -- vazio = todos os grupos
+  contratos bigint[] not null default '{}',   -- vazio = todos (dentro das unidades e grupos); com itens = so estes
   criado_em timestamptz not null default now(),
   primary key (usuario, empresa)
+);
+alter table public.ctr_acessos add column if not exists contratos bigint[] not null default '{}';
+
+-- ── Dados de contato de quem usa os contratos (cargo, funcao, WhatsApp) e troca de senha no 1o acesso ──
+create table if not exists public.ctr_contatos (
+  usuario      uuid primary key references public.perfis(id) on delete cascade,
+  cargo        text check (cargo is null or length(cargo) <= 80),
+  funcao       text check (funcao is null or length(funcao) <= 120),
+  telefone     text check (telefone is null or telefone ~ '^[0-9]{10,13}$'),   -- so numeros, com DDD (e 55)
+  trocar_senha boolean not null default false,     -- senha criada pela Sinergia: obriga a trocar ao entrar
+  alterado_em  timestamptz not null default now()
 );
 
 -- ── Contratos ──
@@ -254,6 +266,7 @@ begin
     select grupo into grp from ctr_categorias where id = p_categoria;
     if grp is null or not (grp = any (a.grupos)) then return 0; end if;
   end if;
+  if cardinality(a.contratos) > 0 and (p_id is null or not (p_id = any (a.contratos))) then return 0; end if;
   if p_confidencial and p_criado_por is distinct from uid
      and not exists (select 1 from ctr_liberados where contrato = p_id and usuario = uid) then
     return 0;
@@ -292,6 +305,14 @@ revoke all on function public.ctr_usa_empresa(text) from public, anon;
 grant execute on function public.ctr_nivel(text,text,bigint,boolean,uuid,bigint) to authenticated, service_role;
 grant execute on function public.ctr_nivel_contrato(bigint) to authenticated, service_role;
 grant execute on function public.ctr_usa_empresa(text) to authenticated, service_role;
+
+-- a pessoa trocou a senha que a Sinergia criou: desliga a obrigacao (so para ela mesma)
+create or replace function public.ctr_senha_trocada() returns void
+language sql security definer set search_path = public as $$
+  update ctr_contatos set trocar_senha = false, alterado_em = now() where usuario = auth.uid();
+$$;
+revoke all on function public.ctr_senha_trocada() from public, anon;
+grant execute on function public.ctr_senha_trocada() to authenticated;
 
 -- ════════ Gatilhos dos contratos: numero, categoria valida e historico automatico ════════
 create or replace function public._ctr_contratos_antes() returns trigger
@@ -411,17 +432,18 @@ alter table public.ctr_categorias   enable row level security;
 alter table public.ctr_unidades     enable row level security;
 alter table public.ctr_config       enable row level security;
 alter table public.ctr_naturezas    enable row level security;
+alter table public.ctr_contatos     enable row level security;
 alter table public.ctr_acessos      enable row level security;
 alter table public.ctr_contratos    enable row level security;
 alter table public.ctr_liberados    enable row level security;
 alter table public.ctr_documentos   enable row level security;
 alter table public.ctr_historico    enable row level security;
 
-revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_acessos,
+revoke all on public.ctr_grupos, public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos, public.ctr_acessos,
               public.ctr_contratos, public.ctr_liberados, public.ctr_documentos, public.ctr_historico from anon;
 grant select on public.ctr_grupos to authenticated;
 revoke insert, update, delete on public.ctr_grupos from authenticated;
-grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas,
+grant select, insert, update, delete on public.ctr_categorias, public.ctr_unidades, public.ctr_config, public.ctr_naturezas, public.ctr_contatos,
               public.ctr_acessos, public.ctr_contratos, public.ctr_liberados to authenticated;
 grant select on public.ctr_documentos, public.ctr_historico to authenticated;
 revoke insert, update, delete on public.ctr_documentos, public.ctr_historico from authenticated;
@@ -445,6 +467,11 @@ drop policy if exists ctr_unidades_ver   on public.ctr_unidades;
 drop policy if exists ctr_unidades_admin on public.ctr_unidades;
 create policy ctr_unidades_ver   on public.ctr_unidades for select to authenticated using (public.ctr_usa_empresa(empresa));
 create policy ctr_unidades_admin on public.ctr_unidades for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
+
+drop policy if exists ctr_contatos_ver   on public.ctr_contatos;
+drop policy if exists ctr_contatos_admin on public.ctr_contatos;
+create policy ctr_contatos_ver   on public.ctr_contatos for select to authenticated using (usuario = auth.uid() or public.eh_admin());
+create policy ctr_contatos_admin on public.ctr_contatos for all    to authenticated using (public.eh_admin()) with check (public.eh_admin());
 
 drop policy if exists ctr_naturezas_ver   on public.ctr_naturezas;
 drop policy if exists ctr_naturezas_admin on public.ctr_naturezas;

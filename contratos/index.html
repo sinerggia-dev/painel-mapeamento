@@ -397,6 +397,19 @@ body.menu-marca .me{border-top-color:color-mix(in srgb,var(--acc-fg) 25%,transpa
 .anexo-novo{display:grid;gap:10px;border-top:1px solid var(--border);padding-top:16px;margin-top:4px}
 .anexo-novo h3{font-size:1.02rem}
 
+/* pessoas, envio de acesso e busca rapida */
+.lista-ct{display:grid;gap:4px;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:8px}
+.lista-ct .check{align-items:flex-start;padding:4px 2px} .lista-ct .check input{margin-top:3px;flex:none}
+.acesso-q{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:var(--surface2);border-radius:10px;padding:12px 14px;font-size:13.5px}
+.acesso-q span{color:var(--muted)} .acesso-q b{overflow-wrap:anywhere}
+.btn.zap{background:#1f9d55;border-color:#1f9d55;color:#fff}
+.busca-g{position:relative;margin-bottom:18px;max-width:720px}
+.busca-g .in{padding-left:38px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a6f7b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center/18px}
+.bg-res{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.18);z-index:30;overflow:hidden;max-height:70vh;overflow-y:auto}
+.bg-res a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;color:inherit;text-decoration:none;border-bottom:1px solid var(--border)}
+.bg-res a:hover{background:var(--surface2)} .bg-res .t{font-weight:600} .bg-res .s{font-size:12px;color:var(--muted)}
+.bg-res a.todos{justify-content:center;color:var(--acc);font-weight:600;border-bottom:none} .bg-res .vazio{padding:14px;color:var(--muted);text-align:center}
+
 /* celular pequeno (320 px): nada passa da largura da tela */
 .stack>*,.detail>*,.dash>*,.grid2>*,.grid3>*{min-width:0}
 .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
@@ -526,7 +539,7 @@ const cfgDe = emp => CFGS.get(emp) || null;
 const tU = (emp = EMP) => (cfgDe(emp) || {}).termo_unidade || 'Unidade';
 const tUs = (emp = EMP) => (cfgDe(emp) || {}).termo_unidades || 'Unidades';
 const tu = emp => tU(emp).toLowerCase(), tus = emp => tUs(emp).toLowerCase();
-let carregado = false, recuperando = false;
+let carregado = false, recuperando = false, primeiroAcesso = false;
 const ehAdminReal = () => PERFIL && PERFIL.papel === 'admin';
 const ehAdmin = () => ehAdminReal() && MODO_ADM && !SIM;   // vendo como a empresa (ou um usuario), o admin enxerga como ela
 
@@ -611,6 +624,7 @@ $('#btn-nova').addEventListener('click', async () => {
   if (a !== b) { msgEm('#login-msg', 'As duas senhas não são iguais.'); return; }
   const { error } = await sb.auth.updateUser({ password: a });
   if (error) { msgEm('#login-msg', erroTxt(error)); return; }
+  if (primeiroAcesso) { await sb.rpc('ctr_senha_trocada'); primeiroAcesso = false; }
   recuperando = false; history.replaceState(null, '', location.pathname + '#painel');
   toast('Senha alterada.'); carregado = false; iniciar();
 });
@@ -619,7 +633,7 @@ $('#btn-sair').addEventListener('click', async () => { await sb.auth.signOut(); 
 function mostrarLogin(nova = false){
   $('#v-app').hidden = true; $('#v-login').hidden = false;
   $('#bloco-login').hidden = nova; $('#bloco-nova').hidden = !nova;
-  $('#login-titulo').innerHTML = nova ? '<h2>Criar nova senha</h2>' : '<h2>Entrar</h2><p class="muted" style="margin:4px 0 0">Use o mesmo e-mail e senha do portal da Sinergia.</p>';
+  $('#login-titulo').innerHTML = nova ? (primeiroAcesso ? '<h2>Crie a sua senha</h2><p class="muted" style="margin:4px 0 0">Bem-vindo! Por segurança, troque a senha provisória que você recebeu por uma só sua (mínimo 8 caracteres).</p>' : '<h2>Criar nova senha</h2>') : '<h2>Entrar</h2><p class="muted" style="margin:4px 0 0">Use o mesmo e-mail e senha do portal da Sinergia.</p>';
 }
 sb.auth.onAuthStateChange((evento, sessao) => {
   if (evento === 'PASSWORD_RECOVERY') { recuperando = true; mostrarLogin(true); return; }
@@ -639,6 +653,10 @@ async function iniciar(){
     if (error) throw error;
     if (!p || !p.ativo) { telaSemAcesso('Seu usuário não está ativo. Fale com o administrador da Sinergia.'); return; }
     PERFIL = p;
+    if (!ehAdminReal()) {
+      const { data: ct } = await db('ctr_contatos').select('trocar_senha').eq('usuario', p.id).maybeSingle();
+      if (ct && ct.trocar_senha) { carregado = false; recuperando = true; primeiroAcesso = true; mostrarLogin(true); return; }
+    }
     if (ehAdminReal()) {
       const { data, error: e2 } = await db('empresas').select('slug,nome').order('nome'); if (e2) throw e2;
       EMPRESAS = (data || []).map(e => ({ ...e, nivel: 3 }));
@@ -702,12 +720,12 @@ async function recarregar(){
     db('ctr_grupos').select('*').order('ordem'),
     daEmp(db('ctr_unidades').select('empresa,codigo,nome')).limit(20000),
     todas ? Promise.resolve({ data: [] }) : sb.rpc('ctr_pessoas', { p_empresa: EMP }),
-    ehAdminReal() ? Promise.resolve({ data: null }) : db('ctr_acessos').select('unidades,grupos,nivel').eq('usuario', PERFIL.id).eq('empresa', EMP).maybeSingle(),
+    ehAdminReal() ? Promise.resolve({ data: null }) : db('ctr_acessos').select('unidades,grupos,contratos,nivel').eq('usuario', PERFIL.id).eq('empresa', EMP).maybeSingle(),
     daEmp(db('ctr_config').select('*')),
     todas ? Promise.resolve({ data: [] }) : db('ctr_naturezas').select('*').eq('empresa', EMP).limit(10000),
   ]);
   for (const r of [c, ca, g, u]) if (r.error) throw r.error;
-  MEU = SIM ? { unidades: SIM.unidades, grupos: SIM.grupos } : ehAdminReal() ? null : (ma && ma.data) || null;   // limites do acesso (unidades e grupos)
+  MEU = SIM ? { unidades: SIM.unidades, grupos: SIM.grupos, contratos: SIM.contratos } : ehAdminReal() ? null : (ma && ma.data) || null;   // limites do acesso (unidades e grupos)
   CONTRATOS = c.data || [];
   CAT = new Map((ca.data || []).map(x => [x.id, x]));
   GRUPOS = (g.data || []).sort((a, b) => a.ordem - b.ordem);
@@ -723,6 +741,7 @@ async function recarregar(){
     const libs = new Set((lib || []).map(x => x.contrato));
     CONTRATOS = CONTRATOS.filter(k => (!SIM.unidades.length || SIM.unidades.includes(k.unidade))
       && (!SIM.grupos.length || (CAT.get(k.categoria) && SIM.grupos.includes(CAT.get(k.categoria).grupo)))
+      && (!SIM.contratos.length || SIM.contratos.includes(k.id))
       && (!k.confidencial || k.criado_por === SIM.usuario || libs.has(k.id)));
   }
   // documentos de cada contrato (so os que a pessoa pode ver): tipo e validade
@@ -790,14 +809,14 @@ async function montarVerComo(){
 }
 async function verComo(uid){
   const a = USUARIOS_EMP.find(x => x.usuario === uid);
-  SIM = a ? { usuario: a.usuario, nome: a.nome, nivel: a.nivel, unidades: a.unidades || [], grupos: a.grupos || [] } : null;
+  SIM = a ? { usuario: a.usuario, nome: a.nome, nivel: a.nivel, unidades: a.unidades || [], grupos: a.grupos || [], contratos: a.contratos || [] } : null;
   NIVEL_EMP = SIM ? SIM.nivel : 3;
   $('#me-papel').textContent = SIM ? `Vendo como ${SIM.nome}` : 'Vendo como a empresa vê';
   $('#main').innerHTML = '<div class="loading">Carregando…</div>';
   await recarregar(); if (SIM && !['painel', 'contratos', 'contrato'].includes((location.hash.slice(1) || 'painel').split(/[/?]/)[0])) location.hash = 'painel'; render();
 }
 function barraModo(){
-  if (SIM) { const lim = [SIM.unidades.length ? `${tus()}: ${SIM.unidades.join(', ')}` : `todas as ${tus()}`, SIM.grupos.length ? 'grupos: ' + SIM.grupos.map(nomeGrupo).join(', ') : 'todos os grupos'].join(' · ');
+  if (SIM) { const lim = [SIM.contratos.length ? `${SIM.contratos.length} contrato(s) escolhido(s)` : '', SIM.unidades.length ? `${tus()}: ${SIM.unidades.join(', ')}` : `todas as ${tus()}`, SIM.grupos.length ? 'grupos: ' + SIM.grupos.map(nomeGrupo).join(', ') : 'todos os grupos'].filter(Boolean).join(' · ');
     return `<div class="modo-bar"><div>Você está vendo o sistema como <b>${esc(SIM.nome)}</b> (${LV[SIM.nivel]} · ${esc(lim)}). <span class="muted">Só visualização: nada é salvo.</span></div><button class="btn sm" data-act="sair-sim">Ver a empresa toda</button></div>`; }
   if (consolidado()) return `<div class="modo-bar info"><div><b>Visão Sinergia:</b> contratos de todas as empresas juntos. Para cadastrar, importar ou configurar, escolha a empresa em <b>Empresa em gestão</b>, no menu.</div></div>`;
   return '';
@@ -895,6 +914,8 @@ function situ(c){
 }
 const pendente = c => docsComProblema(c).length > 0;
 // o proprio acesso permite cadastrar nesta unidade / categoria? (o banco confere de novo)
+// com contratos escolhidos a pessoa nao cadastra contratos novos
+const podeCriar = () => NIVEL_EMP >= 3 && !consolidado() && !(MEU && MEU.contratos && MEU.contratos.length);
 const podeUnidade = u => !MEU || !MEU.unidades.length || MEU.unidades.includes(u);
 const podeCategoria = id => { const k = CAT.get(id); return !MEU || !MEU.grupos.length || (k && MEU.grupos.includes(k.grupo)); };
 const nivelC = c => ehAdmin() ? 3 : NIVEL_EMP;   // o banco ja escondeu o que a pessoa nao pode ver
@@ -912,11 +933,11 @@ function nav(){
   const alertas = CONTRATOS.filter(c => ['vencido','aviso'].includes(situ(c).cod)).length;
   const it = (id, ic, t, extra = '') => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}${t}${extra}</a>`;
   let s = it('painel', 'dash', 'Painel', alertas ? `<span class="count">${alertas}</span>` : '') + it('contratos', 'list', 'Contratos');
-  if (NIVEL_EMP >= 3 && !consolidado()) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
+  if (podeCriar()) s += it('novo', 'plus', 'Novo contrato') + it('importar', 'imp', 'Importar planilha');
   if (ehAdmin()) s += `<div class="grp">Administração · só Sinergia</div>` + (consolidado() ? '' : it('acessos', 'users', 'Acessos') + it('categorias', 'tag', 'Categorias') + it('naturezas', 'list', 'Naturezas do ERP') + it('unidades', 'pin', tUs()) + it('identidade', 'brush', 'Personalização')) + it('sharepoint', 'cloud', 'SharePoint');
   $('#nav').innerHTML = s;
   const tb = (id, ic, t) => `<a href="#${id}" class="${h === id || h.startsWith(id + '/') || h.startsWith(id + '?') ? 'on' : ''}">${icon[ic]}<span>${t}</span></a>`;
-  $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (NIVEL_EMP >= 3 && !consolidado() ? tb('novo', 'plus', 'Novo') : '')
+  $('#tabbar').innerHTML = tb('painel', 'dash', 'Painel') + tb('contratos', 'list', 'Contratos') + (podeCriar() ? tb('novo', 'plus', 'Novo') : '')
     + `<button type="button" data-act="menu">${icon.menu}<span>Menu</span></button>`;
 }
 function topo(t, sub, acoes = '', crumb = ''){
@@ -931,9 +952,22 @@ function render(){
   const telas = { painel: vPainel, contratos: () => vLista(q), contrato: () => vContrato(Number(arg)), novo: vNovo, importar: vImportar,
     acessos: vAcessos, categorias: vCategorias, unidades: vUnidades, identidade: vIdentidade, naturezas: vNaturezas, sharepoint: vSharePoint, perfil: vPerfil };
   const soEmpresa = { novo: 'Novo contrato', importar: 'Importar planilha', acessos: 'Acessos', categorias: 'Categorias', naturezas: 'Naturezas do ERP', unidades: tUs(), identidade: 'Personalização' };
-  $('#main').innerHTML = barraModo() + (consolidado() && soEmpresa[r] ? escolhaEmpresa(soEmpresa[r]) : (telas[r] || vPainel)());
+  const busca = r !== 'perfil' ? `<div class="busca-g"><input class="in" id="bg-q" type="search" placeholder="Busca rápida: contrato, fornecedor, CNPJ, número, ${esc(usaNat() ? 'natureza' : 'categoria')} ou ${esc(tu())}" aria-label="Busca rápida" autocomplete="off"><div class="bg-res" id="bg-res" hidden></div></div>` : '';
+  $('#main').innerHTML = barraModo() + busca + (consolidado() && soEmpresa[r] ? escolhaEmpresa(soEmpresa[r]) : (telas[r] || vPainel)());
   nav(); $('#side').classList.remove('open'); document.body.classList.remove('menu-aberto');
   const depois = render._depois; render._depois = null; if (depois) depois();
+  ligarBusca();
+}
+function ligarBusca(){
+  const q = $('#bg-q'), res = $('#bg-res'); if (!q) return;
+  const achar = () => { const t = norm(q.value); if (t.length < 2) { res.hidden = true; return; }
+    const r = CONTRATOS.filter(c => norm(`${c.titulo} ${c.fornecedor_nome} ${c.fornecedor_doc || ''} ${fmtDoc(c.fornecedor_doc)} ${c.fornecedor_codigo || ''} ${c.numero} ${catDe(c).nome} ${nomeNat(c.natureza_cliente)} ${ondeC(c)}`).includes(t));
+    res.innerHTML = r.slice(0, 8).map(c => { const s = situ(c); return `<a href="#contrato/${c.id}"><div style="min-width:0"><div class="t">${esc(c.titulo)}</div><div class="s">${esc(c.fornecedor_nome)} · ${esc(ondeC(c))} · <span class="mono">${esc(c.numero)}</span></div></div><span class="pill p-${s.k}">${s.t}</span></a>`; }).join('')
+      + (r.length ? `<a class="todos" href="#contratos?q=${encodeURIComponent(q.value)}">Ver todos os ${r.length} resultado(s) na lista</a>` : '<div class="vazio">Nenhum contrato encontrado.</div>');
+    res.hidden = false; };
+  q.addEventListener('input', achar); q.addEventListener('focus', achar);
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { const a = res.querySelector('a'); if (a) location.hash = a.getAttribute('href').slice(1); } if (e.key === 'Escape') { res.hidden = true; q.blur(); } });
+  if (!ligarBusca.ok) { ligarBusca.ok = true; document.addEventListener('click', e => { const r = $('#bg-res'); if (r && !e.target.closest('.busca-g')) r.hidden = true; }); }
 }
 const depois = f => { render._depois = f; };
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
@@ -1045,6 +1079,7 @@ function vLista(q){
   };
   depois(() => {
     if (p.get('st')) $('#f-st').value = p.get('st');
+    if (p.get('q')) $('#f-q').value = p.get('q');
     ['#f-q', '#f-gr', '#f-fi', '#f-st'].forEach(id => $(id).addEventListener('input', () => { limite = 200; linhas(); }));
     $('#b-exp').onclick = () => exportar(filtrar());
     linhas();
@@ -1163,7 +1198,7 @@ function lerForm(){
 // arquivos escolhidos no cadastro: enviados logo depois de salvar, na tela do contrato
 let ENVIO_PENDENTE = null;
 function vNovo(){
-  if (NIVEL_EMP < 3) return semPermissao();
+  if (!podeCriar()) return semPermissao();
   let arquivos = [];
   depois(() => {
     ligarForm(true);
@@ -1413,7 +1448,7 @@ const colsAtuais = () => COLS.map(c => c.k === 'unidade' ? { ...c, h: `${tU()} *
   : usaNat() && c.k === 'cat' ? { k: 'natc', h: 'Natureza *', req: 1, ex: '702', d: 'Código da natureza no sistema da empresa, como está na aba "Naturezas". A categoria vem sozinha.' } : c)
   .filter(c => !(usaNat() && c.k === 'nat'));
 function vImportar(){
-  if (NIVEL_EMP < 3) return semPermissao();
+  if (!podeCriar()) return semPermissao();
   depois(() => {
     $('#b-modelo').onclick = baixarModelo;
     $('#imp-file').addEventListener('change', () => { const f = $('#imp-file').files[0]; $('#imp-file').value = ''; if (f) lerImport(f); });
@@ -1567,72 +1602,152 @@ async function lerImport(arquivo){
 function vAcessos(){
   if (!ehAdmin()) return semPermissao();
   depois(carregarAcessos);
-  return topo('Acessos', `Quem pode usar os contratos de ${esc((EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP)} e o que cada um vê.`, `<button class="btn pri" id="b-novo-user">${icon.plus}Cadastrar pessoa</button>`)
-    + `<div class="card"><div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Acesso</th><th class="hide-m">${esc(tUs())}</th><th class="hide-m">Grupos</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
+  return topo('Acessos', `Quem pode usar os contratos de ${esc(nomeEmpresa(EMP))} e o que cada um vê.`, `<button class="btn pri" id="b-novo-user">${icon.plus}Cadastrar pessoa</button>`)
+    + `<div class="card"><div class="filters"><input class="in search" id="ac-q" placeholder="Buscar pessoa por nome, e-mail, cargo, função ou telefone" aria-label="Buscar pessoa">
+        <select class="in" id="ac-f" aria-label="Filtrar"><option value="com">Com acesso a ${esc(nomeEmpresa(EMP))}</option><option value="todos">Todas as pessoas</option><option value="sem">Sem acesso</option></select><span class="muted small" style="align-self:center" id="ac-cnt"></span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th class="hide-m">Cargo · função</th><th>Acesso</th><th class="hide-m">O que vê</th><th></th></tr></thead><tbody id="ac-tb"><tr><td colspan="5" class="empty">Carregando…</td></tr></tbody></table></div></div>
     <div class="card" style="margin-top:16px"><div class="card-h"><h2>O que cada nível pode fazer</h2><span class="muted small">quem libera é sempre a Sinergia</span></div><div class="tbl-wrap"><table class="matriz"><thead><tr><th>Função</th><th>Ver</th><th>Ver e baixar</th><th>Editar e enviar</th><th>Admin Sinergia</th></tr></thead><tbody>
-      ${[['Ver painel, contratos e vencimentos', 1, 1, 1, 1], ['Visualizar os arquivos na tela', 1, 1, 1, 1], ['Baixar os arquivos', 0, 1, 1, 1], ['Cadastrar e alterar contratos', 0, 0, 1, 1], ['Anexar arquivos e documentos', 0, 0, 1, 1], ['Importar a planilha modelo', 0, 0, 1, 1], ['Apagar contratos', 0, 0, 0, 1], ['Liberar acessos e cadastrar pessoas', 0, 0, 0, 1], ['Categorias, naturezas, ' + tus() + ' e identidade', 0, 0, 0, 1], ['Ver todas as empresas', 0, 0, 0, 1]].map(([f, ...v]) => `<tr><td>${esc(f)}</td>${v.map(x => `<td class="${x ? 'sim' : 'nao'}">${x ? '✓' : '—'}</td>`).join('')}</tr>`).join('')}
-    </tbody></table></div><div class="card-b note" style="margin:0;border-radius:0 0 var(--r) var(--r)">Cada pessoa da empresa vê só as ${esc(tus())} e os grupos marcados para ela. Contrato confidencial só aparece para quem for liberado.</div></div>
-    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. <b>${esc(tUs())}</b> e <b>grupos</b> em branco = todos. Para conferir o que uma pessoa enxerga, use <b>Ver como usuário</b> no menu. Admins do portal veem tudo, sempre. Contratos confidenciais só aparecem para quem for liberado na tela do contrato.</div>`;
+      ${[['Ver painel, contratos e vencimentos', 1, 1, 1, 1], ['Visualizar os arquivos na tela', 1, 1, 1, 1], ['Baixar os arquivos', 0, 1, 1, 1], ['Cadastrar e alterar contratos', 0, 0, 1, 1], ['Anexar arquivos e documentos', 0, 0, 1, 1], ['Importar a planilha modelo', 0, 0, 1, 1], ['Apagar contratos', 0, 0, 0, 1], ['Liberar acessos e cadastrar pessoas', 0, 0, 0, 1], ['Categorias, naturezas, ' + tus() + ' e personalização', 0, 0, 0, 1], ['Ver todas as empresas', 0, 0, 0, 1]].map(([f, ...v]) => `<tr><td>${esc(f)}</td>${v.map(x => `<td class="${x ? 'sim' : 'nao'}">${x ? '✓' : '—'}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div><div class="card-b note" style="margin:0;border-radius:0 0 var(--r) var(--r)">Além do nível, cada pessoa vê só o que for liberado para ela: ${esc(tus())}, grupos ou contratos escolhidos. Contrato confidencial só aparece para quem for liberado na tela do contrato.</div></div>
+    <div class="note" style="margin-top:14px">Os mesmos usuários do portal da Sinergia. Para conferir o que uma pessoa enxerga, escolha a empresa em <b>Ver como</b> e depois a pessoa em <b>Usuário da empresa</b>.</div>`;
 }
+const fmtFone = d => { const s = String(d || '').replace(/^55(?=\d{10,11}$)/, ''); return s.length === 11 ? s.replace(/^(\d\d)(\d{5})(\d{4})$/, '($1) $2-$3') : s.length === 10 ? s.replace(/^(\d\d)(\d{4})(\d{4})$/, '($1) $2-$3') : s; };
+const lerFone = s => { let d = String(s || '').replace(/\D/g, ''); if (d.length === 10 || d.length === 11) d = '55' + d; return d; };
+// resumo do que a pessoa ve
+const resumoVe = a => !a ? '—' : [a.contratos && a.contratos.length ? `${a.contratos.length} contrato(s) escolhido(s)` : '', a.unidades.length ? `${tus()}: ${a.unidades.join(', ')}` : '', a.grupos.length ? a.grupos.map(nomeGrupo).join('; ') : ''].filter(Boolean).join(' · ') || 'Tudo da empresa';
 async function carregarAcessos(){
-  const [{ data: pf, error }, { data: ac }] = await Promise.all([
+  const [{ data: pf, error }, { data: ac }, { data: ct }] = await Promise.all([
     db('perfis').select('id,nome,email,papel,ativo').order('nome'),
     db('ctr_acessos').select('*').eq('empresa', EMP),
+    db('ctr_contatos').select('*'),
   ]);
   const tb = $('#ac-tb'); if (!tb) return;
   if (error) { tb.innerHTML = `<tr><td colspan="5" class="empty">${esc(erroTxt(error))}</td></tr>`; return; }
-  const A = new Map((ac || []).map(a => [a.usuario, a]));
-  tb.innerHTML = (pf || []).map(p => { const a = A.get(p.id);
-    return `<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="avatar">${esc(iniciais(p.nome))}</div><div><div class="t">${esc(p.nome)}${p.ativo ? '' : ' <span class="tag">inativo</span>'}</div><div class="s">${esc(p.email)}</div></div></div></td>
-      <td>${p.papel === 'admin' ? '<span class="pill p-info">Admin (tudo)</span>' : (a ? `<span class="pill p-ok">${LV[a.nivel]}</span>` : '<span class="pill p-mut">Sem acesso</span>')}</td>
-      <td class="hide-m small">${a && a.unidades.length ? esc(a.unidades.join(', ')) : (a ? 'Todas' : '—')}</td>
-      <td class="hide-m small">${a && a.grupos.length ? esc(a.grupos.map(nomeGrupo).join('; ')) : (a ? 'Todos' : '—')}</td>
-      <td style="text-align:right">${p.papel === 'admin' ? '' : `<button class="btn sm" data-ed="${p.id}">Editar</button>`}</td></tr>`; }).join('');
-  tb.onclick = ev => { const b = ev.target.closest('[data-ed]'); if (b) modalAcesso((pf || []).find(p => p.id === b.dataset.ed), A.get(b.dataset.ed)); };
-  $('#b-novo-user').onclick = modalNovoUsuario;
+  const A = new Map((ac || []).map(a => [a.usuario, a])), C = new Map((ct || []).map(c => [c.usuario, c]));
+  const linhas = () => {
+    const q = norm($('#ac-q').value), f = $('#ac-f').value;
+    const r = (pf || []).filter(p => { const a = A.get(p.id), c = C.get(p.id) || {};
+      if (f === 'com' && !a && p.papel !== 'admin') return false;
+      if (f === 'sem' && (a || p.papel === 'admin')) return false;
+      return !q || norm(`${p.nome} ${p.email} ${c.cargo || ''} ${c.funcao || ''} ${c.telefone || ''} ${fmtFone(c.telefone)}`).includes(q); });
+    $('#ac-cnt').textContent = `${r.length} pessoa(s)`;
+    tb.innerHTML = r.map(p => { const a = A.get(p.id), c = C.get(p.id) || {};
+      return `<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="avatar">${esc(iniciais(p.nome))}</div><div style="min-width:0"><div class="t">${esc(p.nome)}${p.ativo ? '' : ' <span class="tag">inativo</span>'}${c.trocar_senha ? ' <span class="tag sug" title="Ainda não trocou a senha criada pela Sinergia">1º acesso pendente</span>' : ''}</div><div class="s">${esc(p.email)}${c.telefone ? ' · ' + esc(fmtFone(c.telefone)) : ''}</div></div></div></td>
+        <td class="hide-m small">${esc([c.cargo, c.funcao].filter(Boolean).join(' · ') || '—')}</td>
+        <td>${p.papel === 'admin' ? '<span class="pill p-info">Admin (tudo)</span>' : (a ? `<span class="pill p-ok">${LV[a.nivel]}</span>` : '<span class="pill p-mut">Sem acesso</span>')}</td>
+        <td class="hide-m small">${p.papel === 'admin' ? 'Tudo' : esc(resumoVe(a))}</td>
+        <td style="text-align:right">${p.papel === 'admin' ? '' : `<button class="btn sm" data-ed="${p.id}">Editar</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Ninguém com esse filtro.</td></tr>';
+  };
+  ['#ac-q', '#ac-f'].forEach(s => $(s).addEventListener('input', linhas)); linhas();
+  tb.onclick = ev => { const b = ev.target.closest('[data-ed]'); if (b) modalPessoa((pf || []).find(p => p.id === b.dataset.ed), A.get(b.dataset.ed), C.get(b.dataset.ed)); };
+  $('#b-novo-user').onclick = () => modalPessoa(null, null, null);
 }
-function modalAcesso(p, a){
-  abrirModal(`Acesso de ${esc(p.nome)}`, `
-    <div class="field"><label for="m-nivel">O que pode fazer</label><select class="in" id="m-nivel">${LV.map((t, i) => `<option value="${i}" ${(a ? a.nivel : 0) === i ? 'selected' : ''}>${t}</option>`).join('')}</select>
+// campos de "o que a pessoa ve": nivel, unidades, grupos e contratos escolhidos
+function camposVe(a){
+  const escolhidos = new Set(a && a.contratos ? a.contratos : []);
+  const lista = CONTRATOS.filter(c => c.situacao !== 'encerrado' || escolhidos.has(c.id)).sort((x, y) => x.titulo.localeCompare(y.titulo, 'pt-BR'));
+  return `<div class="field"><label for="m-nivel" class="req">O que pode fazer</label><select class="in" id="m-nivel">${LV.map((t, i) => `<option value="${i}" ${(a ? a.nivel : 1) === i ? 'selected' : ''}>${i ? t : 'Sem acesso (bloqueia a pessoa nesta empresa)'}</option>`).join('')}</select>
       <span class="hint">Ver: só olha. Ver e baixar: também baixa os arquivos. Editar e enviar: cadastra, importa, altera e anexa.</span></div>
-    <div class="field"><label>${esc(tUs())}</label><div class="chips" style="max-height:180px;overflow:auto">${UNI.size ? [...UNI].map(([k]) => `<label><input type="checkbox" data-un="${esc(k)}" ${a && a.unidades.includes(k) ? 'checked' : ''}> ${esc(nomeUnidade(k))}</label>`).join('') : `<span class="muted small">Cadastre em Administração → ${esc(tUs())}.</span>`}</div><span class="hint">Nenhuma marcada = todas.</span></div>
-    <div class="field"><label>Grupos de contratos</label><div class="chips">${GRUPOS.map(g => `<label><input type="checkbox" data-gr="${esc(g.codigo)}" ${a && a.grupos.includes(g.codigo) ? 'checked' : ''}> ${esc(g.nome)}</label>`).join('')}</div><span class="hint">Nenhum marcado = todos. Ex.: o setor de manutenção vê só "Manutenção e serviços prediais".</span></div>
-    <div id="m-msg"></div>`, 'Salvar', async () => {
-      const nivel = Number($('#m-nivel').value);
-      const unidades = $$('[data-un]').filter(x => x.checked).map(x => x.dataset.un);
-      const grupos = $$('[data-gr]').filter(x => x.checked).map(x => x.dataset.gr);
-      const r = nivel === 0 ? await db('ctr_acessos').delete().eq('usuario', p.id).eq('empresa', EMP)
-        : await db('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel, unidades, grupos });
-      if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
-      toast('Acesso salvo.'); carregarAcessos(); montarVerComo(); return true;
-    });
+    <div class="field"><label>Quais contratos pode ver</label>
+      <div class="chips"><label><input type="radio" name="m-modo" value="filtro" ${escolhidos.size ? '' : 'checked'}> Por ${esc(tu())} e grupo</label><label><input type="radio" name="m-modo" value="lista" ${escolhidos.size ? 'checked' : ''}> Só contratos escolhidos</label></div></div>
+    <div id="m-filtro" ${escolhidos.size ? 'hidden' : ''} style="display:grid;gap:12px">
+      <div class="field"><label>${esc(tUs())}</label><div class="chips" style="max-height:160px;overflow:auto">${UNI.size ? [...UNI].map(([k]) => `<label><input type="checkbox" data-un="${esc(k)}" ${a && a.unidades.includes(k) ? 'checked' : ''}> ${esc(nomeUnidade(k))}</label>`).join('') : `<span class="muted small">Cadastre em Administração → ${esc(tUs())}.</span>`}</div><span class="hint">Nenhuma marcada = todas.</span></div>
+      <div class="field"><label>Grupos de contratos</label><div class="chips">${GRUPOS.map(g => `<label><input type="checkbox" data-gr="${esc(g.codigo)}" ${a && a.grupos.includes(g.codigo) ? 'checked' : ''}> ${esc(g.nome)}</label>`).join('')}</div><span class="hint">Nenhum marcado = todos. Ex.: o gerente da loja 5 só com a ${esc(tu())} 5.</span></div>
+    </div>
+    <div id="m-lista" ${escolhidos.size ? '' : 'hidden'} style="display:grid;gap:8px">
+      <input class="in" id="m-cbusca" placeholder="Buscar contrato por objeto, fornecedor, número ou ${esc(tu())}">
+      <div class="lista-ct" id="m-cts">${lista.map(c => `<label class="check" data-txt="${esc(norm(`${c.titulo} ${c.fornecedor_nome} ${c.numero} ${nomeUnidade(c.unidade, c.empresa)} ${nomeNat(c.natureza_cliente)}`))}"><input type="checkbox" data-ct="${c.id}" ${escolhidos.has(c.id) ? 'checked' : ''}> <span><b>${esc(c.titulo)}</b> <span class="muted small">· ${esc(c.fornecedor_nome)} · ${esc(nomeUnidade(c.unidade, c.empresa))} · ${esc(c.numero)}</span></span></label>`).join('') || '<span class="muted small">Nenhum contrato cadastrado ainda.</span>'}</div>
+      <span class="hint" id="m-ctcnt"></span>
+      <span class="hint">Com contratos escolhidos, a pessoa não cadastra contratos novos (só vê e trabalha nos escolhidos).</span>
+    </div>`;
 }
-function senhaTemp(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; const r = crypto.getRandomValues(new Uint32Array(10)); let s = ''; for (let i = 0; i < 10; i++) s += a[r[i] % a.length]; return s.slice(0, 5) + '-' + s.slice(5); }
-function modalNovoUsuario(){
-  abrirModal('Cadastrar pessoa', `
-    <div class="grid2"><div class="field"><label for="nu-nome" class="req">Nome</label><input class="in" id="nu-nome"></div>
-    <div class="field"><label for="nu-email" class="req">E-mail</label><input class="in" id="nu-email" type="email"></div></div>
-    <div class="field"><label for="nu-nivel">Acesso aos contratos de ${esc((EMPRESAS.find(x => x.slug === EMP) || {}).nome || EMP)}</label><select class="in" id="nu-nivel">${LV.slice(1).map((t, i) => `<option value="${i + 1}">${t}</option>`).join('')}</select></div>
-    <div class="note">Uma senha temporária é criada agora. Envie para a pessoa; ela pode trocar em "Esqueci minha senha". O mesmo login vale para o portal da Sinergia.</div>
-    <div id="m-msg"></div>`, 'Cadastrar', async () => {
-      const nome = $('#nu-nome').value.trim(), email = $('#nu-email').value.trim().toLowerCase();
-      if (!nome || !/^\S+@\S+\.\S+$/.test(email)) { msgEm('#m-msg', 'Preencha nome e um e-mail válido.'); return false; }
-      const senha = senhaTemp();
+function ligarCamposVe(){
+  const modo = () => { const l = $('[name=m-modo]:checked').value === 'lista'; $('#m-filtro').hidden = l; $('#m-lista').hidden = !l; };
+  $$('[name=m-modo]').forEach(x => x.addEventListener('change', modo));
+  const cnt = () => { $('#m-ctcnt').textContent = `${$$('[data-ct]').filter(x => x.checked).length} contrato(s) escolhido(s)`; };
+  $('#m-cts').addEventListener('change', cnt); cnt();
+  $('#m-cbusca').addEventListener('input', () => { const q = norm($('#m-cbusca').value); $$('#m-cts [data-txt]').forEach(l => { l.hidden = !!q && !l.dataset.txt.includes(q); }); });
+}
+function lerCamposVe(){
+  const nivel = Number($('#m-nivel').value), lista = $('[name=m-modo]:checked').value === 'lista';
+  const contratos = lista ? $$('[data-ct]').filter(x => x.checked).map(x => Number(x.dataset.ct)) : [];
+  if (nivel && lista && !contratos.length) return { erro: 'Escolha pelo menos um contrato, ou volte para "Por ' + tu() + ' e grupo".' };
+  return { nivel, contratos, unidades: lista ? [] : $$('[data-un]').filter(x => x.checked).map(x => x.dataset.un), grupos: lista ? [] : $$('[data-gr]').filter(x => x.checked).map(x => x.dataset.gr) };
+}
+// senha no formato xxxx-xxxx (igual ao portal): minusculas e numeros, sem os que se confundem
+function gerarSenha(){
+  const todos = 'abcdefghjkmnpqrstuvwxyz23456789', r = n => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  const bloco = () => { let t = ''; for (let i = 0; i < 4; i++) t += todos[r(todos.length)]; return t; };
+  let s; do { s = bloco() + '-' + bloco(); } while (!/[0-9]/.test(s) || !/[a-z]/.test(s)); return s;
+}
+// cadastrar (p = null) ou editar uma pessoa
+function modalPessoa(p, a, c){
+  c = c || {};
+  abrirModal(p ? `Pessoa: ${esc(p.nome)}` : 'Cadastrar pessoa', `
+    <div class="grid2">
+      <div class="field"><label for="pe-nome" class="req">Nome</label><input class="in" id="pe-nome" value="${esc(p ? p.nome : '')}" ${p ? 'disabled' : ''}></div>
+      <div class="field"><label for="pe-email" class="req">E-mail (é o usuário de entrada)</label><input class="in" id="pe-email" type="email" value="${esc(p ? p.email : '')}" ${p ? 'disabled' : ''}></div>
+      <div class="field"><label for="pe-cargo">Cargo</label><input class="in" id="pe-cargo" value="${esc(c.cargo || '')}" maxlength="80" placeholder="Ex.: Gerente de loja"></div>
+      <div class="field"><label for="pe-funcao">Função</label><input class="in" id="pe-funcao" value="${esc(c.funcao || '')}" maxlength="120" placeholder="Ex.: Responsável pelos contratos da loja 5"></div>
+      <div class="field"><label for="pe-fone">WhatsApp (com DDD)</label><input class="in" id="pe-fone" inputmode="tel" value="${esc(fmtFone(c.telefone))}" placeholder="Ex.: (81) 99999-9999"></div>
+    </div>
+    ${camposVe(a)}
+    ${p ? `<div class="note" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Esqueceu a senha ou não recebeu o acesso?</span><button class="btn sm" type="button" id="pe-reenviar">Gerar nova senha e enviar</button></div>`
+        : `<div class="note">Uma senha é criada automaticamente. Na tela seguinte você envia o acesso por <b>WhatsApp</b> ou <b>e-mail</b>. No primeiro acesso a pessoa é obrigada a criar a senha dela.</div>`}
+    <div id="m-msg"></div>`, p ? 'Salvar' : 'Cadastrar e enviar acesso', async () => {
+      const ve = lerCamposVe(); if (ve.erro) { msgEm('#m-msg', ve.erro); return false; }
+      const fone = lerFone($('#pe-fone').value);
+      if (fone && !/^\d{12,13}$/.test(fone)) { msgEm('#m-msg', 'WhatsApp inválido: use o DDD e o número, ex.: (81) 99999-9999.'); return false; }
+      const contato = { cargo: $('#pe-cargo').value.trim() || null, funcao: $('#pe-funcao').value.trim() || null, telefone: fone || null, alterado_em: new Date().toISOString() };
+      if (p) {
+        const r1 = ve.nivel === 0 ? await db('ctr_acessos').delete().eq('usuario', p.id).eq('empresa', EMP)
+          : await db('ctr_acessos').upsert({ usuario: p.id, empresa: EMP, nivel: ve.nivel, unidades: ve.unidades, grupos: ve.grupos, contratos: ve.contratos });
+        const r2 = await db('ctr_contatos').upsert({ usuario: p.id, ...contato, trocar_senha: !!c.trocar_senha }, { onConflict: 'usuario' });
+        if (r1.error || r2.error) { msgEm('#m-msg', erroTxt(r1.error || r2.error)); return false; }
+        toast('Pessoa salva.'); carregarAcessos(); montarVerComo(); return true;
+      }
+      const nome = $('#pe-nome').value.trim(), email = $('#pe-email').value.trim().toLowerCase();
+      if (!nome || !/^\S+@\S+\.\S+$/.test(email)) { msgEm('#m-msg', 'Preencha o nome e um e-mail válido.'); return false; }
+      if (!ve.nivel) { msgEm('#m-msg', 'Escolha o que a pessoa pode fazer.'); return false; }
+      const senha = gerarSenha();
       const { data, error } = await sbCadastro.auth.signUp({ email, password: senha, options: { data: { nome } } });
       if (error) { msgEm('#m-msg', erroTxt(error)); return false; }
       const uid = data.user && data.user.id;
-      if (!uid || (data.user.identities && data.user.identities.length === 0)) { msgEm('#m-msg', 'Este e-mail já tem cadastro. Procure a pessoa na lista e clique em Editar.'); return false; }
+      if (!uid || (data.user.identities && data.user.identities.length === 0)) { msgEm('#m-msg', 'Este e-mail já tem cadastro. Procure a pessoa na lista (filtro "Todas as pessoas") e clique em Editar.'); return false; }
       let r = await db('perfis').insert({ id: uid, nome, email, papel: 'visualizador' });
-      if (!r.error) r = await db('ctr_acessos').insert({ usuario: uid, empresa: EMP, nivel: Number($('#nu-nivel').value) });
+      if (!r.error) r = await db('ctr_acessos').insert({ usuario: uid, empresa: EMP, nivel: ve.nivel, unidades: ve.unidades, grupos: ve.grupos, contratos: ve.contratos });
+      if (!r.error) r = await db('ctr_contatos').upsert({ usuario: uid, ...contato, trocar_senha: true }, { onConflict: 'usuario' });
       if (r.error) { msgEm('#m-msg', erroTxt(r.error)); return false; }
-      const link = location.origin + location.pathname;
-      const texto = `Olá, ${nome.split(' ')[0]}. Seu acesso à Gestão de Contratos da Sinergia está liberado.\n\nAcesse: ${link}\nE-mail: ${email}\nSenha temporária: ${senha}\n\nNo primeiro acesso, clique em "Esqueci minha senha" para criar a sua.`;
-      setTimeout(() => abrirModal('Acesso criado', `<p style="margin:0">Envie esta mensagem para a pessoa. <b>A senha só aparece agora.</b></p><textarea class="in" id="nu-txt" rows="8" readonly>${esc(texto)}</textarea>`, 'Copiar mensagem', async () => {
-        try { await navigator.clipboard.writeText(texto); toast('Mensagem copiada.'); } catch (_) { $('#nu-txt').select(); toast('Selecionei o texto: aperte Ctrl+C.'); return false; }
-        return true;
-      }), 50);
-      carregarAcessos(); return true;
+      carregarAcessos(); montarVerComo();
+      setTimeout(() => enviarAcesso({ nome, email, senha, telefone: fone }), 50);
+      return true;
     });
+  ligarCamposVe();
+  const re = $('#pe-reenviar');
+  if (re) re.onclick = () => confirmar('Gerar nova senha', `Uma senha nova será criada para <b>${esc(p.nome)}</b>. <b>A senha atual deixa de funcionar</b> e a pessoa terá que criar a dela no próximo acesso.`, 'Gerar e enviar', async () => {
+    const senha = gerarSenha();
+    const r = await sb.rpc('admin_definir_senha', { p_usuario: p.id, p_senha: senha });
+    if (r.error) { toast(erroTxt(r.error)); return false; }
+    await db('ctr_contatos').upsert({ usuario: p.id, cargo: c.cargo || null, funcao: c.funcao || null, telefone: c.telefone || null, trocar_senha: true, alterado_em: new Date().toISOString() }, { onConflict: 'usuario' });
+    carregarAcessos(); setTimeout(() => enviarAcesso({ nome: p.nome, email: p.email, senha, telefone: c.telefone }), 50); return true;
+  });
+}
+// mensagem de acesso pronta para WhatsApp ou e-mail (o link ja abre com a cara da empresa)
+function enviarAcesso({ nome, email, senha, telefone }){
+  const link = location.origin + location.pathname + '?e=' + encodeURIComponent(EMP), emp = (cfgDe(EMP) || {}).nome_exibicao || nomeEmpresa(EMP);
+  const texto = [`Olá, ${nome.split(' ')[0]}! 👋`, `Seu acesso à *Gestão de Contratos* da ${emp} está liberado.`, '', `🔗 Acesse: ${link}`, `📧 Usuário: ${email}`, `🔑 Senha provisória: ${senha}`, '', 'No primeiro acesso o sistema vai pedir para você criar a sua senha.'].join('\n');
+  abrirModal('Enviar acesso', `<p style="margin:0">Pessoa cadastrada. Envie o acesso para <b>${esc(nome)}</b>. <b>A senha só aparece agora.</b></p>
+    <div class="acesso-q"><span>Link</span><b class="mono">${esc(link)}</b><span>Usuário</span><b>${esc(email)}</b><span>Senha</span><b class="mono">${esc(senha)}</b></div>
+    <div class="field"><label for="ea-fone">WhatsApp da pessoa</label><input class="in" id="ea-fone" inputmode="tel" value="${esc(fmtFone(telefone))}" placeholder="Em branco = escolher o contato no WhatsApp"></div>
+    <div class="field"><label for="ea-txt">Mensagem</label><textarea class="in" id="ea-txt" rows="8">${esc(texto)}</textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn zap" type="button" id="ea-zap">Enviar pelo WhatsApp</button>
+      <button class="btn" type="button" id="ea-email">Enviar por e-mail</button>
+      <button class="btn ghost" type="button" id="ea-copiar">Copiar mensagem</button>
+    </div>`, 'Concluir', async () => true);
+  $('#ea-zap').onclick = () => { const n = lerFone($('#ea-fone').value); window.open(`https://wa.me/${n}?text=${encodeURIComponent($('#ea-txt').value)}`, '_blank', 'noopener'); };
+  $('#ea-email').onclick = () => { const a = document.createElement('a'); a.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Seu acesso à Gestão de Contratos — ' + emp)}&body=${encodeURIComponent($('#ea-txt').value.replace(/\*/g, ''))}`; document.body.appendChild(a); a.click(); a.remove(); };
+  $('#ea-copiar').onclick = async () => { try { await navigator.clipboard.writeText($('#ea-txt').value); toast('Mensagem copiada.'); } catch (_) { $('#ea-txt').select(); toast('Selecionei o texto: aperte Ctrl+C.'); } };
 }
 
 // ═════════ Admin: categorias ═════════
